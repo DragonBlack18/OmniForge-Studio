@@ -80,9 +80,19 @@ export function validateFlow(flow, { projects = [], extensions = [] } = {}) {
   const targets = new Set();
   const outputFiles = new Set();
   for (const node of flow.nodes) {
-    if (node?.type !== 'io.writeJson' || typeof node.config?.fileName !== 'string') continue;
-    const key = node.config.fileName.toLowerCase();
-    if (outputFiles.has(key)) errors.push(`Múltiplos nós gravam no mesmo arquivo: ${node.config.fileName}`);
+    let filename=null;
+    if(node?.type==='io.writeJson' && typeof node.config?.fileName==='string')
+      filename=node.config.fileName;
+    if(node?.type==='extension.call') {
+      // Extension outputs share the same user data directory as io.writeJson.
+      // Reject implicit overwrites when two nodes target the same filename.
+      try {filename=resolveExtensionAction(node.config,extensions).action.outputFile??null;}
+      catch { /* Invalid extension has already been reported above. */ }
+    }
+    if(!filename)continue;
+    const key=filename.toLowerCase();
+    if(outputFiles.has(key))
+      errors.push(`Múltiplos nós gravam no mesmo arquivo: ${filename}`);
     outputFiles.add(key);
   }
   const edgeIds = new Set();

@@ -161,6 +161,21 @@ test('ação somente transformação não precisa nem solicita acesso a arquivo'
   assert.deepEqual(result.artifacts,[]);
   await assert.rejects(fs.stat(path.join(a,'.omniforge')),{code:'ENOENT'});
 });
+test('dois nós não podem sobrescrever o mesmo JSON, incluindo io.writeJson e extensão',async t=>{
+  const {a,extensions}=await authorized(t);
+  const flow=flowFor();
+  flow.nodes.push({
+    id:'save-again',type:'io.writeJson',position:{x:500,y:0},
+    config:{fileName:'massa-convertida.json'}
+  });
+  flow.edges.push({
+    id:'e2',source:'ext',sourceHandle:'out',target:'save-again',targetHandle:'in'
+  });
+  const checked=validateFlow(flow,{extensions});
+  assert.equal(checked.valid,false);
+  assert.ok(checked.errors.some(error=>error.includes('Múltiplos nós gravam')));
+});
+
 test('revogação impede nova execução e não destrói arquivos anteriores',async t=>{
   const {data,a}=await authorized(t);
   const before=path.join(a,'.omniforge','output','massa-convertida.json');
