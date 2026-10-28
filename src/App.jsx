@@ -471,7 +471,7 @@ export default function App() {
               <div className="main-toolbar">
                 <div className="toolbar-heading"><span className="eyebrow">WORKSPACE / AUTOMAÇÕES</span><strong>Editor visual</strong></div>
                 <div className="toolbar-actions">
-                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar painel de ferramentas':'Mostrar painel de ferramentas'} title="Alternar biblioteca de blocos" onClick={()=>{setUtilityOpen(value=>!value);setSideMode('catalog');}}><NavGlyph name="panel" size={16}/> <span>Biblioteca</span></button>
+                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar biblioteca de blocos':'Mostrar painel de ferramentas'} title="Alternar biblioteca de blocos" onClick={()=>{setUtilityOpen(value=>!value);setSideMode('catalog');}}><NavGlyph name="panel" size={16}/> <span>Biblioteca</span></button>
                   <button className="button button--subtle" disabled={busy} onClick={validate}>Validar</button>
                   <button className="button button--subtle" disabled={busy || !workspace} onClick={() => run(true)}>Simular</button>
                   <button className="button button--run" disabled={busy || !workspace} onClick={() => run(false)}>▶ Executar</button>
@@ -516,7 +516,7 @@ export default function App() {
               <div className="main-toolbar">
                 <div className="toolbar-heading"><span className="eyebrow">EDITOR / ARQUIVOS LOCAIS</span><strong>{fileName || 'Nenhum arquivo selecionado'} {dirty ? '•' : ''}</strong></div>
                 <div className="toolbar-actions">
-                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar painel de ferramentas':'Mostrar painel de ferramentas'} onClick={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}><NavGlyph name="panel" size={16}/> Explorador</button>
+                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar explorador de arquivos':'Mostrar painel de ferramentas'} onClick={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}><NavGlyph name="panel" size={16}/> Explorador</button>
                   <button className="button button--solid" disabled={busy || !fileName || !dirty} onClick={saveFile}>Salvar arquivo</button>
                 </div>
               </div>
