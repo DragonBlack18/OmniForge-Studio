@@ -13,6 +13,7 @@
 | [LibreCAD](https://github.com/LibreCAD/LibreCAD) | Referência para UX 2D, layers, DXF e snapping | GPLv2; inspiração de interação, **código não incorporado** |
 | [Open CAD Studio](https://www.open-aec.com/en/open-cad-studio/) | Referência CAD 2D/3D e fluxo de engenharia | GPL-3.0; não copiar e não acoplar ao binário sem análise de obrigações |
 | [FreeCAD](https://github.com/FreeCAD/FreeCAD) | Arquitetura paramétrica, solver, histórico de features, STEP | LGPL-2.1+ no código próprio; dependências adicionais exigem revisão |
+| [Maker.js](https://github.com/microsoft/maker.js) | Referência de construção CAD 2D JavaScript: paths, models, layers, exportações e medições | MIT (verificar versão/pacotes antes de uso); sem código incorporado na 0.2.1 |
 | [JSCAD](https://github.com/jscad/OpenJSCAD.org) | Modelagem paramétrica por JavaScript, CSG e exportação | MIT (salvo exceções por pacote); candidato a engine no worker futuro |
 | [Bitbybit](https://github.com/bitbybit-dev/bitbybit) | CAD node-based usando OCCT, Three.js, Manifold | Componentes de software MIT em diretórios especificados no projeto; examinar licença de cada pacote/asset |
 | [OpenCascade.js](https://github.com/donalffons/opencascade.js) | Kernel BRep para operação real de sólidos via WebAssembly | Revisar licenças OCCT, ports WASM, build e redistribuição antes da adoção |
@@ -30,7 +31,7 @@
 
 ## Escopos e gates futuros
 
-- 0.2.1: executor supervisionado fora do processo Electron (timeout/kill, eventos, crash-recovery).
+- 0.2.1: executor supervisionado em processo filho (timeout de 120 s, cancelamento, progresso), CAD numérico e layers. Implementado na branch de integração; precisa CI/E2E e empacotamento antes de release.
 - 0.2.2: plugin SDK declarativo, pacote assinado/verificado e permissões por capability.
 - 0.3: agendamento/webhooks locais persistentes, retries e idempotência.
 - 0.4: gestão de credenciais, HTTP(S) com allowlists, provedores de e-mail e integrações de produtividade.
