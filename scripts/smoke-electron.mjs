@@ -11,6 +11,18 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omniforge-electron-smoke-'));
 let client;
 let testServer;
+// A hung UI or Electron child must fail visibly rather than occupy the Windows
+// release runner forever. Keep this watchdog independent from Playwright timeouts.
+let phase = 'initializing';
+const smokeWatchdog = setTimeout(() => {
+  console.error(`[SMOKE TIMEOUT] phase=${phase}; maximum 180s exceeded.`);
+  process.exit(1);
+}, 180_000);
+smokeWatchdog.unref();
+function checkpoint(name) {
+  phase = name;
+  console.log(`[SMOKE] ${name}`);
+}
 
 async function bootAndOpen() {
   client = await electron.launch({
@@ -31,6 +43,7 @@ async function bootAndOpen() {
 
 try {
   await fs.writeFile(path.join(workspace, 'exemplo.py'), 'print("real")\n', 'utf8');
+  checkpoint('first startup and initial workflow');
   let page = await bootAndOpen();
   await page.getByRole('button', { name: 'Salvar fluxo' }).click();
   await page.getByText('Fluxo gravado em', { exact: false }).waitFor();
@@ -60,10 +73,12 @@ try {
   await page.getByText('exemplo.py', { exact: false }).first().waitFor();
   const loaded = await page.evaluate(async () => window.omni.readFile('exemplo.py'));
   assert.equal(loaded.content, 'print("real")\n');
+  checkpoint('closing first desktop session');
   await client.close();
   client = null;
 
   // Real application restart: flow and the user's code must still be there.
+  checkpoint('restart and persistence');
   page = await bootAndOpen();
   const document = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'flows', 'principal.json'), 'utf8'));
   assert.equal(document.nodes.length, 3);
@@ -76,6 +91,7 @@ try {
   await page.getByText('Estrutura válida', { exact: false }).waitFor();
   // v0.1.5: two independently registered folders, real local API, native consent,
   // typed contract and persisted metadata. The service is a REAL local HTTP server.
+  checkpoint('project integration and HTTP service');
   const backendFolder = path.join(workspace, 'servico-externo');
   await fs.mkdir(backendFolder);
   testServer = http.createServer((req, res) => {
@@ -137,6 +153,7 @@ try {
   const output = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'output', 'integracao.json'), 'utf8'));
   assert.deepEqual(output.data, { confirmado: true });
   assert.deepEqual(await fs.readdir(backendFolder), [], 'Projeto de destino deve permanecer intacto.');
+  checkpoint('restarting after project integration');
   await client.close(); client = null;
   page = await bootAndOpen();
   const persistedProjects = await page.evaluate(() => window.omni.listProjects());
@@ -157,6 +174,7 @@ try {
   await page.getByLabel('Buscar blocos').fill('');
   assert.ok((await page.locator('.catalog-item').count()) > 40);
 
+  checkpoint('CAD draw, save and export');
   // CAD v0.2.0: draw actual line on the SVG canvas, save a versioned
   // sketch, export DXF/SVG, and verify real files before native exit.
   await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
@@ -194,6 +212,7 @@ try {
   assert.equal(cadReport.count,1);
   assert.equal(cadReport.units,'mm');
 
+  checkpoint('native close with unsaved CAD');
   // The native exit confirmation should also cover unsaved CAD edits.
   await page.getByRole('button',{name:'Círculo',exact:true}).click();
   await page.mouse.move(rect.x+rect.width*.42,rect.y+rect.height*.4);
@@ -225,6 +244,7 @@ try {
   client = null;
   // Restart after an unsaved CAD edit: the previously saved one-entity
   // drawing must remain intact; the unsaved circle must not persist.
+  checkpoint('restart and persisted CAD check');
   page=await bootAndOpen();
   await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
   await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
@@ -241,7 +261,9 @@ try {
   console.error(error);
   process.exitCode = 1;
 } finally {
+  checkpoint('cleanup');
   if (client) await client.close().catch(() => {});
   if (testServer) { testServer.closeAllConnections(); await new Promise(resolve => testServer.close(resolve)); }
   await fs.rm(workspace, { recursive: true, force: true });
+  clearTimeout(smokeWatchdog);
 }
