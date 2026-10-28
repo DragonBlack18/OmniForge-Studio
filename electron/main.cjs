@@ -65,6 +65,39 @@ async function initializeIpc() {
     try { return await core.saveCadDocument(requireWorkspace(), sketch, revision); }
     finally { cadMutationInProgress = false; }
   });
+  register('importCadDxf', async () => {
+    if (cadMutationInProgress || executionInProgress || registryMutationInProgress || saveInProgress) {
+      throw new Error('Conclua a operação atual antes de importar um DXF.');
+    }
+    requireWorkspace();
+    cadMutationInProgress = true;
+    try {
+      const chosen = await dialog.showOpenDialog(mainWindow, {
+        title: 'Importar desenho DXF ASCII (somente leitura)',
+        properties: ['openFile'],
+        filters: [{ name: 'AutoCAD DXF (*.dxf)', extensions: ['dxf'] }]
+      });
+      if (chosen.canceled || chosen.filePaths.length !== 1) return null;
+      const imported = await core.readCadDxfFile(chosen.filePaths[0], { assumeMillimeters: true });
+      if (imported.meta.assumedMillimeters) {
+        const confirmation = await dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: 'Confirmar unidades do DXF',
+          message: 'O arquivo não informa unidades confiáveis.',
+          detail: 'O desenho será interpretado em milímetros (mm), sem conversão de escala. ' +
+            'Se ele foi criado em polegadas ou outra unidade, cancele e ajuste as unidades no programa de origem.',
+          buttons: ['Cancelar importação', 'Interpretar como milímetros'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true
+        });
+        if (confirmation.response !== 1) return null;
+      }
+      return imported;
+    } finally {
+      cadMutationInProgress = false;
+    }
+  });
   register('exportCadSketch', async (format, sketch) => {
     if (cadMutationInProgress || executionInProgress) throw new Error('Conclua a operação atual antes de exportar.');
     cadMutationInProgress = true;

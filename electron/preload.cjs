@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   requestExit: () => ipcRenderer.invoke('omni:requestExit'),
   catalog: () => ipcRenderer.invoke('omni:catalog'),
   loadCadSketch: () => ipcRenderer.invoke('omni:loadCadSketch'),
+  importCadDxf: () => ipcRenderer.invoke('omni:importCadDxf'),
   saveCadSketch: (sketch, revision) => ipcRenderer.invoke('omni:saveCadSketch', sketch, revision),
   exportCadSketch: (format, sketch) => ipcRenderer.invoke('omni:exportCadSketch', format, sketch),
   selectWorkspace: () => ipcRenderer.invoke('omni:selectWorkspace'),
