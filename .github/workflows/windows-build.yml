@@ -31,6 +31,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run smoke:electron
+        timeout-minutes: 5
       - run: npm run dist:win
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh

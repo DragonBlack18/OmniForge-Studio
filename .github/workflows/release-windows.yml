@@ -38,6 +38,7 @@ jobs:
         run: npm run build
       - name: Teste E2E real no Electron
         run: npm run smoke:electron
+        timeout-minutes: 5
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Teste real Portable + NSIS no Windows
