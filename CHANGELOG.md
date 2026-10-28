@@ -1,3 +1,10 @@
+## [0.1.2] — 2026-10-28
+
+- Novo conector real HTTP JSON local (GET/POST) com autorização por execução.
+- Bloqueio explícito de acesso externo, redirects e respostas não-JSON.
+- Simulação parcial honesta (SKIP) sem chamadas nem dados falsos.
+- Testes integrados com servidor loopback real; limites de timeout/tamanho.
+
 # Changelog
 
 ## 0.1.1 — 2026-10-28

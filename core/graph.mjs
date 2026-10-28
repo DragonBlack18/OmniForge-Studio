@@ -1,4 +1,5 @@
 import { getNodeDefinition } from './catalog.mjs';
+import { validateLocalHttpConfig } from './http.mjs';
 
 const MAX_NODES = 400;
 const MAX_EDGES = 800;
@@ -46,6 +47,9 @@ export function validateFlow(flow) {
       if (typeof p !== 'string' || !/^[a-zA-Z_$][\w$]*(\.[a-zA-Z_$][\w$]*){0,20}$/.test(p)) {
         errors.push(`Caminho JSON inválido em ${node.id}.`);
       }
+    }
+    if (node.type === 'http.localJson') {
+      try { validateLocalHttpConfig(node.config); } catch (error) { errors.push(`HTTP inválido em ${node.id}: ${error.message}`); }
     }
     if (node.type === 'io.writeJson') {
       const p = node.config.fileName;

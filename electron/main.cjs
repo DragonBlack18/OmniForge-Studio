@@ -65,7 +65,24 @@ async function initializeIpc() {
     if (executionInProgress) throw new Error('Já existe um fluxo em execução.');
     executionInProgress = true;
     const root = requireWorkspace();
-    try { return await core.runFlow(flow, { workspace: root, dryRun }); }
+    try {
+      let networkApproved = false;
+      if (!dryRun && core.validateFlow(flow).valid) {
+        const requests = core.summarizeLocalHttpNodes(flow);
+        if (requests.length) {
+          const destinations = requests.map(request => `${request.method} ${request.destination}`).join('\n').slice(0, 1600);
+          const answer = await dialog.showMessageBox(mainWindow, {
+            type: 'warning', title: 'Autorizar API local',
+            message: 'Este fluxo fará requisições HTTP reais.',
+            detail: `Serviços locais acessados:\n${destinations}\n\nA operação pode modificar dados em outros projetos.`,
+            buttons: ['Cancelar', 'Autorizar esta execução'], defaultId: 0, cancelId: 0, noLink: true
+          });
+          if (answer.response !== 1) throw new Error('Requisição HTTP cancelada pelo usuário.');
+          networkApproved = true;
+        }
+      }
+      return await core.runFlow(flow, { workspace: root, dryRun, networkApproved });
+    }
     finally { executionInProgress = false; }
   });
   register('openDeveloper', () => shell.openExternal('https://github.com/DragonBlack18'));
