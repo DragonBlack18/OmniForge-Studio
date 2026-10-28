@@ -12,6 +12,7 @@ let workspaceRoot = null;
 let executionInProgress = false;
 let saveInProgress = false;
 let registryMutationInProgress = false;
+let cadMutationInProgress = false;
 let activeProjectId = null;
 let hasUnsavedChanges = false;
 let exitPromptOpen = false;
@@ -55,9 +56,22 @@ async function initializeIpc() {
     return true;
   });
   register('catalog', () => core.NODE_CATALOG);
+  register('loadCadSketch', () => core.loadCadDocument(requireWorkspace()));
+  register('saveCadSketch', async (sketch, revision) => {
+    if (cadMutationInProgress || executionInProgress || registryMutationInProgress) throw new Error('Operação simultânea não permitida.');
+    cadMutationInProgress = true;
+    try { return await core.saveCadDocument(requireWorkspace(), sketch, revision); }
+    finally { cadMutationInProgress = false; }
+  });
+  register('exportCadSketch', async (format, sketch) => {
+    if (cadMutationInProgress || executionInProgress) throw new Error('Conclua a operação atual antes de exportar.');
+    cadMutationInProgress = true;
+    try { return await core.exportCadSketch(requireWorkspace(), format, sketch); }
+    finally { cadMutationInProgress = false; }
+  });
   const catalogDataRoot = app.getPath('userData');
   const ensureIdle = () => {
-    if (saveInProgress || executionInProgress || registryMutationInProgress) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
+    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
   };
   async function serialRegistryAction(action) {
     ensureIdle();
@@ -174,11 +188,11 @@ async function createWindow() {
   // Handle close natively, once, including the system X button and Alt+F4.
   mainWindow.on('close', event => {
     if (userApprovedExit || mainWindow.isDestroyed()) return;
-    if (!(hasUnsavedChanges || executionInProgress || saveInProgress)) return;
+    if (!(hasUnsavedChanges || executionInProgress || saveInProgress || cadMutationInProgress)) return;
     event.preventDefault();
     if (exitPromptOpen) return;
     exitPromptOpen = true;
-    const isExecuting = executionInProgress || saveInProgress;
+    const isExecuting = executionInProgress || saveInProgress || cadMutationInProgress;
     dialog.showMessageBox(mainWindow, {
       type: 'warning',
       title: 'Fechar OmniForge Studio',

@@ -157,6 +157,37 @@ try {
   await page.getByLabel('Buscar blocos').fill('');
   assert.ok((await page.locator('.catalog-item').count()) > 40);
 
+  // CAD v0.2.0: draw actual line on the SVG canvas, save a versioned
+  // sketch, export DXF/SVG, and verify real files before native exit.
+  await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
+  await page.getByTestId('cad-workbench').waitFor();
+  await page.getByRole('button',{name:'Linha',exact:true}).click();
+  const sketchCanvas = page.getByTestId('cad-canvas');
+  const rect = await sketchCanvas.boundingBox();
+  assert.ok(rect?.width > 250 && rect?.height > 200, 'CAD viewport precisa estar visível');
+  await page.mouse.move(rect.x+rect.width*.32,rect.y+rect.height*.43);
+  await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.65,rect.y+rect.height*.62,{steps:5});
+  await page.mouse.up();
+  await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
+  await page.getByTestId('cad-save').click();
+  await page.getByText('Desenho salvo:',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'Exportar DXF'}).click();
+  await page.getByRole('button',{name:'Exportar SVG'}).click();
+  const cadFolder=path.join(workspace,'.omniforge','cad');
+  assert.equal(JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8')).entities.length,1);
+  assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.dxf'),'utf8'),/\nLINE\n/);
+  assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.svg'),'utf8'),/<line /);
+  const cadBeforeRestart=await page.evaluate(()=>window.omni.loadCadSketch());
+  assert.equal(cadBeforeRestart.sketch.entities.length,1);
+  // The native exit confirmation should also cover unsaved CAD edits.
+  await page.getByRole('button',{name:'Círculo',exact:true}).click();
+  await page.mouse.move(rect.x+rect.width*.42,rect.y+rect.height*.4);
+  await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.46,rect.y+rect.height*.4,{steps:3});
+  await page.mouse.up();
+  await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '2');
+
   // v0.1.6 Windows gate: native close must respond (including dirty buffers),
   // rather than silently trapping the renderer through beforeunload.
   await page.evaluate(() => window.omni.setUnsavedChanges(true));
@@ -178,7 +209,14 @@ try {
   }).catch(() => {});
   await exited;
   client = null;
-  console.log('PASS Electron E2E: project catalog, cross-project POST, persistence and native cancel/exit');
+  // Restart after an unsaved CAD edit: the previously saved one-entity
+  // drawing must remain intact; the unsaved circle must not persist.
+  page=await bootAndOpen();
+  await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
+  assert.equal((await page.evaluate(()=>window.omni.loadCadSketch())).sketch.entities.length,1);
+  await client.close();client=null;
+  console.log('PASS Electron E2E: automation, project APIs, CAD draw/save/export/restart and native close');
 } catch (error) {
   if (client) {
     try {

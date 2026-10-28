@@ -84,7 +84,9 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
       return { ok: false, runId, stage: 'execution', dryRun, steps, artifacts, error: `Falha no nó ${id}: ${error.message}` };
     }
   }
-  const partialSimulation = steps.some(step => step.status === 'SKIP');
+  // SKIP on a genuine Se/Senão branch does not mean partial simulation.
+  const partialSimulation = dryRun && steps.some(step => step.status === 'SKIP' &&
+    (step.type === 'http.localJson' || step.type === 'project.callLocalApi'));
   return { ok: true, runId, dryRun, partialSimulation, stage: 'completed', steps, artifacts, warnings: validation.warnings };
 }
 

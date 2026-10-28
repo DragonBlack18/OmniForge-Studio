@@ -1,143 +1,72 @@
 # OmniForge Studio
 
-**Versão de fundação 0.1.1 — aplicação desktop em validação contínua.**
+**v0.2.0 (candidato de integração)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
-Ambiente desktop experimental para conectar editor de código, projeto local e automações por blocos. **Esta versão não é um substituto funcional do VS Code, do n8n nem do AutoCAD.** Ela entrega o primeiro fluxo verificável da arquitetura, e fixa contratos para expandir sem reescrever o núcleo.
+Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
-## O que já está implementado
+## Recursos que realmente funcionam
 
-- Janela desktop Electron com separação entre processo principal e renderer, `contextIsolation`, sandbox e IPC de operações autorizadas.
-- Canvas de blocos com React Flow e conexões direcionadas; catálogo real de três tipos.
-- Editor Monaco para ler e alterar arquivos de texto existentes em um diretório escolhido.
-- `trigger.manual` → `logic.pick` → `io.writeJson`: recebe um JSON, seleciona um campo e grava o resultado em `.omniforge/output/venda.json`.
-- Validador estrutural: nós desconhecidos, portas incompatíveis, nós desconectados, ciclos, configurações inválidas e múltiplas conexões na mesma entrada.
-- `Simular` executa as mesmas transformações, mas não persiste o arquivo de saída.
-- Persistência manual do fluxo em `.omniforge/flows/principal.json`, escrita em arquivo temporário e renomeação.
-- Explorador limitado ao workspace selecionado (sem links simbólicos, sem pastas técnicas, sem abrir arquivos acima de 1 MB), com rejeição de arquivos UTF-8 inválidos e bloqueio de sobrescrita após alteração externa.
-- Painel de diagnóstico por nó, página de créditos e configuração para gerar instalador e versão portátil Windows.
+| Módulo | Entrega atual | Observação |
+|---|---|---|
+| Automação | 55 nós executáveis, canvas React Flow, 5 templates, validação, simulação, execução e histórico | Gatilho manual; não é o n8n completo |
+| Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
+| Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
+| APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
+| Engenharia 2D | Novo CAD Sketch 2D em milímetros com linha, retângulo, círculo, grade, camadas, medidas e DXF/SVG | Não é CAD paramétrico 3D |
+| Desktop | Electron com isolamento de contexto, IPC restrito, créditos, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
 
-## Limitações importantes
+Não estão implementados: IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
 
-1. **Não há compatibilidade com extensões VS Code nesta versão.** Monaco não é um extension host. O projeto prevê introduzir Theia/Open VSX após estabilizar os contratos do núcleo.
-2. **Não há execução arbitrária de Python, C++, Java, PowerShell ou JavaScript.** O mecanismo seguro de workers isolados será uma etapa específica, com permissões e testes.
-3. **Não há IA real, SMTP, PLC, OPC UA, MQTT ou CAD nesta primeira versão.** Nenhum desses módulos aparece como botão funcional.
-4. **O validador não prova ausência de bugs.** Confirma propriedades estruturais dos fluxos que entende; testes externos e efeitos colaterais ainda exigem validação real.
-5. **A compilação do renderer e o teste Electron real passaram no GitHub Actions (Windows),** além dos testes Node em Windows/Linux. O instalador e a versão portátil usam workflow próprio, com artefatos não assinados; a confirmação de geração e instalação deve ser conferida no workflow. Não considere a versão pronta para produção.
-6. O gerenciador de arquivos é intencionalmente conservador. A lista limita até 160 entradas com profundidade máxima de 5 pastas.
+## Instalação de desenvolvimento
 
-## Executar no Windows
-
-Pré-requisitos: **Node.js 22.12+**, npm, Git opcional e acesso à internet na primeira instalação. Os binários Electron serão baixados pelo npm.
-
-No PowerShell (abra o terminal na pasta onde está o `package.json`):
+Use **Node.js 22.12+** e uma pasta de projeto de testes.
 
 ```powershell
 npm install
 npm test
-npm run demo:core
 npm run dev
 ```
 
-O fluxo inicial aparece no canvas. Clique em **Abrir projeto** e escolha uma pasta de testes **sem arquivos importantes**. Clique em **Validar**, **Simular** e depois **Executar**. Confira o resultado em `PASTA_ESCOLHIDA\.omniforge\output\venda.json`.
+Na inicialização, abra um workspace. O motor salva automações em `.omniforge/flows/`, logs em `.omniforge/run-history/` e o CAD em `.omniforge/cad/`. Não exclua essas pastas ao atualizar o aplicativo.
 
-**Por segurança, a gravação de arquivos é restrita ao workspace selecionado e a saída de nós vai apenas para a pasta `.omniforge/output/`.** O editor pode alterar arquivos existentes no workspace se você clicar explicitamente em **Salvar arquivo**.
+Para testar só o motor:
 
-Para alterar o fluxo: selecione cada bloco no canvas e modifique as configurações no inspetor à direita. Para adicionar um bloco, use a barra lateral; conecte a porta de saída à porta de entrada. Um bloco desconectado bloqueia a execução.
+```powershell
+npm run demo:core
+```
 
-## Gerar instalador e versão portátil
-
-No Windows, após os testes:
+Para construir Windows (ambiente preparado com as dependências necessárias):
 
 ```powershell
 npm run dist:win
 ```
 
-Saídas esperadas: arquivos `.exe` em `release/`, sendo um instalador NSIS e outro pacote portátil. **Os binários são produzidos pelo GitHub Actions**, sujeitos ao resultado da pipeline de empacotamento. Não são assinados digitalmente. Aplicativos sem assinatura podem receber avisos do SmartScreen.
+A integração contínua precisa aprovar testes Node Linux/Windows, build Vite, Electron E2E e abertura/fechamento do portátil e Setup antes de publicar binários em [Releases](https://github.com/DragonBlack18/OmniForge-Studio/releases).
 
-O alvo `portable` significa que não precisa instalar, **não** que seja totalmente independente de persistência: o app ainda usa preferências do Electron; os fluxos continuam associados às pastas escolhidas. Política de dados portáteis será definida em etapa futura.
-
-## Repositório oficial e validação GitHub
-
-Código: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio). A branch `main` permanece protegida por revisão: o desenvolvimento inicial está em [`feature/v0.1.1-desktop-stability`](https://github.com/DragonBlack18/OmniForge-Studio/tree/feature/v0.1.1-desktop-stability), com [PR #1](https://github.com/DragonBlack18/OmniForge-Studio/pull/1) aberto como rascunho.
-
-Para trabalhar com o projeto em uma pasta nova no Windows:
-
-```powershell
-git clone https://github.com/DragonBlack18/OmniForge-Studio.git
-cd OmniForge-Studio
-git switch feature/v0.1.1-desktop-stability
-npm install
-npm test
-npm run dev
-```
-
-As validações reais estão disponíveis nos [GitHub Actions](https://github.com/DragonBlack18/OmniForge-Studio/actions): **CI** (testes Node Linux/Windows, build React/Vite e smoke Electron Windows) e **Windows Desktop Package (unsigned)** (testes, compilação e tentativa de geração de instalador + portátil como artefatos). Confira o resultado da execução mais recente antes de fazer o merge ou instalar os binários. O build de produção no Windows não prova que todos os recursos planejados estejam prontos.
-
-Como ainda não existe `package-lock.json`, a instalação usa `npm install`. Futuramente, registrar a árvore exata de dependências e adotar `npm ci` nos gates.
-
-O comando `npm run demo:core` executa o núcleo em uma pasta temporária e grava JSON mesmo sem as dependências gráficas; basta `node scripts/demo-core.mjs`.
-
-## Organização
+## Estrutura do código
 
 ```text
-omniforge-studio/
-├── core/                   # catálogo, grafo, execução e persistência
-├── electron/               # janela, IPC, protocolo customizado
-├── src/                    # canvas, editor, explorador, inspetor
-├── tests/                  # testes integrados do núcleo Node
-├── docs/                   # especificação, segurança, decisões e etapas
-├── .github/workflows/      # automação de teste e build
-├── package.json
-└── vite.config.js
+core/                    modelo de grafos, execução, arquivos, CAD 2D, APIs e projetos
+electron/                janela, ciclo de vida, IPC autorizado, preload
+src/App.jsx             orquestra workspaces, automações e navegação
+src/components/         overview e módulo CAD isolados
+scripts/                demonstração do núcleo e smoke Windows
+.github/workflows/      CI, distribuição e publicação dos executáveis
+tests/                  testes independentes do renderer
+docs/                   decisões, pesquisa open source, segurança e entregas
 ```
 
-## Referências técnicas e de licença
+## Documentação
 
-- Eclipse Theia: https://theia-ide.org/docs/extensions/
-- Open VSX: https://open-vsx.org/
-- React Flow: https://reactflow.dev/
-- Electron: https://www.electronjs.org/docs/latest/tutorial/security/
-- n8n licença: https://support.n8n.io/article/can-i-use-your-license-for-my-use-case
-- Node-RED licença: https://nodered.org/about/license/
-- Monaco: https://github.com/microsoft/monaco-editor
-- Open CASCADE: https://github.com/Open-Cascade-SAS/OCCT
+- [CAD Sketch 2D — escopo, segurança e limites](docs/V0.2.0_CAD_SKETCH.md)
+- [Pesquisa de repositórios abertos, direitos de uso e integrações futuras](docs/OPEN_SOURCE_RESEARCH_2026-10-28.md)
+- [Arquitetura por domínios](docs/ARCHITECTURE.md)
+- [Modelo de segurança](docs/SECURITY.md)
+- [Histórico das entregas](CHANGELOG.md)
 
-**Desenvolvedor:** Davi Brand. © 2026. Licenciamento do código próprio ainda a definir; dependências de terceiros conservam suas licenças. Não utilizar nomes, marcas e extensões proprietárias sem revisar os respectivos termos.
+## Uso responsável e limitações
 
-
-## Novidades da v0.1.1 — segurança do fluxo e teste desktop
-
-- **Revisão otimista do fluxo**: `readFlowDocument()` fornece SHA-256 do documento aberto; `saveFlow(flow, revision)` impede sobrescrita silenciosa se outro processo modificou o fluxo.
-- **Recuperação**: antes de substituir um fluxo salvo, a versão anterior é preservada em `.omniforge/flow-history/<sha256>.json` (somente dentro do projeto escolhido).
-- **Alterações pendentes**: indicador de fluxo modificado, confirmação ao trocar de workspace e bloqueio antes de fechar a janela; o fluxo de demonstração recém-aberto pode ser salvo.
-- **Proteção contra execução simultânea**: IPC aceita apenas uma execução e uma gravação de fluxo por vez no processo desktop.
-- **Smoke Windows**: `npm run smoke:electron` abre a interface de produção, abre um projeto temporário com diálogo nativo interceptado, salva, simula, executa, lê um arquivo, reinicia e valida persistência. O script **não** usa dados fictícios para comprovar execução do motor.
-- **CI**: matriz Node Linux/Windows + build Vite + gate Electron real no `windows-latest`, antes dos artefatos de instalador e portátil.
-
-### Critérios de entrega
-
-`npm test` roda testes de motor e armazenamento sem instalar dependências de interface. `npm install`, `npm run build`, `npm run smoke:electron` e `npm run dist:win` exigem rede, npm e ambiente Windows; o pacote só é classificado como validado quando a execução do GitHub Actions terminar em sucesso. A geração dos binários não os assina digitalmente.
-
-**Importante:** esta etapa ainda não implementa integração HTTP, envio de e-mail, Theia, extensões do VS Code, inteligência artificial ou CAD. Essas capacidades permanecem no roadmap e não aparecem como botões funcionais.
-
-## v0.1.2 — HTTP local controlado
-
-O nó `HTTP local JSON` chama APIs reais da própria máquina (`http://127.0.0.1:PORTA`) após confirmação em uma janela nativa; a simulação não envia requisições. Documentação completa em [`docs/V0.1.2_HTTP_LOCAL.md`](docs/V0.1.2_HTTP_LOCAL.md). Serviços em rede e APIs externas ainda não são suportados.
-
-## v0.1.4 — Catálogo de projetos
-
-Abra **Meus projetos** no menu vertical, clique em **Adicionar projeto**, selecione uma pasta local e use **Abrir** para alternar. Nenhum arquivo é modificado ao apenas cadastrar ou esquecer um projeto. Consulte `docs/V0.1.4_PROJECT_CATALOG.md`.
-
-## v0.1.5 — Conectar projetos por API
-
-Em **Conectores de projetos**, cadastre uma API JSON já oferecida por outro projeto local (`127.0.0.1`). Depois adicione **Chamar projeto por API** ao canvas, selecione o provedor e a capacidade, e conecte as portas. Simulação não envia requests; execução real exige confirmação e valida JSON de ambos os lados. Consulte `docs/V0.1.5_PROJECT_API.md`.
-
-## v0.1.10 — catálogo funcional e correção do fechamento
-
-A versão 0.1.10 reúne a correção do bug de fechamento do Windows/Portable, **55 nós reais** de processamento local de JSON em 10 categorias, busca/filtro de nós, portas SIM/NÃO com junção de caminhos e **cinco fluxos-modelo**. Consulte [o escopo e limites técnicos](docs/V0.1.6_TO_V0.1.10.md).
-
-**Importante:** a plataforma ainda não possui todo o ecossistema de módulos do n8n, nem execução de qualquer linguagem dentro dos blocos. APIs externas, credenciais, agendamentos, integração industrial e CAD exigem adapters e testes próprios.
-
-**Fechamento:** use o botão `Sair`, o X da janela ou Alt+F4. Com arquivos/fluxo não salvos haverá confirmação nativa. Os testes E2E Windows verificam cancelar e encerrar sem necessidade de Gerenciador de Tarefas.
-
-**Distribuição:** o workflow de release cria dois downloads `.exe` individuais (Setup x64 e Portable x64), não assinados, com hashes SHA-256. Os binários não são instalados automaticamente ao clicar; Windows exige confirmação. Os gates do runner Windows usam perfil descartável e não apagam dados de usuários reais.
+- Este repositório é público, mas o projeto ainda tem licença de pacote `UNLICENSED`; isso não é uma licença open source de redistribuição de código próprio.
+- Não foram importados/copied os códigos de FreeCAD, LibreCAD, JSCAD, n8n ou Bitbybit. As referências estão documentadas para análise e eventual integração licenciada.
+- O aplicativo é **pré-lançamento**, não foi certificado para fabricação ou controle industrial. Uma release compilada não garante instalação ou atualização segura em todas as máquinas.
+- A versão portátil não é totalmente isolada do perfil do usuário: o catálogo de projetos segue os dados por usuário do Electron. Os documentos de cada projeto ficam em suas próprias pastas.
