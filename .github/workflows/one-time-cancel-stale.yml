@@ -30,6 +30,10 @@ jobs:
             const protectedSha = '7891f7d68506c420a4fde26947d7d16022fe5a4a';
             const protectedRunIds = new Set([40755635359, 40755635438]);
             const branch = 'feature/v0.2.1-supervisor-cad-stability';
+            // Two stale runs from the already-integrated 0.2.0 feature branch.
+            // These are exact IDs, not a broad branch cancellation rule.
+            const legacyStaleIds = new Set([40740056058, 40739246954]);
+            const legacyBranch = 'feature/v0.2.0-engineering-workbench-cad';
             const allowedWorkflowNames = new Set([
               'CI',
               'Windows Desktop Package (unsigned)'
@@ -49,7 +53,8 @@ jobs:
               }
             );
             const stale = runs.filter(run =>
-              run.head_branch === branch &&
+              (run.head_branch === branch ||
+                (legacyStaleIds.has(run.id) && run.head_branch === legacyBranch)) &&
               run.head_sha !== protectedSha &&
               !protectedRunIds.has(run.id) &&
               allowedWorkflowNames.has(run.name) &&
