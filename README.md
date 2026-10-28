@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.2.2 (branch de desenvolvimento, ainda não publicada)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.3.0 (candidata de desenvolvimento, não publicada)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -12,12 +12,13 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
+| Extensões | Hub local declarativo com importação JSON, verificação SHA-256, 10 operações sem código, grants por workspace, revogação e bloco executável de automação | Não instala nem executa VSIX/npm/JavaScript arbitrário |
 | Engenharia 2D | CAD Sketch 2D em mm, edição numérica, camadas, exportações DXF/SVG e importação DXF ASCII 2D validada | Não é CAD paramétrico 3D |
 | Desktop | Electron com isolamento de contexto, IPC restrito, limite de execução (120 s), eventos de progresso, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
 
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
-Não estão implementados: IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
 
 ## Interface de trabalho
 
@@ -32,6 +33,16 @@ No CAD Sketch, clique em **Importar DXF**. O arquivo é lido pela janela nativa,
 O importador mantém o histórico anterior do CAD e permite desfazer antes de salvar. Limites de segurança: DXF ASCII/UTF-8 até 2 MB, no máximo 2.000 entidades e 32 camadas. Esta versão não é um leitor universal de DXF/AutoCAD.
 
 Teste isolado com Electron Windows: `npm run smoke:cad-import`. Documentação: [Importação CAD DXF](docs/V0.2.2_DXF_IMPORT.md).
+
+## Central de Extensões v0.3.0
+
+Na sidebar abra **Extensões** e use **Instalar exemplo funcional** para instalar o pacote de engenharia já incluído no código, ou **Instalar arquivo .ofx.json** para importar um manifesto externo. A instalação não executa scripts nem modifica o workspace. Por padrão cada extensão começa desativada. Depois, ative e autorize as permissões desejadas no projeto atual.
+
+O pacote real de exemplo implementa: (1) conversão de `massaKg` para `massaGramas`, com gravação em `.omniforge/output/massa-convertida.json` autorizada separadamente; (2) formatação de etiqueta de ordem, somente em memória. Depois das autorizações, **Adicionar ao fluxo** insere um nó `extension.call` real. A execução usa o motor supervisionado e registra somente metadados no histórico.
+
+Limites: **40 extensões**, 16 ações por pacote, 24 etapas por ação, 128 KB por manifesto/valor, operações puras conhecidas e saída JSON apenas na pasta controlada. A concessão de `workspace.output.write` é por projeto, revogável, e não é concedida automaticamente por instalar ou atualizar. Atualizar um pacote revoga todos os grants anteriores. O hash SHA-256 valida integridade local, **não** autentica a identidade de um editor de extensões.
+
+O formato e suas limitações estão em [Contrato OFX v1](docs/EXTENSION_SDK_V1.md) e no [manifesto executável de exemplo](examples/engenharia.ofx.json). Para executar o E2E Windows: `npm run smoke:extensions`.
 
 ## Instalação de desenvolvimento
 
@@ -76,6 +87,7 @@ docs/                   decisões, pesquisa open source, segurança e entregas
 
 ## Documentação
 
+- [Central de extensões OFX v1 — contratos, grants, limites e riscos](docs/EXTENSION_SDK_V1.md)
 - [CAD Sketch 2D — escopo, segurança e limites](docs/V0.2.0_CAD_SKETCH.md)
 - [Importação DXF ASCII 2D — unidades, limites e segurança](docs/V0.2.2_DXF_IMPORT.md)
 - [Pesquisa de repositórios abertos, direitos de uso e integrações futuras](docs/OPEN_SOURCE_RESEARCH_2026-10-28.md)

@@ -51,3 +51,11 @@ Se o canal IPC entre o executor e o processo principal cair, o worker encerra im
 ## Importação DXF 2D v0.2.2
 
 A fonte é selecionada pelo diálogo nativo de arquivo e nunca por um caminho arbitrário do renderer. Extensão .dxf, tamanho até 2 MB, arquivo regular, sem symlink e UTF-8 válido. O parser não executa código nem plugins e valida unidades/geometrias antes de criar o documento em memória. Sem INSUNITS, o usuário deve aceitar explicitamente interpretar milímetros; o padrão é cancelar. A importação não grava nem substitui documentos automaticamente e usa as revisões SHA-256 existentes ao salvar. Não há importação parcial de ARC, INSERT, SPLINE, DWG ou geometria 3D.
+
+## Extension Hub declarativo v0.3.0
+
+A instalação de pacote `.ofx.json` exige seleção nativa e aprovação explícita, não executa código nem baixa dependências. O manifesto permite apenas 10 operações conhecidas, sem `eval`, `Function`, imports, comandos, acesso ao OS ou conexões de rede. Os grants são específicos ao workspace real e mantidos no perfil do Electron; a instalação é desativada por padrão, a atualização invalida grants e a desinstalação preserva arquivos e fluxos.
+
+O motor recebe um snapshot de extensões obtido **somente** no processo principal, nunca passado pelo renderer. O grafo verifica a extensão, a ação, o estado e os grants antes de executar; o worker reutiliza a autorização e somente a função de saída JSON controlada. A execução possui timeout/cancelamento como os demais nós. Um hash SHA-256 detecta adulteração no registro local, mas não atesta autenticidade/autoria nem impede um usuário com acesso pleno ao SO de alterar código/registro conjuntamente.
+
+**Lacunas explícitas:** ausência de assinatura criptográfica de pacotes por editor confiável, sandbox de código arbitrário, limites de memória nativos, políticas empresariais de aprovação, autenticação multiusuário, atualizações automáticas, scanner de malware e serviço de suporte. Releases Windows continuam sem assinatura e sem declaração de certificação industrial.
