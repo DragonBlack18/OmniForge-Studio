@@ -43,6 +43,10 @@ $installProcess = Start-Process -FilePath (Resolve-Path -LiteralPath $setup).Pat
 if ($installProcess.ExitCode -ne 0) { throw "Instalador NSIS falhou: $($installProcess.ExitCode)" }
 $installed = @(Get-ChildItem -LiteralPath $installBase -Recurse -Filter 'OmniForge Studio.exe' -File -ErrorAction SilentlyContinue)
 if ($installed.Count -ne 1) { throw "Instalação inesperada: $($installed.Count) executáveis encontrados." }
+# Executa um fluxo verdadeiro pelo worker dentro de resources/app.asar, usando
+# o EXE instalado (não o Node do runner); não toca dados reais do usuário.
+& node scripts/packaged-worker-smoke.mjs $installed[0].FullName
+if ($LASTEXITCODE -ne 0) { throw 'Worker supervisionado do app instalado falhou no teste E2E.' }
 Test-WindowCloses $installed[0].FullName 'Setup instalado'
 $uninstaller = @(Get-ChildItem -LiteralPath $installed[0].Directory.FullName -Filter '*Uninstall*.exe' -File -ErrorAction SilentlyContinue)
 if ($uninstaller.Count -ne 1) { throw 'Desinstalador não encontrado; não executar limpeza manual.' }
