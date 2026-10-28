@@ -12,6 +12,7 @@ import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import { NODE_CATALOG, exampleFlow, createNode } from '../core/catalog.mjs';
 import { validateFlow } from '../core/graph.mjs';
+import { WORKFLOW_TEMPLATES } from '../core/templates.mjs';
 
 self.MonacoEnvironment = {
   getWorker(_moduleId, label) {
@@ -24,7 +25,8 @@ self.MonacoEnvironment = {
 };
 loader.config({ monaco });
 
-const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'http.localJson': '⇄', 'project.callLocalApi': '⊞' };
+const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'io.readJson': '▤', 'http.localJson': '⇄', 'project.callLocalApi': '⊞' };
+const CATEGORY_ICONS = { 'Gatilhos': '▶', 'Lógica':'◇','Dados':'▤','Texto':'T','Matemática':'∑','Codificação':'#','Datas':'◷','Arquivos':'▣','Integrações':'⇄','Projetos':'⊞' };
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
 const DEFAULT = exampleFlow();
 const toUiNodes = flow => flow.nodes.map(node => ({
@@ -40,13 +42,26 @@ const toFlow = (nodes, edges) => ({
 
 function BlockNode({ data, selected }) {
   const meta = NODE_CATALOG[data.kind];
+  const icon = ICONS[data.kind] || CATEGORY_ICONS[meta.category] || '□';
+  const category = LABELS[data.kind] || meta.category.toUpperCase();
+  const positionFor = (index, length) => `${Math.round((index+1)*100/(length+1))}%`;
   return (
     <div className={`graph-node ${selected ? 'graph-node--selected' : ''}`}>
-      {meta.inputs.length > 0 && <Handle type="target" position={Position.Left} id="in" className="node-handle" />}
-      <div className="graph-node__overline"><span>{ICONS[data.kind]}</span>{LABELS[data.kind]}</div>
+      {meta.inputs.map((port, index) => (
+        <React.Fragment key={port.id}>
+          <Handle type="target" position={Position.Left} id={port.id} className="node-handle" style={{top:positionFor(index,meta.inputs.length)}} />
+          {meta.inputs.length>1 && <span className="node-port node-port--left" style={{top:positionFor(index,meta.inputs.length)}}>{port.id}</span>}
+        </React.Fragment>
+      ))}
+      <div className="graph-node__overline"><span>{icon}</span>{category}</div>
       <div className="graph-node__title">{meta.label}</div>
-      <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : data.kind === 'logic.pick' ? (data.config.path || 'Selecionar campo') : data.kind === 'http.localJson' ? (data.config.url || 'API local') : data.kind === 'project.callLocalApi' ? (data.config.capabilityId || 'Selecione uma capacidade') : (data.config.fileName || 'Arquivo')}</div>
-      {meta.outputs.length > 0 && <Handle type="source" position={Position.Right} id="out" className="node-handle" />}
+      <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : meta.description}</div>
+      {meta.outputs.map((port,index)=>(
+        <React.Fragment key={port.id}>
+          <Handle type="source" position={Position.Right} id={port.id} className="node-handle" style={{top:positionFor(index,meta.outputs.length)}} />
+          {meta.outputs.length>1 && <span className="node-port node-port--right" style={{top:positionFor(index,meta.outputs.length)}}>{port.id==='yes'?'SIM':port.id==='no'?'NÃO':port.id}</span>}
+        </React.Fragment>
+      ))}
     </div>
   );
 }
@@ -65,6 +80,8 @@ function getLanguage(filename) {
 export default function App() {
   const [mode, setMode] = useState('canvas');
   const [sideMode, setSideMode] = useState('catalog');
+  const [catalogQuery, setCatalogQuery] = useState('');
+  const [catalogCategory, setCatalogCategory] = useState('Todas');
   const [workspace, setWorkspace] = useState('');
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -84,11 +101,21 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.1.5', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.1.10', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
   const graph = useMemo(() => toFlow(nodes, edges), [nodes, edges]);
+  const catalogCategories = useMemo(() => ['Todas',...new Set(Object.values(NODE_CATALOG).map(meta=>meta.category))], []);
+  const catalogGroups = useMemo(() => {
+    const query=catalogQuery.trim().toLocaleLowerCase('pt-BR');
+    const items=Object.entries(NODE_CATALOG).filter(([type,meta]) =>
+      (catalogCategory === 'Todas' || meta.category === catalogCategory) &&
+      (!query || `${meta.label} ${meta.description} ${meta.category} ${type}`.toLocaleLowerCase('pt-BR').includes(query)));
+    return Object.groupBy(items, ([,meta])=>meta.category);
+  }, [catalogQuery, catalogCategory]);
+  const visibleCatalogCount = Object.values(catalogGroups).reduce((sum, items)=>sum+items.length,0);
+
   // React Flow emits change notifications after dragging, moving or deleting nodes.
   // Mark only user changes as dirty, not the initial graph or a loaded workspace.
   const handleNodesChange = useCallback(changes => {
@@ -99,12 +126,11 @@ export default function App() {
     if (changes.some(change => change.type !== 'select')) setFlowDirty(true);
     onEdgesChange(changes);
   }, [onEdgesChange]);
+  // The native Electron close handler owns the prompt. Never prevent beforeunload
+  // from a renderer: Electron can silently cancel every attempt to close.
   useEffect(() => {
-    const blockClose = (event) => {
-      if (dirty || flowDirty) { event.preventDefault(); event.returnValue = ''; }
-    };
-    window.addEventListener('beforeunload', blockClose);
-    return () => window.removeEventListener('beforeunload', blockClose);
+    if (!window.omni?.setUnsavedChanges) return;
+    window.omni.setUnsavedChanges(Boolean(dirty || flowDirty)).catch(() => {});
   }, [dirty, flowDirty]);
 
   useEffect(() => {
@@ -186,6 +212,14 @@ export default function App() {
     setProjects(await window.omni.listProjects());
     notify('Capacidade removida do catálogo; projetos e arquivos intactos.');
   });
+
+  const applyTemplate = template => {
+    if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
+    const copy=structuredClone(template.flow);
+    setNodes(toUiNodes(copy));setEdges(copy.edges);setSelectedId(copy.nodes[0]?.id||null);
+    setFlowDirty(true);setValidation(null);setLastRun(null);setMode('canvas');
+    notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
+  };
 
   const addNode = (type) => {
     const id = `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
@@ -275,12 +309,14 @@ export default function App() {
         <div className="workspace-pill" title={workspace}>{workspace ? workspace.split(/[\\/]/).pop() : 'Nenhum projeto aberto'}{flowDirty ? ' •' : ''}</div>
         <div className="topbar-spacer" />
         <span className="environment">{info.mode}</span>
+        <button className="button button--outline" title="Fechar aplicativo" onClick={() => window.omni?.requestExit()}>Sair</button>
         <button disabled={busy} onClick={openWorkspace} className="button button--outline">Abrir projeto</button>
         <button disabled={busy || !workspace || !flowDirty} onClick={save} className="button button--solid">Salvar fluxo</button>
       </header>
 
       <div className="workspace-layout">
         <nav className="rail" aria-label="Ferramentas">
+          <button title="Modelos de fluxo" aria-label="Modelos de fluxo" className={mode === 'templates' ? 'rail-active' : ''} onClick={() => setMode('templates')}>▧</button>
           <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
           <button title="Catálogo de projetos" aria-label="Catálogo de projetos" className={mode === 'projects' ? 'rail-active' : ''} onClick={() => setMode('projects')}>▤</button>
           <button title="Conectores de projetos" aria-label="Conectores de projetos" className={mode === 'integrations' ? 'rail-active' : ''} onClick={() => setMode('integrations')}>⇄</button>
@@ -296,15 +332,22 @@ export default function App() {
           </div>
           {sideMode === 'catalog' ? (
             <div className="sidebar-content">
-              <div className="section-label">CATÁLOGO / V0.1.5</div>
-              <p className="sidebar-description">Blocos reais com validação. APIs limitadas ao próprio computador e somente com autorização.</p>
-              {Object.entries(NODE_CATALOG).map(([type, node]) => (
-                <button key={type} className="catalog-item" onClick={() => addNode(type)}>
-                  <span className="catalog-icon">{ICONS[type]}</span>
-                  <span><strong>{node.label}</strong><small>{node.category}</small></span>
+              <div className="section-label">CATÁLOGO / {Object.keys(NODE_CATALOG).length} NÓS REAIS</div>
+              <p className="sidebar-description">Busque, filtre e conecte funções verificáveis. Nós sem executor não aparecem como disponíveis.</p>
+              <input className="catalog-search" aria-label="Buscar blocos" placeholder="Buscar blocos, dados, lógica..." value={catalogQuery} onChange={event=>setCatalogQuery(event.target.value)}/>
+              <select className="catalog-category" aria-label="Filtrar categoria" value={catalogCategory} onChange={event=>setCatalogCategory(event.target.value)}>
+                {catalogCategories.map(category=><option key={category}>{category}</option>)}
+              </select>
+              <div className="catalog-results">{visibleCatalogCount} bloco(s) encontrados</div>
+              {Object.entries(catalogGroups).map(([category, items]) => <section key={category} aria-label={category} className="catalog-group">
+                <div className="catalog-group-title"><span>{CATEGORY_ICONS[category] || '□'} {category}</span><span>{items.length}</span></div>
+                {items.map(([type,node])=><button key={type} className="catalog-item" title={node.description} onClick={() => addNode(type)}>
+                  <span className="catalog-icon">{ICONS[type]||CATEGORY_ICONS[category]||'□'}</span>
+                  <span><strong>{node.label}</strong><small>{node.description}</small></span>
                   <span className="catalog-plus">+</span>
-                </button>
-              ))}
+                </button>)}
+              </section>)}
+              {!visibleCatalogCount && <p className="empty-small">Nenhum bloco encontrado. Tente outro termo ou categoria.</p>}
             </div>
           ) : (
             <div className="sidebar-content">
@@ -358,6 +401,19 @@ export default function App() {
                 </ReactFlow>
                 <div className="canvas-chip">GRAFO / V1 · VALIDAÇÃO ANTES DA EXECUÇÃO</div>
               </div>
+            </>
+          )}
+          {mode === 'templates' && (
+            <>
+              <div className="main-toolbar"><div className="toolbar-heading"><span className="eyebrow">AUTOMAÇÕES / MODELOS EXECUTÁVEIS</span><strong>Biblioteca de fluxos</strong></div></div>
+              <section className="projects-page">
+                <p className="projects-intro">Os modelos usam somente blocos reais do catálogo. Carregar um modelo altera apenas o desenho atual; o fluxo salvo no projeto é mantido até você clicar em Salvar fluxo.</p>
+                <div className="project-cards">{WORKFLOW_TEMPLATES.map(template=><article key={template.id} className="project-card">
+                  <div className="project-card__heading"><strong>{template.label}</strong><span className="project-available">VALIDADO</span></div>
+                  <p className="projects-intro">{template.description}</p>
+                  <div className="project-card__footer"><span>{template.flow.nodes.length} blocos · {template.flow.edges.length} conexões</span><button className="button button--solid" disabled={busy} onClick={() => applyTemplate(template)}>Usar modelo</button></div>
+                </article>)}</div>
+              </section>
             </>
           )}
           {mode === 'code' && (
@@ -538,7 +594,7 @@ export default function App() {
           </div>
         </aside>
       </div>
-      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.5 · Workspace local</span></footer>
+      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core {info.version} · Workspace local</span></footer>
     </div>
   );
 }

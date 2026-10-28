@@ -134,6 +134,21 @@ export async function writeOutputJson(root, fileName, value, { dryRun = false } 
   return { relativePath: relative, bytes: Buffer.byteLength(data), simulated: false };
 }
 
+/** Reads only an OmniForge output JSON, never an arbitrary path from a project. */
+export async function readOutputJson(root, fileName) {
+  const abs = await verifyWorkspace(root);
+  if (typeof fileName !== 'string' || !/^[a-zA-Z0-9_-]{1,100}\.json$/i.test(fileName)) throw new Error('Nome de saída inválido.');
+  await verifyInternalReadDirectories(abs, [ROOT_DIR, 'output']);
+  const file = path.join(abs, ROOT_DIR, 'output', fileName);
+  const info = await fs.lstat(file);
+  if (!info.isFile() || info.isSymbolicLink() || info.size > 2_000_000) throw new Error('Arquivo JSON inválido, grande ou link simbólico.');
+  const bytes = await fs.readFile(file);
+  let json;
+  try { json = JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)); }
+  catch { throw new Error('Arquivo JSON existente está corrompido ou não é UTF-8.'); }
+  return json;
+}
+
 async function verifyInternalReadDirectories(root, segments) {
   let current = root;
   for (const segment of segments) {

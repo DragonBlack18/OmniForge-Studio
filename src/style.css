@@ -43,3 +43,11 @@
 .capability-form,.capabilities-list{background:#142335;border:1px solid #2d4560;border-radius:10px;padding:21px}.capability-form h3,.capabilities-list h3{font-size:15px;color:#d9ebf9;margin:0 0 18px}
 .capability-form label{display:block;color:#abc2d6;font-size:11px;font-weight:700;line-height:1.6;margin-bottom:12px}.capability-form input,.capability-form textarea,.capability-form select{display:block;margin-top:5px;width:100%;padding:9px;background:#0c1b2a;color:#d5e8f5;border:1px solid #3a5268;border-radius:6px;font:12px Consolas,monospace;resize:vertical}.capability-form input:focus,.capability-form select:focus,.capability-form textarea:focus{outline:1px solid #4e9bd5}.capability-card{border:1px solid #314c64;background:#0f1c2d;padding:15px;border-radius:8px;margin:10px 0}.capability-card strong{display:block;font-size:13px}.capability-card small{display:block;color:#89a8be;font-size:11px;margin:6px 0 12px}.capability-card code{display:block;font:11px Consolas,monospace;overflow-wrap:anywhere;color:#a4d8fb;padding:11px;background:#0a1523;border-radius:6px}.capability-card>div{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px}
 @media(max-width:1250px){.integrations-layout{grid-template-columns:1fr}}
+
+/* v0.1.7–v0.1.10: searchable, grouped, versioned functional node catalog. */
+.catalog-search,.catalog-category{width:100%;padding:10px 11px;background:#0a1726;border:1px solid #35516a;color:#d3e7f5;border-radius:8px;margin-bottom:9px;font-size:11px;outline:none}
+.catalog-search:focus,.catalog-category:focus{border-color:#6dc4ed}
+.catalog-results{font-size:10px;color:#789bb6;margin:8px 3px 17px}
+.catalog-group{margin-bottom:17px}.catalog-group-title{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#9dbbd0;font-size:11px;letter-spacing:.045em;padding:5px 3px 10px;border-bottom:1px solid #273b50;margin-bottom:10px}
+.catalog-item small{line-height:1.3;max-height:28px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.catalog-item{margin-bottom:7px}
+.node-port{position:absolute;color:#8ec7e7;font-size:9px;font-weight:800;transform:translateY(-50%);pointer-events:none;background:#18283b;padding:2px 3px;border-radius:3px}.node-port--left{left:9px}.node-port--right{right:9px}

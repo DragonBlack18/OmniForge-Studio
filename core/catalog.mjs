@@ -1,3 +1,4 @@
+import { PURE_CATALOG } from './pure-nodes.mjs';
 /**
  * Node definitions are stable contracts. The canvas renders these schemas;
  * the engine alone defines what happens at execution time.
@@ -34,12 +35,17 @@ export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
       { key: 'capabilityId', label: 'Capacidade', kind: 'capability', default: '' }
     ]
   },
+  'io.readJson': {
+    category: 'Arquivos', label: 'Ler JSON gerado', description: 'Lê um arquivo JSON existente somente da pasta .omniforge/output deste projeto, bloqueando links simbólicos.',
+    inputs: [{ id:'in',type:'json',required:true }], outputs:[{ id:'out',type:'json' }],
+    fields:[{ key:'fileName',label:'Arquivo de saída (.json)',kind:'text',default:'venda.json' }]
+  },
   'io.writeJson': {
     category: 'Arquivos', label: 'Gravar JSON', description: 'Grava o resultado em .omniforge/output dentro do projeto aberto.',
     inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
     fields: [{ key: 'fileName', label: 'Arquivo de saída (.json)', kind: 'text', default: 'venda.json' }]
   }
-}));
+}, PURE_CATALOG));
 
 export function getNodeDefinition(type) {
   return typeof type === 'string' && Object.hasOwn(NODE_CATALOG, type) ? NODE_CATALOG[type] : undefined;

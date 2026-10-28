@@ -44,3 +44,11 @@
 - Tela Conectores de projetos, bloco Chamar projeto por API e validação integrada ao motor.
 - Entrada e saída tipadas, dry-run sem requisições e limite de bytes/timeout.
 - 68 testes Node (incluindo integração de dois workspaces por servidor HTTP real) e smoke Electron ampliado.
+
+## [0.1.10] — Expanded functional catalog and portable exit regression (2026-10-28)
+- v0.1.6: native close dialog, removal of silent renderer `beforeunload` blocker, explicit Sair command; smoke tests for cancel/exit and packaging.
+- v0.1.7: searchable catalog grouped by technical category with renderer descriptions for real, registered nodes.
+- v0.1.8: true/false port routing and skip semantics; combine/merge with graph-port enforcement.
+- v0.1.9: 49 pure transformations + protected output file read, 55 total functional nodes and extensive unit coverage.
+- v0.1.10: built-in template library, real catalog and window close Electron E2E tests, Windows Portable/Setup smoke gate.
+- Out of scope: third-party n8n connector ecosystem, arbitrary code execution, remote APIs, automatic timers and CAD.

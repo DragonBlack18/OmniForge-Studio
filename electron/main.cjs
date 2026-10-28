@@ -13,6 +13,9 @@ let executionInProgress = false;
 let saveInProgress = false;
 let registryMutationInProgress = false;
 let activeProjectId = null;
+let hasUnsavedChanges = false;
+let exitPromptOpen = false;
+let userApprovedExit = false;
 const projectRoot = path.resolve(__dirname, '..');
 const isDevelopment = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
 
@@ -42,6 +45,15 @@ function requireWorkspace() {
 async function initializeIpc() {
   const core = await import('../core/index.mjs');
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
+  register('setUnsavedChanges', dirty => {
+    if (typeof dirty !== 'boolean') throw new Error('Estado de edição inválido.');
+    hasUnsavedChanges = dirty;
+    return true;
+  });
+  register('requestExit', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+    return true;
+  });
   register('catalog', () => core.NODE_CATALOG);
   const catalogDataRoot = app.getPath('userData');
   const ensureIdle = () => {
@@ -157,6 +169,30 @@ async function createWindow() {
       webSecurity: true
     }
   });
+  // Electron does not display the browser's beforeunload confirmation. Preventing
+  // beforeunload in the renderer can trap both Setup and Portable indefinitely.
+  // Handle close natively, once, including the system X button and Alt+F4.
+  mainWindow.on('close', event => {
+    if (userApprovedExit || mainWindow.isDestroyed()) return;
+    if (!(hasUnsavedChanges || executionInProgress || saveInProgress)) return;
+    event.preventDefault();
+    if (exitPromptOpen) return;
+    exitPromptOpen = true;
+    const isExecuting = executionInProgress || saveInProgress;
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: 'Fechar OmniForge Studio',
+      message: isExecuting ? 'Há uma operação em andamento.' : 'Existem alterações não salvas.',
+      detail: 'Se sair agora, as alterações não salvas serão descartadas. Os dados já gravados continuarão no projeto.',
+      buttons: ['Continuar no programa', 'Sair sem salvar'],
+      defaultId: 0, cancelId: 0, noLink: true
+    }).then(answer => {
+      if (answer.response !== 1 || !mainWindow || mainWindow.isDestroyed()) return;
+      userApprovedExit = true;
+      app.quit();
+    }).catch(() => {}).finally(() => { exitPromptOpen = false; });
+  });
+  mainWindow.on('closed', () => { mainWindow = null; hasUnsavedChanges = false; });
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());

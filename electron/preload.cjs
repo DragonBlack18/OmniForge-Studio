@@ -4,6 +4,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Never expose ipcRenderer itself: only this explicit method allowlist.
 contextBridge.exposeInMainWorld('omni', Object.freeze({
   info: () => ipcRenderer.invoke('omni:info'),
+  setUnsavedChanges: dirty => ipcRenderer.invoke('omni:setUnsavedChanges', dirty),
+  requestExit: () => ipcRenderer.invoke('omni:requestExit'),
   catalog: () => ipcRenderer.invoke('omni:catalog'),
   selectWorkspace: () => ipcRenderer.invoke('omni:selectWorkspace'),
   listProjects: () => ipcRenderer.invoke('omni:listProjects'),
