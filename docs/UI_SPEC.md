@@ -53,3 +53,18 @@ A interface não pode ser um n8n encaixado dentro de um VS Code. Terá uma lingu
 - **Release Center**: versões, logs de migração, backup/restore, assinatura e atualizações.
 
 Estas telas não devem surgir ativas enquanto não houver APIs e testes correspondentes.
+
+## Navegação do workbench — v0.2.1 (visual cleanup)
+
+- Navegação principal persistente, agrupada em **Workspace**, **Recursos** e **Acompanhamento**, com rótulos claros e ícones vetoriais.
+- Recolhimento do menu lateral com `Ctrl+B`; a preferência é guardada somente no perfil local do renderer, sem alterar o projeto.
+- Biblioteca de nós e explorador de arquivos são painéis contextuais: ficam disponíveis no **Editor visual** e no **Editor de código**, e deixam de ocupar espaço na visão geral, CAD, projetos e histórico.
+- Na biblioteca, busca `Ctrl+K`, categorias e nós disponíveis; clique adiciona nó executável ao fluxo.
+- Explorador de arquivos com filtro local, diretórios recolhíveis e atualização explícita. A lista continua vindo do backend seguro e não habilita edição de caminhos arbitrários.
+- Inspector de nós pode ser recolhido. Selecionar um nó reabre o inspector.
+- `Ctrl+S` salva o documento ativo somente quando alterado: o fluxo no canvas ou o arquivo aberto no Monaco. CAD preserva seu próprio salvamento.
+- Painel inicial reflete apenas dados reais do workspace, catálogo e última execução da sessão. Recursos planejados são marcados como indisponíveis, sem cards simulados.
+- Paleta grafite/teal controlada, contraste acessível, foco visível, suporte a movimento reduzido, tipografia e espaçamento consistentes.
+- Preferências de layout não alteram `.omniforge/`, arquivos ou dados de projetos. Nenhum schema de persistência foi modificado.
+
+- Atalho `Ctrl+S` salva também o CAD ativo e sempre suprime o comando \"Salvar página\" do Chromium; nenhuma escrita ocorre se o desenho não foi alterado.

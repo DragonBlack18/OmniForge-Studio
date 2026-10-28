@@ -10,6 +10,8 @@ protocol.registerSchemesAsPrivileged([{
 let mainWindow;
 let workspaceRoot = null;
 let executionInProgress = false;
+let activeRunController = null;
+let exitAfterRun = false;
 let saveInProgress = false;
 let registryMutationInProgress = false;
 let cadMutationInProgress = false;
@@ -110,21 +112,30 @@ async function initializeIpc() {
   register('listRunHistory', () => core.listRunHistory(requireWorkspace()));
   register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));
   register('readFile', relative => core.readProjectFile(requireWorkspace(), relative));
-  register('saveFile', (relative, content, expectedRevision) => core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision));
+  register('saveFile', (relative, content, expectedRevision) => {
+    if (executionInProgress || cadMutationInProgress || registryMutationInProgress) throw new Error('Conclua a execução antes de salvar arquivos.');
+    return core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision);
+  });
   register('saveFlow', async (flow, expectedRevision) => {
-    if (saveInProgress) throw new Error('Uma gravação de fluxo já está em andamento.');
+    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
     saveInProgress = true;
     const root = requireWorkspace();
     try { return await core.saveFlow(root, flow, expectedRevision); }
     finally { saveInProgress = false; }
   });
   register('validateFlow', async flow => core.validateFlow(flow, { projects: await core.listProjects(catalogDataRoot) }));
+  register('cancelFlow', () => {
+    if (!executionInProgress || !activeRunController || activeRunController.signal.aborted) return false;
+    activeRunController.abort();
+    return true;
+  });
   register('executeFlow', async (flow, dryRun) => {
     if (typeof dryRun !== 'boolean') throw new Error('Modo de execução inválido.');
     if (executionInProgress) throw new Error('Já existe um fluxo em execução.');
     executionInProgress = true;
-    const root = requireWorkspace();
+    activeRunController = new AbortController();
     try {
+      const root = requireWorkspace();
       let networkApproved = false;
       const projects = await core.listProjects(catalogDataRoot);
       if (!dryRun && core.validateFlow(flow, { projects }).valid) {
@@ -141,14 +152,27 @@ async function initializeIpc() {
           networkApproved = true;
         }
       }
-      const result = await core.runFlow(flow, { workspace: root, dryRun, networkApproved, projects });
+      const result = await core.runSupervisedFlow(flow,
+        { workspace: root, dryRun, networkApproved, projects },
+        { signal: activeRunController.signal, onProgress: step => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('omni:flowProgress', step);
+        } }
+      );
       try {
         return { ...result, history: await core.recordRunHistory(root, result) };
       } catch {
         return { ...result, history: { saved: false, warning: 'Falha ao salvar histórico; resultado da execução preservado.' } };
       }
     }
-    finally { executionInProgress = false; }
+    finally {
+      executionInProgress = false;
+      activeRunController = null;
+      if (exitAfterRun) {
+        exitAfterRun = false;
+        userApprovedExit = true;
+        setImmediate(() => app.quit());
+      }
+    }
   });
   register('openDeveloper', () => shell.openExternal('https://github.com/DragonBlack18'));
 }
@@ -202,8 +226,14 @@ async function createWindow() {
       defaultId: 0, cancelId: 0, noLink: true
     }).then(answer => {
       if (answer.response !== 1 || !mainWindow || mainWindow.isDestroyed()) return;
-      userApprovedExit = true;
-      app.quit();
+      if (executionInProgress && activeRunController) {
+        // The cancellation result is persisted in execution history before exit.
+        exitAfterRun = true;
+        activeRunController.abort();
+      } else {
+        userApprovedExit = true;
+        app.quit();
+      }
     }).catch(() => {}).finally(() => { exitPromptOpen = false; });
   });
   mainWindow.on('closed', () => { mainWindow = null; hasUnsavedChanges = false; });

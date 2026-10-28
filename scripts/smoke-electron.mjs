@@ -45,6 +45,21 @@ try {
   await fs.writeFile(path.join(workspace, 'exemplo.py'), 'print("real")\n', 'utf8');
   checkpoint('first startup and initial workflow');
   let page = await bootAndOpen();
+  // Navigation is a real, persistent sidebar; unrelated pages must not keep
+  // the block library or node inspector occupying horizontal workspace.
+  await page.getByRole('button',{name:'Recolher menu lateral'}).click();
+  assert.ok((await page.getByTestId('primary-sidebar').getAttribute('class')).includes('collapsed'));
+  await page.getByRole('button',{name:'Expandir menu lateral'}).click();
+  await page.getByRole('button',{name:'Visão geral'}).click();
+  await page.getByTestId('workspace-overview').waitFor();
+  assert.equal(await page.getByTestId('context-sidebar').count(),0);
+  assert.equal(await page.locator('.inspector').count(),0);
+  await page.getByRole('button',{name:'Arquitetura visual'}).click();
+  await page.getByTestId('context-sidebar').waitFor();
+  await page.getByRole('button',{name:'Ocultar painel de ferramentas'}).click();
+  assert.equal(await page.getByTestId('context-sidebar').count(),0);
+  await page.getByRole('button',{name:'Mostrar painel de ferramentas'}).click();
+  await page.getByTestId('context-sidebar').waitFor();
   await page.getByRole('button', { name: 'Salvar fluxo' }).click();
   await page.getByText('Fluxo gravado em', { exact: false }).waitFor();
   await page.getByRole('button', { name: 'Simular' }).click();
@@ -68,7 +83,13 @@ try {
   const details = await page.evaluate(async id => window.omni.readRunHistory(id), savedHistory[0].id);
   assert.ok(details.steps.length >= 3);
   assert.ok(!JSON.stringify(details).includes('Exemplo'), 'Histórico não deve guardar payload');
+  await page.getByRole('button',{name:'Editor de código'}).click();
   await page.getByRole('button', { name: 'ARQUIVOS', exact: true }).click();
+  await page.getByLabel('Buscar arquivo').fill('exemplo');
+  assert.equal(await page.getByRole('treeitem',{name:'exemplo.py'}).count(),1);
+  await page.getByLabel('Buscar arquivo').fill('arquivo-que-nao-existe');
+  await page.getByText('Nenhum arquivo encontrado.').waitFor();
+  await page.getByLabel('Limpar busca de arquivos').click();
   await page.getByText('exemplo.py').click();
   await page.getByText('exemplo.py', { exact: false }).first().waitFor();
   const loaded = await page.evaluate(async () => window.omni.readFile('exemplo.py'));
@@ -188,12 +209,26 @@ try {
   await page.mouse.move(rect.x+rect.width*.65,rect.y+rect.height*.62,{steps:5});
   await page.mouse.up();
   await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
-  await page.getByTestId('cad-save').click();
+  // Coordinates and layer creation must persist through real renderer actions.
+  await page.getByLabel('X final (mm)').fill('120');
+  await page.getByTestId('cad-apply-geometry').click();
+  await page.getByText('Medidas aplicadas com precisão',{exact:false}).waitFor();
+  await page.getByLabel('Nome da nova camada').fill('Cotas industriais');
+  await page.getByRole('button',{name:'+ Criar'}).click();
+  await page.getByText('Camada criada:',{exact:false}).waitFor();
+  await page.getByLabel('Espaçamento da grade').selectOption('10');
+  // Ctrl+S saves the CAD document, not the browser/Chromium page.
+  await page.keyboard.press('Control+s');
   await page.getByText('Desenho salvo:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Exportar DXF'}).click();
+  await page.getByText('Arquivo DXF real exportado:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Exportar SVG'}).click();
+  await page.getByText('Arquivo SVG real exportado:',{exact:false}).waitFor();
   const cadFolder=path.join(workspace,'.omniforge','cad');
-  assert.equal(JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8')).entities.length,1);
+  const persistedCad=JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8'));
+  assert.equal(persistedCad.entities.length,1);
+  assert.equal(persistedCad.layers.length,3);
+  assert.equal(persistedCad.entities[0].b.x,120);
   assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.dxf'),'utf8'),/\nLINE\n/);
   assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.svg'),'utf8'),/<line /);
   const cadBeforeRestart=await page.evaluate(()=>window.omni.loadCadSketch());
@@ -217,7 +252,8 @@ try {
   await page.getByRole('button',{name:'Círculo',exact:true}).click();
   await page.mouse.move(rect.x+rect.width*.42,rect.y+rect.height*.4);
   await page.mouse.down();
-  await page.mouse.move(rect.x+rect.width*.46,rect.y+rect.height*.4,{steps:3});
+  // Move more than one 10-mm grid cell to avoid a zero-radius circle from snap rounding.
+  await page.mouse.move(rect.x+rect.width*.58,rect.y+rect.height*.4,{steps:6});
   await page.mouse.up();
   await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '2');
 
@@ -254,16 +290,38 @@ try {
 } catch (error) {
   if (client) {
     try {
+      // Bound screenshot capture: a crashed Chromium renderer must never hang CI.
       const pages = client.windows();
-      if (pages.length) await pages[0].screenshot({ path: path.join(process.cwd(), 'smoke-failure.png') });
+      if (pages.length) await Promise.race([
+        pages[0].screenshot({path:path.join(process.cwd(),'smoke-failure.png')}).catch(()=>{}),
+        new Promise(resolve=>setTimeout(resolve,2500))
+      ]);
     } catch { /* never hide the original error */ }
   }
   console.error(error);
   process.exitCode = 1;
 } finally {
   checkpoint('cleanup');
-  if (client) await client.close().catch(() => {});
-  if (testServer) { testServer.closeAllConnections(); await new Promise(resolve => testServer.close(resolve)); }
-  await fs.rm(workspace, { recursive: true, force: true });
+  if (client) {
+    // On a failed assertion the native dirty-state close dialog may block
+    // Playwright close forever. Terminate only the Electron test child.
+    const child = client.process();
+    if (child && child.exitCode === null) child.kill();
+    await Promise.race([
+      client.close().catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, 3000))
+    ]);
+  }
+  if (testServer) {
+    testServer.closeAllConnections();
+    await Promise.race([
+      new Promise(resolve=>testServer.close(resolve)),
+      new Promise(resolve=>setTimeout(resolve,2500))
+    ]);
+  }
+  await fs.rm(workspace, { recursive:true, force:true }).catch(()=>{});
   clearTimeout(smokeWatchdog);
+  // Disposable CI runner only. Playwright may leave handles after an assertion
+  // failure even when the Electron test process was terminated.
+  if (process.exitCode) process.exit(process.exitCode);
 }

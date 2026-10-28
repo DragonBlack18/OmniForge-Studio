@@ -95,6 +95,62 @@ export function deleteCadEntity(sketch, id) {
   return { ...clone(sketch), entities:sketch.entities.filter(e => e.id !== id).map(clone) };
 }
 
+/** Precise edit of one existing geometry with its original identity. */
+export function replaceCadEntity(sketch, replacement) {
+  validateCadSketch(sketch);
+  if (!replacement || typeof replacement.id !== 'string') throw new Error('Entidade para edição inválida.');
+  const index=sketch.entities.findIndex(e=>e.id===replacement.id);
+  if(index<0)throw new Error('Entidade CAD não encontrada.');
+  const previous=sketch.entities[index];
+  if(previous.type!==replacement.type || previous.layerId!==replacement.layerId)
+    throw new Error('A edição numérica não altera tipo nem camada.');
+  if(sketch.layers.find(l=>l.id===previous.layerId)?.locked)
+    throw new Error('Camada bloqueada para edição.');
+  const next=clone(sketch);
+  next.entities[index]=clone(replacement);
+  validateCadSketch(next);
+  return next;
+}
+
+/** Simple native layer management; no entities can become dangling. */
+export function addCadLayer(sketch, { id, name, color = '#6CBCEC' }) {
+  validateCadSketch(sketch);
+  if(sketch.layers.length>=MAX_LAYERS)throw new Error('Limite de 32 camadas atingido.');
+  const next=clone(sketch);
+  next.layers.push({id,name,color,visible:true,locked:false});
+  validateCadSketch(next);
+  return next;
+}
+export function removeCadLayer(sketch, id) {
+  validateCadSketch(sketch);
+  if(sketch.layers.length<=1)throw new Error('O desenho precisa ter uma camada.');
+  const layer=sketch.layers.find(l=>l.id===id);
+  if(!layer)throw new Error('Camada inexistente.');
+  if(layer.locked)throw new Error('Desbloqueie a camada antes de remover.');
+  if(sketch.entities.some(e=>e.layerId===id))throw new Error('A camada possui entidades. Mova ou exclua as entidades antes.');
+  const next=clone(sketch);
+  next.layers=next.layers.filter(l=>l.id!==id);
+  validateCadSketch(next);
+  return next;
+}
+export function cadBounds(sketch, { visibleOnly=true } = {}) {
+  validateCadSketch(sketch);
+  const pts=[];
+  for(const e of sketch.entities) {
+    if(visibleOnly && !sketch.layers.find(l=>l.id===e.layerId)?.visible)continue;
+    if(e.type==='circle')pts.push(
+      {x:e.center.x-e.radius,y:e.center.y-e.radius},
+      {x:e.center.x+e.radius,y:e.center.y+e.radius}
+    );
+    else pts.push(e.a,e.b);
+  }
+  if(!pts.length)return null;
+  return {
+    minX:Math.min(...pts.map(p=>p.x)),maxX:Math.max(...pts.map(p=>p.x)),
+    minY:Math.min(...pts.map(p=>p.y)),maxY:Math.max(...pts.map(p=>p.y))
+  };
+}
+
 export function cadEntityMetrics(entity) {
   if (entity.type === 'circle') return { length:round(2*Math.PI*entity.radius), area:round(Math.PI*entity.radius**2) };
   const dx=entity.b.x-entity.a.x,dy=entity.b.y-entity.a.y;

@@ -38,3 +38,12 @@ O modo simulação **não** executa efeitos externos, mas versões futuras preci
 ## Disclaimers
 
 A análise estrutural de grafos indica problemas conhecidos, mas não certifica a correção de uma arquitetura. Simulação não substitui testes de integração com provedores externos, validação eletromecânica ou avaliação de segurança funcional industrial.
+
+## Executor supervisionado v0.2.1
+
+O fluxo declarativo é executado por `core/run-child.cjs` como processo filho do motor, não no processo privilegiado da janela. O processo recebe apenas grafo, workspace, projetos autorizados e consentimento para API local; o ambiente herdado é restrito às variáveis operacionais permitidas. Existe limite temporal padrão de 120 segundos (máximo interno 180 segundos) e cancelamento por `AbortController`. A UI não recebe acesso a `child_process`, e os eventos de progresso contêm apenas metadados de etapas.
+
+**Limitação:** isolamento em processo NÃO é sandbox de segurança para plugins ou execução de código não confiável. Não existe limitação de memória/CPU do sistema operacional nem garantia de rollback. Cancelamento ou crash podem interromper operações não idempotentes depois de efeitos externos parciais. Execução arbitrária de JS/Python/PowerShell permanece desabilitada até existir isolamento e autorização específicos. Avaliar casos de desligamento forçado, crashes, assinatura do binário e comportamento do processo filho empacotado antes de qualquer classificação como pronto para produção.
+
+### Falha do processo principal
+Se o canal IPC entre o executor e o processo principal cair, o worker encerra imediatamente sem continuar etapas assíncronas. Isso reduz execuções órfãs após crash, mas não desfaz gravações ou chamadas de rede concluídas. O teste de regressão simula desconexão de IPC durante HTTP lento.

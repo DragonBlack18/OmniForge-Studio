@@ -1,11 +1,17 @@
 name: CI
 on:
   push:
-    branches: [main, develop, 'feature/**']
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
 permissions:
   contents: read
+
+# Test feature branches through pull requests only (avoid duplicate push/PR jobs).
+# Skip superseded checks to protect Windows runner capacity.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   core-test:
     name: Core Node ${{ matrix.os }}
@@ -43,6 +49,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run smoke:electron
+        timeout-minutes: 5
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

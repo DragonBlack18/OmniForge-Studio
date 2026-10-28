@@ -25,5 +25,12 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   saveFlow: (flow, revision) => ipcRenderer.invoke('omni:saveFlow', flow, revision),
   validateFlow: flow => ipcRenderer.invoke('omni:validateFlow', flow),
   executeFlow: (flow, dryRun) => ipcRenderer.invoke('omni:executeFlow', flow, dryRun),
+  cancelFlow: () => ipcRenderer.invoke('omni:cancelFlow'),
+  onFlowProgress: callback => {
+    if (typeof callback !== 'function') throw new TypeError('Callback de progresso inválido.');
+    const handler = (_event, step) => callback(step);
+    ipcRenderer.on('omni:flowProgress', handler);
+    return () => ipcRenderer.removeListener('omni:flowProgress', handler);
+  },
   openDeveloper: () => ipcRenderer.invoke('omni:openDeveloper')
 }));

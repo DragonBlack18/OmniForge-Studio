@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlow,
   Background, Controls, MiniMap, Handle, Position,
   addEdge, useNodesState, useEdgesState
@@ -15,6 +15,8 @@ import { validateFlow } from '../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../core/templates.mjs';
 import CadWorkbench from './components/CadWorkbench.jsx';
 import WorkspaceOverview from './components/WorkspaceOverview.jsx';
+import NavigationSidebar, { NavGlyph } from './components/NavigationSidebar.jsx';
+import { visibleFileEntries } from './utils/file-tree.mjs';
 
 self.MonacoEnvironment = {
   getWorker(_moduleId, label) {
@@ -30,6 +32,9 @@ loader.config({ monaco });
 const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'io.readJson': '▤', 'http.localJson': '⇄', 'project.callLocalApi': '⊞' };
 const CATEGORY_ICONS = { 'Gatilhos': '▶', 'Lógica':'◇','Dados':'▤','Texto':'T','Matemática':'∑','Codificação':'#','Datas':'◷','Arquivos':'▣','Integrações':'⇄','Projetos':'⊞','Engenharia':'▱' };
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
+const CATEGORY_NAV_ICONS = {Gatilhos:'workflow',Lógica:'workflow',Dados:'code',Texto:'code',
+  Matemática:'code',Codificação:'code',Datas:'history',Arquivos:'folder',
+  Integrações:'plug',Projetos:'folder',Engenharia:'cad'};
 const DEFAULT = exampleFlow();
 const toUiNodes = flow => flow.nodes.map(node => ({
   id: node.id, type: 'block', position: node.position,
@@ -44,7 +49,7 @@ const toFlow = (nodes, edges) => ({
 
 function BlockNode({ data, selected }) {
   const meta = NODE_CATALOG[data.kind];
-  const icon = ICONS[data.kind] || CATEGORY_ICONS[meta.category] || '□';
+  const icon = CATEGORY_NAV_ICONS[meta.category] || 'workflow';
   const category = LABELS[data.kind] || meta.category.toUpperCase();
   const positionFor = (index, length) => `${Math.round((index+1)*100/(length+1))}%`;
   return (
@@ -55,7 +60,7 @@ function BlockNode({ data, selected }) {
           {meta.inputs.length>1 && <span className="node-port node-port--left" style={{top:positionFor(index,meta.inputs.length)}}>{port.id}</span>}
         </React.Fragment>
       ))}
-      <div className="graph-node__overline"><span>{icon}</span>{category}</div>
+      <div className="graph-node__overline"><span><NavGlyph name={icon} size={15}/></span>{category}</div>
       <div className="graph-node__title">{meta.label}</div>
       <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : meta.description}</div>
       {meta.outputs.map((port,index)=>(
@@ -79,9 +84,19 @@ function getLanguage(filename) {
   return EXT_TO_LANGUAGE[filename?.split('.').pop()?.toLowerCase()] || 'plaintext';
 }
 
+function readUiPreference(key, fallback) {
+  try { const saved=window.localStorage.getItem(key);return saved===null?fallback:saved==='1'; }
+  catch { return fallback; }
+}
 export default function App() {
   const [mode, setMode] = useState('home');
   const [sideMode, setSideMode] = useState('catalog');
+  const [navigationCollapsed, setNavigationCollapsed] = useState(()=>readUiPreference('of.navCollapsed',false));
+  const [utilityOpen, setUtilityOpen] = useState(()=>readUiPreference('of.utilityOpen',true));
+  const [inspectorOpen, setInspectorOpen] = useState(()=>readUiPreference('of.inspectorOpen',true));
+  const [fileQuery, setFileQuery] = useState('');
+  const [collapsedFolders, setCollapsedFolders] = useState(()=>new Set());
+  const catalogSearchRef=useRef(null);
   const [catalogQuery, setCatalogQuery] = useState('');
   const [catalogCategory, setCatalogCategory] = useState('Todas');
   const [workspace, setWorkspace] = useState('');
@@ -97,6 +112,8 @@ export default function App() {
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [status, setStatus] = useState('Selecione uma pasta para começar.');
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [liveSteps, setLiveSteps] = useState([]);
   const [fileName, setFileName] = useState('');
   const [fileContent, setFileContent] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -104,7 +121,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.2.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.2.1', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -118,6 +135,14 @@ export default function App() {
     return Object.groupBy(items, ([,meta])=>meta.category);
   }, [catalogQuery, catalogCategory]);
   const visibleCatalogCount = Object.values(catalogGroups).reduce((sum, items)=>sum+items.length,0);
+  const visibleFiles=useMemo(()=>visibleFileEntries(files,{query:fileQuery,collapsedPaths:collapsedFolders}),[files,fileQuery,collapsedFolders]);
+  useEffect(()=>{
+    try {
+      window.localStorage.setItem('of.navCollapsed',navigationCollapsed?'1':'0');
+      window.localStorage.setItem('of.utilityOpen',utilityOpen?'1':'0');
+      window.localStorage.setItem('of.inspectorOpen',inspectorOpen?'1':'0');
+    } catch { /* renderer storage may be unavailable */ }
+  },[navigationCollapsed,utilityOpen,inspectorOpen]);
 
   // React Flow emits change notifications after dragging, moving or deleting nodes.
   // Mark only user changes as dirty, not the initial graph or a loaded workspace.
@@ -135,6 +160,11 @@ export default function App() {
     if (!window.omni?.setUnsavedChanges) return;
     window.omni.setUnsavedChanges(Boolean(dirty || flowDirty || cadDirty)).catch(() => {});
   }, [dirty, flowDirty, cadDirty]);
+
+  useEffect(() => {
+    if (!window.omni?.onFlowProgress) return;
+    return window.omni.onFlowProgress(step => setLiveSteps(old => [...old.slice(-79), step]));
+  }, []);
 
   useEffect(() => {
     if (!window.omni) { setStatus('Abra esta interface pelo Electron: npm run dev.'); return; }
@@ -161,6 +191,7 @@ export default function App() {
     setFlowDirty(result.flowRevision === null);
     setSelectedId(result.flow.nodes[0]?.id || null);
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
+    setFileQuery(''); setCollapsedFolders(new Set()); setSideMode('catalog'); setUtilityOpen(true);
     setLastRun(null); setValidation(null);
     setHistory(await window.omni.listRunHistory());
     setSelectedHistory(null);
@@ -220,7 +251,7 @@ export default function App() {
     if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
     const copy=structuredClone(template.flow);
     setNodes(toUiNodes(copy));setEdges(copy.edges);setSelectedId(copy.nodes[0]?.id||null);
-    setFlowDirty(true);setValidation(null);setLastRun(null);setMode('canvas');
+    setFlowDirty(true);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
     notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
   };
 
@@ -230,7 +261,7 @@ export default function App() {
     setNodes(previous => [...previous, toUiNodes({ nodes: [next] })[0]]);
     setFlowDirty(true);
     setSelectedId(id);
-    setMode('canvas');
+    setMode('canvas');setSideMode('catalog');setUtilityOpen(true);setInspectorOpen(true);
     notify('Bloco adicionado. Conecte as portas antes de executar.');
   };
 
@@ -266,7 +297,12 @@ export default function App() {
 
   const run = dryRun => execute(async () => {
     if (!workspace) throw new Error('Abra uma pasta antes de executar.');
-    const result = await window.omni.executeFlow(graph, dryRun);
+    setLiveSteps([]);
+    setLastRun(null);
+    setRunning(true);
+    let result;
+    try { result = await window.omni.executeFlow(graph, dryRun); }
+    finally { setRunning(false); }
     setLastRun(result);
     if (result.history?.saved) setHistory(await window.omni.listRunHistory());
     const checked = await window.omni.validateFlow(graph);
@@ -276,6 +312,10 @@ export default function App() {
       ? (result.partialSimulation ? 'Simulação parcial: nenhum HTTP foi enviado nem respostas inventadas.' : dryRun ? 'Simulação concluída: nenhuma escrita realizada.' : 'Execução real concluída.')
       : `Execução bloqueada: ${result.error || result.errors?.[0] || 'falha de validação'}`);
   });
+
+  const cancelRun = () => window.omni.cancelFlow().then(cancelled => {
+    notify(cancelled ? 'Cancelamento solicitado. Registrando o resultado...' : 'Nenhuma execução ativa para cancelar.');
+  }).catch(error => notify('Erro ao cancelar: ' + error.message));
 
   const openHistory = () => execute(async () => {
     if (!workspace) throw new Error('Abra um projeto para visualizar o histórico.');
@@ -293,7 +333,7 @@ export default function App() {
     if (dirty && !window.confirm('Descartar alterações não salvas do arquivo atual?')) return;
     const loaded = await window.omni.readFile(relative);
     setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision); setDirty(false);
-    setMode('code'); notify(`Arquivo aberto: ${relative}`);
+    setMode('code');setSideMode('files');setUtilityOpen(true); notify(`Arquivo aberto: ${relative}`);
   });
 
   const saveFile = () => execute(async () => {
@@ -303,100 +343,148 @@ export default function App() {
     notify(`Arquivo atualizado: ${fileName}`);
   });
 
+  const navigate = nextMode => {
+    if(nextMode==='history'){openHistory();return;}
+    setMode(nextMode);
+    if(nextMode==='code'){setSideMode('files');setUtilityOpen(true);}
+    else if(nextMode==='canvas'){setSideMode('catalog');setUtilityOpen(true);}
+  };
+  const toggleFolder = folder => setCollapsedFolders(previous=>{
+    const next=new Set(previous);
+    if(next.has(folder))next.delete(folder);else next.add(folder);
+    return next;
+  });
+  useEffect(()=>{
+    const handleShortcut=event=>{
+      if(!(event.ctrlKey||event.metaKey)||event.altKey)return;
+      const key=event.key.toLowerCase();
+      if(key==='b'){event.preventDefault();setNavigationCollapsed(value=>!value);}
+      else if(key==='k'){
+        event.preventDefault();
+        setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
+        requestAnimationFrame(()=>catalogSearchRef.current?.focus());
+      }else if(key==='s'){
+        // Never open Chromium's Save Page dialog in the desktop application.
+        // CAD handles its own document save while the shell handles files/flows.
+        event.preventDefault();
+        if(!workspace || busy || event.repeat)return;
+        if(mode==='canvas' && flowDirty)save();
+        else if(mode==='code' && fileName && dirty)saveFile();
+      }
+    };
+    window.addEventListener('keydown',handleShortcut);
+    return ()=>window.removeEventListener('keydown',handleShortcut);
+  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,fileContent,fileRevision,flowRevision]);
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand-logo">O<span>F</span></div>
-        <div className="brand-name">OMNIFORGE <span>STUDIO</span><small>V{info.version}</small></div>
-        <div className="topbar-separator" />
-        <div className="workspace-pill" title={workspace}>{workspace ? workspace.split(/[\\/]/).pop() : 'Nenhum projeto aberto'}{flowDirty ? ' •' : ''}</div>
-        <div className="topbar-spacer" />
-        <span className="environment">{info.mode} · {workspace ? 'ONLINE' : 'SEM WORKSPACE'}</span>
-        <button className="button button--outline" title="Fechar aplicativo" onClick={() => window.omni?.requestExit()}>Sair</button>
-        <button disabled={busy} onClick={openWorkspace} className="button button--outline">Abrir projeto</button>
-        <button disabled={busy || !workspace || !flowDirty} onClick={save} className="button button--solid">Salvar fluxo</button>
+      <header className="topbar topbar--refined">
+        <div className="brand-lockup">
+          <span className="brand-logo" aria-hidden="true"><span className="brand-logo__glyph">O<span>F</span></span></span>
+          <div className="brand-name">OMNIFORGE <span>STUDIO</span><small>v{info.version}</small></div>
+        </div>
+        <span className="topbar-separator" aria-hidden="true"/>
+        <div className="topbar-workspace" title={workspace}>
+          <small>WORKSPACE</small>
+          <strong>{workspace ? workspace.split(/[\\/]/).pop() : 'Nenhum projeto aberto'}{dirty||flowDirty||cadDirty ? <i aria-label="Alterações não salvas" title="Alterações não salvas" className="topbar-unsaved"/> : null}</strong>
+        </div>
+        <div className="topbar-spacer"/>
+        <span className="environment" title="O OmniForge opera localmente"><span className="environment__dot"/> {info.mode} · LOCAL</span>
+        <button type="button" className="button button--outline topbar-exit" title="Fechar OmniForge" aria-label="Sair" onClick={()=>window.omni?.requestExit()}><NavGlyph name="close" size={14}/><span>Sair</span></button>
+        <button disabled={busy} type="button" onClick={openWorkspace} className="button button--outline topbar-open"><NavGlyph name="folder" size={16}/> Abrir projeto</button>
+        {(mode==='canvas'||flowDirty) && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
       </header>
 
       <div className="workspace-layout">
-        <nav className="rail" aria-label="Ferramentas">
-          <button title="Visão geral" aria-label="Visão geral" className={mode === 'home' ? 'rail-active' : ''} onClick={() => setMode('home')}>⌂</button>
-          <button title="Modelos de fluxo" aria-label="Modelos de fluxo" className={mode === 'templates' ? 'rail-active' : ''} onClick={() => setMode('templates')}>▧</button>
-          <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
-          <button title="Catálogo de projetos" aria-label="Catálogo de projetos" className={mode === 'projects' ? 'rail-active' : ''} onClick={() => setMode('projects')}>▤</button>
-          <button title="Conectores de projetos" aria-label="Conectores de projetos" className={mode === 'integrations' ? 'rail-active' : ''} onClick={() => setMode('integrations')}>⇄</button>
-          <button title="CAD Sketch 2D" aria-label="CAD Sketch 2D" className={mode === 'cad' ? 'rail-active' : ''} onClick={() => setMode('cad')}>▱</button>
-          <button title="Editor de código" className={mode === 'code' ? 'rail-active' : ''} onClick={() => {setMode('code'); setSideMode('files');}}>◧</button>
-          <button title="Histórico de execuções" aria-label="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
-          <button title="Sobre o projeto" className={mode === 'about' ? 'rail-active' : ''} onClick={() => setMode('about')}>ⓘ</button>
-        </nav>
+        <NavigationSidebar mode={mode} collapsed={navigationCollapsed} onCollapse={()=>setNavigationCollapsed(value=>!value)}
+          onNavigate={navigate} onOpenProject={openWorkspace} workspace={workspace} projectsCount={projects.length} busy={busy}/>
 
-        <aside className="sidebar" style={{display:mode === 'cad' ? 'none' : undefined}}>
-          <div className="sidebar-tabs">
-            <button className={sideMode === 'catalog' ? 'active' : ''} onClick={() => setSideMode('catalog')}>BLOCOS</button>
-            <button className={sideMode === 'files' ? 'active' : ''} onClick={() => setSideMode('files')}>ARQUIVOS</button>
+        {(mode==='canvas'||mode==='code') && utilityOpen && <aside className="sidebar sidebar--contextual" aria-label="Painel de ferramentas" data-testid="context-sidebar">
+          <div className="sidebar-heading">
+            <div><small>FERRAMENTAS</small><strong>{sideMode==='catalog'?'Biblioteca de blocos':'Explorador'}</strong></div>
+            <button type="button" title="Ocultar painel de ferramentas" aria-label="Ocultar painel de ferramentas"
+              className="sidebar-hide" onClick={()=>setUtilityOpen(false)}><NavGlyph name="close" size={15}/></button>
           </div>
-          {sideMode === 'catalog' ? (
-            <div className="sidebar-content">
-              <div className="section-label">CATÁLOGO / {Object.keys(NODE_CATALOG).length} NÓS REAIS</div>
-              <p className="sidebar-description">Busque, filtre e conecte funções verificáveis. Nós sem executor não aparecem como disponíveis.</p>
-              <input className="catalog-search" aria-label="Buscar blocos" placeholder="Buscar blocos, dados, lógica..." value={catalogQuery} onChange={event=>setCatalogQuery(event.target.value)}/>
-              <select className="catalog-category" aria-label="Filtrar categoria" value={catalogCategory} onChange={event=>setCatalogCategory(event.target.value)}>
-                {catalogCategories.map(category=><option key={category}>{category}</option>)}
-              </select>
-              <div className="catalog-results">{visibleCatalogCount} bloco(s) encontrados</div>
-              {Object.entries(catalogGroups).map(([category, items]) => <section key={category} aria-label={category} className="catalog-group">
-                <div className="catalog-group-title"><span>{CATEGORY_ICONS[category] || '□'} {category}</span><span>{items.length}</span></div>
-                {items.map(([type,node])=><button key={type} className="catalog-item" title={node.description} onClick={() => addNode(type)}>
-                  <span className="catalog-icon">{ICONS[type]||CATEGORY_ICONS[category]||'□'}</span>
-                  <span><strong>{node.label}</strong><small>{node.description}</small></span>
-                  <span className="catalog-plus">+</span>
+          <div className="sidebar-tabs" role="group" aria-label="Tipo de painel">
+            <button type="button" className={sideMode==='catalog'?'active':''} aria-pressed={sideMode==='catalog'}
+              onClick={()=>setSideMode('catalog')}>BLOCOS</button>
+            <button type="button" className={sideMode==='files'?'active':''} aria-pressed={sideMode==='files'}
+              onClick={()=>setSideMode('files')}>ARQUIVOS</button>
+          </div>
+          {sideMode==='catalog'?<div className="sidebar-content sidebar-content--catalog">
+            <div className="sidebar-summary">{Object.keys(NODE_CATALOG).length} nós executáveis</div>
+            <div className="sidebar-search-wrap"><NavGlyph name="search" size={15}/>
+              <input ref={catalogSearchRef} className="catalog-search" aria-label="Buscar blocos" placeholder="Buscar bloco ou função..."
+                value={catalogQuery} onChange={event=>setCatalogQuery(event.target.value)}/>
+              {catalogQuery && <button type="button" aria-label="Limpar busca de blocos"
+                onClick={()=>{setCatalogQuery('');catalogSearchRef.current?.focus();}}><NavGlyph name="close" size={13}/></button>}
+            </div>
+            <select className="catalog-category" aria-label="Filtrar categoria" value={catalogCategory}
+              onChange={event=>setCatalogCategory(event.target.value)}>
+              {catalogCategories.map(category=><option key={category}>{category}</option>)}
+            </select>
+            <div className="catalog-results">{visibleCatalogCount} resultado(s)</div>
+            {Object.entries(catalogGroups).map(([category, items])=><section key={category} aria-label={category} className="catalog-group">
+              <div className="catalog-group-title"><span>{category}</span><span>{items.length}</span></div>
+              {items.map(([type,node])=><button key={type} type="button" className="catalog-item" title={node.description}
+                disabled={busy} onClick={()=>addNode(type)}>
+                <span className="catalog-icon"><NavGlyph name={CATEGORY_NAV_ICONS[category]||'workflow'} size={16}/></span>
+                <span className="catalog-item__copy"><strong>{node.label}</strong><small>{node.description}</small></span>
+                <span className="catalog-plus" aria-hidden="true">+</span>
+              </button>)}
+            </section>)}
+            {!visibleCatalogCount && <p className="empty-small">Nenhum bloco encontrado. Tente outro termo ou categoria.</p>}
+          </div>:<div className="sidebar-content sidebar-content--files">
+            <div className="sidebar-summary">Arquivos do workspace</div>
+            {workspace?<>
+              <div className="sidebar-search-wrap"><NavGlyph name="search" size={15}/>
+                <input className="catalog-search" aria-label="Buscar arquivo" placeholder="Buscar arquivos..."
+                  value={fileQuery} onChange={e=>setFileQuery(e.target.value)}/>
+                {fileQuery && <button type="button" aria-label="Limpar busca de arquivos" onClick={()=>setFileQuery('')}>
+                  <NavGlyph name="close" size={13}/></button>}
+              </div>
+              <div className="folder-title" title={workspace}><NavGlyph name="folder" size={15}/> {workspace.split(/[\\/]/).pop()}</div>
+              <div className="file-list" role="tree" aria-label="Arquivos do projeto">
+                {visibleFiles.map(entry=><button type="button" key={entry.path}
+                  role="treeitem" aria-expanded={entry.kind==='directory' ? !collapsedFolders.has(entry.path) : undefined}
+                  title={entry.path} disabled={busy}
+                  className={`file-entry ${entry.kind==='directory'?'file-entry--directory':''} ${entry.path===fileName?'file-entry--selected':''}`}
+                  onClick={()=>entry.kind==='directory'?toggleFolder(entry.path):openFile(entry.path)}
+                  style={{paddingLeft:fileQuery?12:10+entry.depth*12}}>
+                  {entry.kind==='directory'?<NavGlyph name="chevron" size={13}/>:<NavGlyph name="code" size={13}/>}
+                  <span>{fileQuery?entry.path:entry.path.split('/').pop()}</span>
                 </button>)}
-              </section>)}
-              {!visibleCatalogCount && <p className="empty-small">Nenhum bloco encontrado. Tente outro termo ou categoria.</p>}
-            </div>
-          ) : (
-            <div className="sidebar-content">
-              <div className="section-label">EXPLORADOR DE PROJETO</div>
-              {workspace ? (
-                <>
-                  <div className="folder-title">▾ {workspace.split(/[\\/]/).pop()}</div>
-                  <div className="file-list">
-                    {files.map(entry => (
-                      <button key={entry.path} disabled={entry.kind === 'directory'} onClick={() => openFile(entry.path)}
-                        className={`file-entry ${entry.path === fileName ? 'file-entry--selected' : ''}`}
-                        style={{ paddingLeft: 10 + entry.depth * 14 }}>
-                        <span>{entry.kind === 'directory' ? '▸' : '▤'}</span>
-                        <span>{entry.path.split('/').pop()}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <button onClick={() => execute(async () => { setFiles(await window.omni.listFiles()); notify('Explorador atualizado.'); })}
-                    className="subtle-action">↻ Atualizar arquivos</button>
-                </>
-              ) : <div className="empty-small">Abra uma pasta para visualizar seus arquivos.</div>}
-            </div>
-          )}
-          <div className="sidebar-footer"><span className="indicator-dot"/> Ambiente local • Desktop</div>
-        </aside>
+                {!visibleFiles.length && <p className="empty-small">Nenhum arquivo encontrado.</p>}
+              </div>
+              <button type="button" disabled={busy} className="subtle-action"
+                onClick={()=>execute(async()=>{setFiles(await window.omni.listFiles());notify('Explorador atualizado.');})}>Atualizar arquivos</button>
+            </>:<div className="empty-small">Abra uma pasta para visualizar os arquivos locais do projeto.</div>}
+          </div>}
+          <div className="sidebar-footer"><span>CTRL + K</span><span>Buscar blocos</span></div>
+        </aside>}
 
         <main className="main-panel">
-          {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={setMode} onOpenProject={openWorkspace}/>}
+          {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={navigate} onOpenProject={openWorkspace} flowDirty={flowDirty} cadDirty={cadDirty} lastRun={lastRun}/>}
           <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}/></div>
           {mode === 'canvas' && (
             <>
               <div className="main-toolbar">
                 <div className="toolbar-heading"><span className="eyebrow">WORKSPACE / AUTOMAÇÕES</span><strong>Editor visual</strong></div>
                 <div className="toolbar-actions">
-                  <button className="button button--subtle" onClick={validate}>Validar</button>
+                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar biblioteca de blocos':'Mostrar painel de ferramentas'} title="Alternar biblioteca de blocos" onClick={()=>{setUtilityOpen(value=>!value);setSideMode('catalog');}}><NavGlyph name="panel" size={16}/> <span>Biblioteca</span></button>
+                  <button className="button button--subtle" disabled={busy} onClick={validate}>Validar</button>
                   <button className="button button--subtle" disabled={busy || !workspace} onClick={() => run(true)}>Simular</button>
                   <button className="button button--run" disabled={busy || !workspace} onClick={() => run(false)}>▶ Executar</button>
+                  {running && <button className="button button--stop" type="button" data-testid="flow-cancel" onClick={cancelRun}>■ Cancelar</button>}
+                  <button type="button" className="button button--subtle button--inspector" title="Alternar inspetor" aria-label={inspectorOpen?'Ocultar inspetor':'Mostrar inspetor'}
+                    onClick={()=>setInspectorOpen(open=>!open)}><NavGlyph name="layers" size={16}/></button>
                 </div>
               </div>
               <div className="canvas-wrap">
                 <ReactFlow
                   nodes={nodes} edges={edges} nodeTypes={NODE_TYPES}
                   onNodesChange={handleNodesChange} onEdgesChange={handleEdgesChange}
-                  onConnect={onConnect} onNodeClick={(_event, node) => setSelectedId(node.id)}
+                  onConnect={onConnect} onNodeClick={(_event, node) => {setSelectedId(node.id);setInspectorOpen(true);}}
                   onPaneClick={() => setSelectedId(null)}
                   fitView fitViewOptions={{ padding: 0.24 }}
                   proOptions={{ hideAttribution: false }}
@@ -427,7 +515,10 @@ export default function App() {
             <>
               <div className="main-toolbar">
                 <div className="toolbar-heading"><span className="eyebrow">EDITOR / ARQUIVOS LOCAIS</span><strong>{fileName || 'Nenhum arquivo selecionado'} {dirty ? '•' : ''}</strong></div>
-                <div className="toolbar-actions"><button className="button button--solid" disabled={busy || !fileName || !dirty} onClick={saveFile}>Salvar arquivo</button></div>
+                <div className="toolbar-actions">
+                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar explorador de arquivos':'Mostrar painel de ferramentas'} onClick={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}><NavGlyph name="panel" size={16}/> Explorador</button>
+                  <button className="button button--solid" disabled={busy || !fileName || !dirty} onClick={saveFile}>Salvar arquivo</button>
+                </div>
               </div>
               {fileName ? (
                 <div className="editor-wrap"><Editor theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
@@ -551,7 +642,7 @@ export default function App() {
           )}
         </main>
 
-        <aside className="inspector" style={{display:mode === 'cad' ? 'none' : undefined}}>
+        {mode==='canvas' && inspectorOpen && <aside className="inspector" aria-label="Inspetor de automações">
           <div className="inspector-heading">INSPECTOR <span>{mode === 'canvas' ? 'NÓ' : 'PROJETO'}</span></div>
           {mode === 'canvas' && selected ? (
             <div className="inspector-section">
@@ -586,7 +677,9 @@ export default function App() {
           ) : <div className="inspector-section"><p>Selecione um bloco para editar as configurações. As informações de validação e execução aparecem abaixo.</p></div>}
           <div className="inspector-heading inspector-heading--border">DIAGNÓSTICO <span>{validation?.valid === true ? 'PASS' : validation ? 'FAIL' : '—'}</span></div>
           <div className="diagnostic-log">
-            {!validation && !lastRun && <div className="log-muted">Valide, simule ou execute o fluxo para ver os resultados.</div>}
+            {running && <div className="run-active" data-testid="flow-running" role="status">● EXECUTOR ISOLADO · {liveSteps.length} etapa(s) concluída(s) · cancelamento disponível</div>}
+            {running && liveSteps.map((step, index) => <div key={'live-'+index} className="log-line"><span className={step.status === 'PASS' ? 'log-success' : 'log-muted'}>{step.status}</span> {step.nodeId} <span className="log-muted">{step.elapsedMs}ms</span></div>)}
+            {!running && !validation && !lastRun && <div className="log-muted">Valide, simule ou execute o fluxo para ver os resultados.</div>}
             {validation && <>
               <div className={validation.valid ? 'log-success' : 'log-error'}>{validation.valid ? '✓ Estrutura válida' : `× ${validation.errors.length} erro(s)`}</div>
               {validation.errors.map((message, i) => <div key={i} className="log-line log-error">{message}</div>)}
@@ -599,9 +692,9 @@ export default function App() {
               {lastRun.error && <div className="log-line log-error">{lastRun.error}</div>}
             </>}
           </div>
-        </aside>
+        </aside>}
       </div>
-      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core {info.version} · Workspace local</span></footer>
+      <footer className="statusbar"><span className="statusbar-left"><span className={`indicator-dot ${lastRun&&!lastRun.ok?'indicator-dot--error':''}`}/> {status}</span><span>OmniForge {info.version} <span className="statusbar-separator">·</span> Local</span></footer>
     </div>
   );
 }

@@ -7,6 +7,11 @@ on:
     tags: ['v*']
 permissions:
   contents: read
+
+# Skip superseded branch builds; protect Windows runner minutes.
+concurrency:
+  group: windows-package-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 jobs:
   windows-package:
     runs-on: windows-latest
@@ -26,6 +31,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run smoke:electron
+        timeout-minutes: 5
       - run: npm run dist:win
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh
