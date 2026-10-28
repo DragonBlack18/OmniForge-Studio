@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   selectWorkspace: () => ipcRenderer.invoke('omni:selectWorkspace'),
   listExtensions: () => ipcRenderer.invoke('omni:listExtensions'),
   installExtension: () => ipcRenderer.invoke('omni:installExtension'),
+  installExampleExtension: () => ipcRenderer.invoke('omni:installExampleExtension'),
   setExtensionEnabled: (id,enabled) => ipcRenderer.invoke('omni:setExtensionEnabled',id,enabled),
   setExtensionGrant: (id,permission,enabled) => ipcRenderer.invoke('omni:setExtensionGrant',id,permission,enabled),
   removeExtension: id => ipcRenderer.invoke('omni:removeExtension',id),

@@ -170,6 +170,21 @@ async function initializeIpc() {
     if(approval.response!==1)return null;
     return core.installExtension(catalogDataRoot,manifest,{replace:Boolean(existing)});
   }));
+  register('installExampleExtension',()=>serialRegistryAction(async()=>{
+    const manifest=core.EXAMPLE_EXTENSION;
+    const current=(await core.listInstalledExtensions(catalogDataRoot))
+      .find(item=>item.id===manifest.id);
+    const approval=await dialog.showMessageBox(mainWindow,{
+      type:'question',title:'Instalar exemplo funcional',
+      message:'Instalar Engenharia de dados?',
+      detail:'Ações reais: converter kg em gramas e formatar etiqueta de ordem.\n\n'+
+        'O exemplo será instalado DESATIVADO e sem permissões. '+ 
+        'Ative-o e conceda acesso ao workspace para executar; nada é gravado durante a instalação.',
+      buttons:['Cancelar','Instalar exemplo'],defaultId:0,cancelId:0,noLink:true
+    });
+    if(approval.response!==1)return null;
+    return core.installExtension(catalogDataRoot,manifest,{replace:Boolean(current)});
+  }));
   register('setExtensionEnabled',(id,enabled)=>serialRegistryAction(()=>
     core.setExtensionEnabled(catalogDataRoot,id,enabled)
   ));

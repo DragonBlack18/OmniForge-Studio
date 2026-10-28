@@ -21,3 +21,5 @@ export { validateExtensionManifest, executeExtensionSteps, resolveExtensionActio
 export { runExtensionAction } from './extension-runtime.mjs';
 export { listInstalledExtensions, extensionSnapshot, readExtensionFile, installExtension,
   setExtensionEnabled, setExtensionGrant, removeExtension } from './extension-registry.mjs';
+
+export { EXAMPLE_EXTENSION } from './extension-example.mjs';
