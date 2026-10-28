@@ -14,3 +14,10 @@ export { inspectProject, listProjects, registerProject, getProject, forgetProjec
 
 export { registerCapability, forgetCapability } from './projects.mjs';
 export { validateSchema, validateCapabilityDefinition, assertPayloadSchema, findProjectCapability, summarizeProjectCalls, executeProjectCapability } from './capabilities.mjs';
+
+// Safe, data-only extension SDK; no arbitrary extension runtime code is loaded.
+export { validateExtensionManifest, executeExtensionSteps, resolveExtensionAction,
+  EXTENSION_PERMISSIONS } from './extension-contract.mjs';
+export { runExtensionAction } from './extension-runtime.mjs';
+export { listInstalledExtensions, extensionSnapshot, readExtensionFile, installExtension,
+  setExtensionEnabled, setExtensionGrant, removeExtension } from './extension-registry.mjs';

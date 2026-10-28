@@ -25,7 +25,9 @@ export function runSupervisedFlow(flow, options = {}, {
     throw new Error('Tempo limite de execução inválido (100 a 180000 ms).');
   if (!options || typeof options.workspace !== 'string' || !options.workspace ||
       typeof options.dryRun !== 'boolean' || typeof options.networkApproved !== 'boolean' ||
-      !Array.isArray(options.projects) || options.projects.length > 200)
+      !Array.isArray(options.projects) || options.projects.length > 200 ||
+      (options.extensions !== undefined &&
+       (!Array.isArray(options.extensions) || options.extensions.length > 40)))
     throw new Error('Parâmetros do executor supervisionado inválidos.');
   if (signal && (typeof signal.aborted !== 'boolean' || typeof signal.addEventListener !== 'function'))
     throw new Error('Sinal de cancelamento inválido.');
