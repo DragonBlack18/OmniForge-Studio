@@ -52,3 +52,14 @@
 - v0.1.9: 49 pure transformations + protected output file read, 55 total functional nodes and extensive unit coverage.
 - v0.1.10: built-in template library, real catalog and window close Electron E2E tests, Windows Portable/Setup smoke gate.
 - Out of scope: third-party n8n connector ecosystem, arbitrary code execution, remote APIs, automatic timers and CAD.
+
+## v0.2.0 — CAD Sketch 2D e nova experiência de workbench (em validação)
+
+- Desenho técnico 2D nativo em mm: linhas, retângulos, círculos, camadas, snapping, navegação, seleção, medidas e desfazer/refazer.
+- Persistência independente de CAD por workspace, revisão SHA-256, snapshots anteriores e exportação SVG/DXF R12.
+- Dois blocos executáveis de integração entre CAD e fluxos, além de um sexto modelo de automação.
+- Nova tela inicial com visão dos módulos realmente operacionais e dos recursos ainda planejados.
+- Revisão do design visual e da hierarquia da interface, mantendo a identidade OmniForge.
+- Corrigido diagnóstico `partialSimulation` em ramificações Se/Senão reais, com testes de regressão.
+- Pesquisa e decisões de licença para Theia, FreeCAD, LibreCAD, JSCAD, Bitbybit e kernels geométricos.
+- Gating necessário antes de release: Node tests, build React/Vite, E2E Electron Windows, testes do portátil e NSIS.

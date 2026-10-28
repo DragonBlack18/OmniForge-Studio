@@ -11,6 +11,18 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omniforge-electron-smoke-'));
 let client;
 let testServer;
+// A hung UI or Electron child must fail visibly rather than occupy the Windows
+// release runner forever. Keep this watchdog independent from Playwright timeouts.
+let phase = 'initializing';
+const smokeWatchdog = setTimeout(() => {
+  console.error(`[SMOKE TIMEOUT] phase=${phase}; maximum 180s exceeded.`);
+  process.exit(1);
+}, 180_000);
+smokeWatchdog.unref();
+function checkpoint(name) {
+  phase = name;
+  console.log(`[SMOKE] ${name}`);
+}
 
 async function bootAndOpen() {
   client = await electron.launch({
@@ -31,6 +43,7 @@ async function bootAndOpen() {
 
 try {
   await fs.writeFile(path.join(workspace, 'exemplo.py'), 'print("real")\n', 'utf8');
+  checkpoint('first startup and initial workflow');
   let page = await bootAndOpen();
   await page.getByRole('button', { name: 'Salvar fluxo' }).click();
   await page.getByText('Fluxo gravado em', { exact: false }).waitFor();
@@ -60,10 +73,12 @@ try {
   await page.getByText('exemplo.py', { exact: false }).first().waitFor();
   const loaded = await page.evaluate(async () => window.omni.readFile('exemplo.py'));
   assert.equal(loaded.content, 'print("real")\n');
+  checkpoint('closing first desktop session');
   await client.close();
   client = null;
 
   // Real application restart: flow and the user's code must still be there.
+  checkpoint('restart and persistence');
   page = await bootAndOpen();
   const document = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'flows', 'principal.json'), 'utf8'));
   assert.equal(document.nodes.length, 3);
@@ -76,6 +91,7 @@ try {
   await page.getByText('Estrutura válida', { exact: false }).waitFor();
   // v0.1.5: two independently registered folders, real local API, native consent,
   // typed contract and persisted metadata. The service is a REAL local HTTP server.
+  checkpoint('project integration and HTTP service');
   const backendFolder = path.join(workspace, 'servico-externo');
   await fs.mkdir(backendFolder);
   testServer = http.createServer((req, res) => {
@@ -137,6 +153,7 @@ try {
   const output = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'output', 'integracao.json'), 'utf8'));
   assert.deepEqual(output.data, { confirmado: true });
   assert.deepEqual(await fs.readdir(backendFolder), [], 'Projeto de destino deve permanecer intacto.');
+  checkpoint('restarting after project integration');
   await client.close(); client = null;
   page = await bootAndOpen();
   const persistedProjects = await page.evaluate(() => window.omni.listProjects());
@@ -145,7 +162,7 @@ try {
   // v0.1.10: real renderer validates catalog search and a built-in model.
   await page.getByRole('button', { name:'Modelos de fluxo' }).click();
   await page.getByText('Biblioteca de fluxos', { exact:true }).waitFor();
-  assert.equal(await page.getByRole('button',{name:'Usar modelo'}).count(),5);
+  assert.equal(await page.getByRole('button',{name:'Usar modelo'}).count(),6);
   await page.evaluate(() => { window.confirm = () => true; });
   await page.getByRole('button',{name:'Usar modelo'}).last().click();
   await page.getByText('Modelo carregado: Normalizar texto.',{exact:false}).waitFor();
@@ -156,6 +173,53 @@ try {
   assert.equal(await page.locator('.catalog-item').count(),1);
   await page.getByLabel('Buscar blocos').fill('');
   assert.ok((await page.locator('.catalog-item').count()) > 40);
+
+  checkpoint('CAD draw, save and export');
+  // CAD v0.2.0: draw actual line on the SVG canvas, save a versioned
+  // sketch, export DXF/SVG, and verify real files before native exit.
+  await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
+  await page.getByTestId('cad-workbench').waitFor();
+  await page.getByRole('button',{name:'Linha',exact:true}).click();
+  const sketchCanvas = page.getByTestId('cad-canvas');
+  const rect = await sketchCanvas.boundingBox();
+  assert.ok(rect?.width > 250 && rect?.height > 200, 'CAD viewport precisa estar visível');
+  await page.mouse.move(rect.x+rect.width*.32,rect.y+rect.height*.43);
+  await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.65,rect.y+rect.height*.62,{steps:5});
+  await page.mouse.up();
+  await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
+  await page.getByTestId('cad-save').click();
+  await page.getByText('Desenho salvo:',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'Exportar DXF'}).click();
+  await page.getByRole('button',{name:'Exportar SVG'}).click();
+  const cadFolder=path.join(workspace,'.omniforge','cad');
+  assert.equal(JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8')).entities.length,1);
+  assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.dxf'),'utf8'),/\nLINE\n/);
+  assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.svg'),'utf8'),/<line /);
+  const cadBeforeRestart=await page.evaluate(()=>window.omni.loadCadSketch());
+  assert.equal(cadBeforeRestart.sketch.entities.length,1);
+  const cadGraph = { schemaVersion:1,name:'CAD para automação',nodes:[
+    {id:'t',type:'trigger.manual',position:{x:0,y:0},config:{payload:'{}'}},
+    {id:'m',type:'cad.sketchReport',position:{x:240,y:0},config:{}},
+    {id:'o',type:'io.writeJson',position:{x:480,y:0},config:{fileName:'cad-automation-report.json'}}
+  ],edges:[
+    {id:'c1',source:'t',target:'m',sourceHandle:'out',targetHandle:'in'},
+    {id:'c2',source:'m',target:'o',sourceHandle:'out',targetHandle:'in'}
+  ]};
+  const cadRun=await page.evaluate(graph=>window.omni.executeFlow(graph,false),cadGraph);
+  assert.equal(cadRun.ok,true,cadRun.error);
+  const cadReport=JSON.parse(await fs.readFile(path.join(workspace,'.omniforge','output','cad-automation-report.json'),'utf8'));
+  assert.equal(cadReport.count,1);
+  assert.equal(cadReport.units,'mm');
+
+  checkpoint('native close with unsaved CAD');
+  // The native exit confirmation should also cover unsaved CAD edits.
+  await page.getByRole('button',{name:'Círculo',exact:true}).click();
+  await page.mouse.move(rect.x+rect.width*.42,rect.y+rect.height*.4);
+  await page.mouse.down();
+  await page.mouse.move(rect.x+rect.width*.46,rect.y+rect.height*.4,{steps:3});
+  await page.mouse.up();
+  await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '2');
 
   // v0.1.6 Windows gate: native close must respond (including dirty buffers),
   // rather than silently trapping the renderer through beforeunload.
@@ -178,7 +242,15 @@ try {
   }).catch(() => {});
   await exited;
   client = null;
-  console.log('PASS Electron E2E: project catalog, cross-project POST, persistence and native cancel/exit');
+  // Restart after an unsaved CAD edit: the previously saved one-entity
+  // drawing must remain intact; the unsaved circle must not persist.
+  checkpoint('restart and persisted CAD check');
+  page=await bootAndOpen();
+  await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
+  await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
+  assert.equal((await page.evaluate(()=>window.omni.loadCadSketch())).sketch.entities.length,1);
+  await client.close();client=null;
+  console.log('PASS Electron E2E: automation, project APIs, CAD draw/save/export/restart and native close');
 } catch (error) {
   if (client) {
     try {
@@ -189,7 +261,9 @@ try {
   console.error(error);
   process.exitCode = 1;
 } finally {
+  checkpoint('cleanup');
   if (client) await client.close().catch(() => {});
   if (testServer) { testServer.closeAllConnections(); await new Promise(resolve => testServer.close(resolve)); }
   await fs.rm(workspace, { recursive: true, force: true });
+  clearTimeout(smokeWatchdog);
 }

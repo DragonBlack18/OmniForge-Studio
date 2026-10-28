@@ -42,6 +42,12 @@ export function validateFlow(flow, { projects = [] } = {}) {
       continue;
     }
     try { validatePureNode(node); } catch (error) { errors.push(`Nó ${node.id}: ${error.message}`); }
+    // Enforce select contracts for built-in adapters as well as pure nodes.
+    for (const field of getNodeDefinition(node.type).fields.filter(f => f.kind === 'select')) {
+      if (!field.options.includes(node.config[field.key])) {
+        errors.push(`Nó ${node.id}: opção inválida em ${field.key}.`);
+      }
+    }
     if (node.type === 'trigger.manual') {
       try { JSON.parse(node.config.payload); } catch { errors.push(`JSON de entrada inválido em ${node.id}.`); }
     }

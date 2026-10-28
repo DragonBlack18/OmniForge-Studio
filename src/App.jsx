@@ -13,6 +13,8 @@ import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { NODE_CATALOG, exampleFlow, createNode } from '../core/catalog.mjs';
 import { validateFlow } from '../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../core/templates.mjs';
+import CadWorkbench from './components/CadWorkbench.jsx';
+import WorkspaceOverview from './components/WorkspaceOverview.jsx';
 
 self.MonacoEnvironment = {
   getWorker(_moduleId, label) {
@@ -26,7 +28,7 @@ self.MonacoEnvironment = {
 loader.config({ monaco });
 
 const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'io.readJson': '▤', 'http.localJson': '⇄', 'project.callLocalApi': '⊞' };
-const CATEGORY_ICONS = { 'Gatilhos': '▶', 'Lógica':'◇','Dados':'▤','Texto':'T','Matemática':'∑','Codificação':'#','Datas':'◷','Arquivos':'▣','Integrações':'⇄','Projetos':'⊞' };
+const CATEGORY_ICONS = { 'Gatilhos': '▶', 'Lógica':'◇','Dados':'▤','Texto':'T','Matemática':'∑','Codificação':'#','Datas':'◷','Arquivos':'▣','Integrações':'⇄','Projetos':'⊞','Engenharia':'▱' };
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
 const DEFAULT = exampleFlow();
 const toUiNodes = flow => flow.nodes.map(node => ({
@@ -78,7 +80,7 @@ function getLanguage(filename) {
 }
 
 export default function App() {
-  const [mode, setMode] = useState('canvas');
+  const [mode, setMode] = useState('home');
   const [sideMode, setSideMode] = useState('catalog');
   const [catalogQuery, setCatalogQuery] = useState('');
   const [catalogCategory, setCatalogCategory] = useState('Todas');
@@ -98,10 +100,11 @@ export default function App() {
   const [fileName, setFileName] = useState('');
   const [fileContent, setFileContent] = useState('');
   const [dirty, setDirty] = useState(false);
+  const [cadDirty, setCadDirty] = useState(false);
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.1.10', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.2.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -130,8 +133,8 @@ export default function App() {
   // from a renderer: Electron can silently cancel every attempt to close.
   useEffect(() => {
     if (!window.omni?.setUnsavedChanges) return;
-    window.omni.setUnsavedChanges(Boolean(dirty || flowDirty)).catch(() => {});
-  }, [dirty, flowDirty]);
+    window.omni.setUnsavedChanges(Boolean(dirty || flowDirty || cadDirty)).catch(() => {});
+  }, [dirty, flowDirty, cadDirty]);
 
   useEffect(() => {
     if (!window.omni) { setStatus('Abra esta interface pelo Electron: npm run dev.'); return; }
@@ -157,7 +160,7 @@ export default function App() {
     setFlowRevision(result.flowRevision);
     setFlowDirty(result.flowRevision === null);
     setSelectedId(result.flow.nodes[0]?.id || null);
-    setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false);
+    setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
     setLastRun(null); setValidation(null);
     setHistory(await window.omni.listRunHistory());
     setSelectedHistory(null);
@@ -166,7 +169,7 @@ export default function App() {
     notify(`Projeto aberto: ${result.workspace}`);
   };
 
-  const confirmProjectSwitch = () => !(dirty || flowDirty) ||
+  const confirmProjectSwitch = () => !(dirty || flowDirty || cadDirty) ||
     window.confirm('Existem alterações não salvas. Deseja trocar de projeto e descartá-las?');
 
   const openWorkspace = () => execute(async () => {
@@ -308,7 +311,7 @@ export default function App() {
         <div className="topbar-separator" />
         <div className="workspace-pill" title={workspace}>{workspace ? workspace.split(/[\\/]/).pop() : 'Nenhum projeto aberto'}{flowDirty ? ' •' : ''}</div>
         <div className="topbar-spacer" />
-        <span className="environment">{info.mode}</span>
+        <span className="environment">{info.mode} · {workspace ? 'ONLINE' : 'SEM WORKSPACE'}</span>
         <button className="button button--outline" title="Fechar aplicativo" onClick={() => window.omni?.requestExit()}>Sair</button>
         <button disabled={busy} onClick={openWorkspace} className="button button--outline">Abrir projeto</button>
         <button disabled={busy || !workspace || !flowDirty} onClick={save} className="button button--solid">Salvar fluxo</button>
@@ -316,16 +319,18 @@ export default function App() {
 
       <div className="workspace-layout">
         <nav className="rail" aria-label="Ferramentas">
+          <button title="Visão geral" aria-label="Visão geral" className={mode === 'home' ? 'rail-active' : ''} onClick={() => setMode('home')}>⌂</button>
           <button title="Modelos de fluxo" aria-label="Modelos de fluxo" className={mode === 'templates' ? 'rail-active' : ''} onClick={() => setMode('templates')}>▧</button>
           <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
           <button title="Catálogo de projetos" aria-label="Catálogo de projetos" className={mode === 'projects' ? 'rail-active' : ''} onClick={() => setMode('projects')}>▤</button>
           <button title="Conectores de projetos" aria-label="Conectores de projetos" className={mode === 'integrations' ? 'rail-active' : ''} onClick={() => setMode('integrations')}>⇄</button>
+          <button title="CAD Sketch 2D" aria-label="CAD Sketch 2D" className={mode === 'cad' ? 'rail-active' : ''} onClick={() => setMode('cad')}>▱</button>
           <button title="Editor de código" className={mode === 'code' ? 'rail-active' : ''} onClick={() => {setMode('code'); setSideMode('files');}}>◧</button>
           <button title="Histórico de execuções" aria-label="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
           <button title="Sobre o projeto" className={mode === 'about' ? 'rail-active' : ''} onClick={() => setMode('about')}>ⓘ</button>
         </nav>
 
-        <aside className="sidebar">
+        <aside className="sidebar" style={{display:mode === 'cad' ? 'none' : undefined}}>
           <div className="sidebar-tabs">
             <button className={sideMode === 'catalog' ? 'active' : ''} onClick={() => setSideMode('catalog')}>BLOCOS</button>
             <button className={sideMode === 'files' ? 'active' : ''} onClick={() => setSideMode('files')}>ARQUIVOS</button>
@@ -375,6 +380,8 @@ export default function App() {
         </aside>
 
         <main className="main-panel">
+          {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={setMode} onOpenProject={openWorkspace}/>}
+          <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}/></div>
           {mode === 'canvas' && (
             <>
               <div className="main-toolbar">
@@ -539,12 +546,12 @@ export default function App() {
               <h1>OmniForge Studio</h1><p>Ambiente local para programação, construção de fluxos e engenharia visual.</p>
               <div className="about-grid"><div><small>VERSÃO</small><strong>{info.version}</strong></div><div><small>EXECUÇÃO</small><strong>LOCAL</strong></div><div><small>DESENVOLVEDOR</small><strong>Davi Brand</strong></div></div>
               <button className="button button--outline" disabled={!window.omni} onClick={() => window.omni.openDeveloper()}>GitHub do desenvolvedor</button>
-              <div className="about-note">Este é o primeiro marco funcional. Compatibilidade ampla com extensões, integrações industriais e CAD paramétrico pertencem às etapas futuras, não estão ativos nesta versão.</div>
+              <div className="about-note">OmniForge CAD Sketch 2D já permite desenhar e exportar SVG/DXF. CAD sólido paramétrico 3D, automação industrial, agentes de IA e host de extensões são módulos futuros com testes próprios.</div>
             </div>
           )}
         </main>
 
-        <aside className="inspector">
+        <aside className="inspector" style={{display:mode === 'cad' ? 'none' : undefined}}>
           <div className="inspector-heading">INSPECTOR <span>{mode === 'canvas' ? 'NÓ' : 'PROJETO'}</span></div>
           {mode === 'canvas' && selected ? (
             <div className="inspector-section">

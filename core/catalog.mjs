@@ -35,6 +35,17 @@ export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
       { key: 'capabilityId', label: 'Capacidade', kind: 'capability', default: '' }
     ]
   },
+  'cad.sketchReport': {
+    category: 'Engenharia', label: 'Ler métricas CAD',
+    description: 'Lê o desenho CAD salvo no workspace e devolve medições reais em milímetros. Não utiliza alterações não salvas.',
+    inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }], fields: []
+  },
+  'cad.exportDrawing': {
+    category: 'Engenharia', label: 'Exportar desenho CAD',
+    description: 'Exporta o CAD salvo para DXF R12 ou SVG em .omniforge/output. Simulação não grava arquivo.',
+    inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
+    fields: [{ key: 'format', label: 'Formato CAD', kind: 'select', options: ['dxf', 'svg'], default: 'dxf' }]
+  },
   'io.readJson': {
     category: 'Arquivos', label: 'Ler JSON gerado', description: 'Lê um arquivo JSON existente somente da pasta .omniforge/output deste projeto, bloqueando links simbólicos.',
     inputs: [{ id:'in',type:'json',required:true }], outputs:[{ id:'out',type:'json' }],
