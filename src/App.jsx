@@ -231,7 +231,7 @@ export default function App() {
         <nav className="rail" aria-label="Ferramentas">
           <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
           <button title="Editor de código" className={mode === 'code' ? 'rail-active' : ''} onClick={() => {setMode('code'); setSideMode('files');}}>◧</button>
-          <button title="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
+          <button title="Histórico de execuções" aria-label="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
           <button title="Sobre o projeto" className={mode === 'about' ? 'rail-active' : ''} onClick={() => setMode('about')}>ⓘ</button>
         </nav>
 
