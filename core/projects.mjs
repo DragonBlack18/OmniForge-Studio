@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { atomicWrite, verifyWorkspace } from './workspace.mjs';
+import { validateCapabilityDefinition } from './capabilities.mjs';
 
 const REGISTRY_DIR = 'project-catalog';
 const REGISTRY_FILE = 'projects.json';
@@ -40,6 +41,15 @@ function validateRegistry(db) {
       typeof item.label !== 'string' || item.label.length > 120 || typeof item.createdAt !== 'string') throw new Error('Registro de projeto inválido.');
     const key = process.platform === 'win32' ? path.normalize(item.path).toLowerCase() : path.normalize(item.path);
     if (ids.has(item.id) || paths.has(key)) throw new Error('Catálogo contém entradas duplicadas.');
+    if (item.capabilities !== undefined) {
+      if (!Array.isArray(item.capabilities) || item.capabilities.length > 20) throw new Error('Lista de capacidades inválida.');
+      const capIds = new Set();
+      for (const cap of item.capabilities) {
+        const validated = validateCapabilityDefinition(cap);
+        if (capIds.has(validated.id)) throw new Error('Capacidades duplicadas.');
+        capIds.add(validated.id);
+      }
+    }
     ids.add(item.id); paths.add(key);
   }
   return db;
@@ -154,4 +164,31 @@ export async function forgetProject(dataRoot, id) {
   db.projects.splice(idx, 1);
   await saveRegistry(dataRoot, db);
   return { removed: true, id };
+}
+
+
+export async function registerCapability(dataRoot, projectId, rawDefinition) {
+  assertProjectId(projectId);
+  const definition = validateCapabilityDefinition(rawDefinition);
+  const db = await loadRegistry(dataRoot);
+  const project = db.projects.find(p => p.id === projectId);
+  if (!project) throw new Error('Projeto de destino não encontrado.');
+  if ((project.capabilities || []).some(c => c.id === definition.id)) throw new Error('Este identificador de capacidade já existe.');
+  if ((project.capabilities || []).length >= 20) throw new Error('Limite de 20 capacidades por projeto atingido.');
+  project.capabilities = [...(project.capabilities || []), definition];
+  await saveRegistry(dataRoot, db);
+  return { projectId, ...definition };
+}
+
+export async function forgetCapability(dataRoot, projectId, capabilityId) {
+  assertProjectId(projectId);
+  if (typeof capabilityId !== 'string' || !/^[a-z][a-z0-9_-]{1,39}$/.test(capabilityId)) throw new Error('Identificador de capacidade inválido.');
+  const db = await loadRegistry(dataRoot);
+  const project = db.projects.find(p => p.id === projectId);
+  if (!project) throw new Error('Projeto não encontrado.');
+  const previous = project.capabilities || [];
+  project.capabilities = previous.filter(c => c.id !== capabilityId);
+  if (project.capabilities.length === previous.length) throw new Error('Capacidade não encontrada.');
+  await saveRegistry(dataRoot, db);
+  return { removed: true, projectId, capabilityId };
 }

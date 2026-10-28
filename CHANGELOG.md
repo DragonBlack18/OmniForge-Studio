@@ -38,3 +38,9 @@
 - Cadastro e alternância entre projetos locais, sem cópia dos arquivos.
 - Catálogo separado em app-data, inclusive projetos offline e remoção não destrutiva.
 - Verificação de manifesto somente-leitura, 58 testes Node e smoke Electron estendido.
+
+## 0.1.5 — API local entre projetos
+- Capacidade HTTP GET/POST com esquema JSON verificável, vínculo por projeto e autorização por execução.
+- Tela Conectores de projetos, bloco Chamar projeto por API e validação integrada ao motor.
+- Entrada e saída tipadas, dry-run sem requisições e limite de bytes/timeout.
+- 68 testes Node (incluindo integração de dois workspaces por servidor HTTP real) e smoke Electron ampliado.

@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   registerProject: () => ipcRenderer.invoke('omni:registerProject'),
   openProject: id => ipcRenderer.invoke('omni:openProject', id),
   forgetProject: id => ipcRenderer.invoke('omni:forgetProject', id),
+  registerCapability: (projectId, definition) => ipcRenderer.invoke('omni:registerCapability', projectId, definition),
+  forgetCapability: (projectId, capabilityId) => ipcRenderer.invoke('omni:forgetCapability', projectId, capabilityId),
   listFiles: () => ipcRenderer.invoke('omni:listFiles'),
   listRunHistory: () => ipcRenderer.invoke('omni:listRunHistory'),
   readRunHistory: id => ipcRenderer.invoke('omni:readRunHistory', id),

@@ -68,6 +68,8 @@ async function initializeIpc() {
     return core.registerProject(catalogDataRoot, selected.filePaths[0]);
   }));
   register('openProject', id => serialRegistryAction(async () => activateProject(await core.getProject(catalogDataRoot, id))));
+  register('registerCapability', (projectId, definition) => serialRegistryAction(() => core.registerCapability(catalogDataRoot, projectId, definition)));
+  register('forgetCapability', (projectId, id) => serialRegistryAction(() => core.forgetCapability(catalogDataRoot, projectId, id)));
   register('forgetProject', id => serialRegistryAction(async () => {
     if (id === activeProjectId) throw new Error('Abra outro projeto antes de esquecer o projeto ativo.');
     return core.forgetProject(catalogDataRoot, id);
@@ -90,7 +92,7 @@ async function initializeIpc() {
     try { return await core.saveFlow(root, flow, expectedRevision); }
     finally { saveInProgress = false; }
   });
-  register('validateFlow', flow => core.validateFlow(flow));
+  register('validateFlow', async flow => core.validateFlow(flow, { projects: await core.listProjects(catalogDataRoot) }));
   register('executeFlow', async (flow, dryRun) => {
     if (typeof dryRun !== 'boolean') throw new Error('Modo de execução inválido.');
     if (executionInProgress) throw new Error('Já existe um fluxo em execução.');
@@ -98,10 +100,11 @@ async function initializeIpc() {
     const root = requireWorkspace();
     try {
       let networkApproved = false;
-      if (!dryRun && core.validateFlow(flow).valid) {
-        const requests = core.summarizeLocalHttpNodes(flow);
+      const projects = await core.listProjects(catalogDataRoot);
+      if (!dryRun && core.validateFlow(flow, { projects }).valid) {
+        const requests = [...core.summarizeLocalHttpNodes(flow), ...core.summarizeProjectCalls(flow, projects)];
         if (requests.length) {
-          const destinations = requests.map(request => `${request.method} ${request.destination}`).join('\n').slice(0, 1600);
+          const destinations = requests.map(request => `${request.project ? request.project + ' / ' : ''}${request.method} ${request.destination}`).join('\n').slice(0, 1600);
           const answer = await dialog.showMessageBox(mainWindow, {
             type: 'warning', title: 'Autorizar API local',
             message: 'Este fluxo fará requisições HTTP reais.',
@@ -112,7 +115,7 @@ async function initializeIpc() {
           networkApproved = true;
         }
       }
-      const result = await core.runFlow(flow, { workspace: root, dryRun, networkApproved });
+      const result = await core.runFlow(flow, { workspace: root, dryRun, networkApproved, projects });
       try {
         return { ...result, history: await core.recordRunHistory(root, result) };
       } catch {

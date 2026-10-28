@@ -2,12 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { validateFlow } from './graph.mjs';
 import { writeOutputJson, verifyWorkspace } from './workspace.mjs';
 import { fetchLocalJson } from './http.mjs';
+import { executeProjectCapability } from './capabilities.mjs';
 const NOT_EXECUTED = Symbol('omni.http.simulation.skipped');
 
 /** Execution is deterministic, sequential and exclusively uses registered node types. */
-export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false } = {}) {
+export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false, projects = [] } = {}) {
   const runId = randomUUID();
-  const validation = validateFlow(flow);
+  const validation = validateFlow(flow, { projects });
   if (!validation.valid) return { ok: false, runId, dryRun, stage: 'validation', ...validation, steps: [], artifacts: [] };
   await verifyWorkspace(workspace);
   const byId = new Map(flow.nodes.map(node => [node.id, node]));
@@ -37,6 +38,13 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
           continue;
         }
         output = await fetchLocalJson(node.config, input, { networkApproved });
+      } else if (node.type === 'project.callLocalApi') {
+        if (dryRun) {
+          values.set(id, NOT_EXECUTED);
+          steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'API de outro projeto não acionada na simulação.' });
+          continue;
+        }
+        output = await executeProjectCapability(node.config, input, { projects, networkApproved });
       } else if (node.type === 'io.writeJson') {
         const result = await writeOutputJson(workspace, node.config.fileName, input, { dryRun });
         artifacts.push(result);
