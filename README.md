@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.2.0 (candidato de integração)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.2.1 (candidato de integração)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -8,12 +8,14 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 
 | Módulo | Entrega atual | Observação |
 |---|---|---|
-| Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, simulação, execução e histórico | Gatilho manual; não é o n8n completo |
+| Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
 | Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
-| Engenharia 2D | Novo CAD Sketch 2D em milímetros com linha, retângulo, círculo, grade, camadas, medidas e DXF/SVG | Não é CAD paramétrico 3D |
-| Desktop | Electron com isolamento de contexto, IPC restrito, créditos, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
+| Engenharia 2D | CAD Sketch 2D em mm com linhas/retângulos/círculos, edição numérica, snap, grade ajustável, camadas e DXF/SVG | Não é CAD paramétrico 3D |
+| Desktop | Electron com isolamento de contexto, IPC restrito, limite de execução (120 s), eventos de progresso, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
+
+A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
 Não estão implementados: IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
 
