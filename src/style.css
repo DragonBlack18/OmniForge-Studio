@@ -74,3 +74,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .project-card,.capability-form,.capabilities-list{box-shadow:0 4px 18px #050c1440;border-color:#325069;background:#152739}
 .project-card:hover{border-color:#5287a1}
 @media(max-width:1130px){.rail{flex-basis:53px;padding:13px 3px}.rail button{width:44px}.brand-name small{display:none}.workspace-pill{max-width:170px}}
+
+/* v0.2.1: running workflows are interruptible, visible and auditable. */
+.button--stop{background:#4b2730;border-color:#bd5b65;color:#ffdadb}
+.button--stop:hover:not(:disabled){background:#71313d;border-color:#e77a84}
+.run-active{border:1px solid #397c97;background:#163247;color:#8edbff;border-radius:7px;padding:10px;margin:0 0 13px;font-weight:750;font-size:10px;letter-spacing:.025em}
