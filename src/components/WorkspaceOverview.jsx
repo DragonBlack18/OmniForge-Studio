@@ -14,6 +14,8 @@ const MODULES=[
    description:'Gerencie pastas cadastradas sem duplicar nem alterar sua origem.',action:'Ver projetos'},
   {mode:'integrations',icon:'plug',category:'INTEGRAÇÕES',title:'APIs de projetos',
    description:'Conecte serviços em loopback usando contratos explícitos e autorização.',action:'Ver conexões'},
+  {mode:'extensions',icon:'layers',category:'PLATAFORMA',title:'Extensões locais',
+   description:'Instale ações reais, autorize por workspace e execute no motor supervisionado.',action:'Gerenciar extensões'},
   {mode:'history',icon:'history',category:'DIAGNÓSTICO',title:'Execuções',
    description:'Inspecione duração, etapas, falhas e artefatos registrados.',action:'Ver histórico'}
 ];
@@ -81,7 +83,7 @@ export default function WorkspaceOverview({
     </section>
     <footer className="overview-footer">
       <div><NavGlyph name="info" size={17}/>
-        <p><strong>O que ainda está em desenvolvimento?</strong> Host de extensões, IA/agents, CAD 3D paramétrico e protocolos industriais não estão disponíveis nesta versão.</p></div>
+        <p><strong>O que ainda está em desenvolvimento?</strong> Plugins com código arbitrário, IDE Theia/Open VSX, IA/agents, CAD 3D paramétrico e protocolos industriais ainda não estão disponíveis.</p></div>
       <span>OmniForge Studio · v{version} · Execução local</span>
     </footer>
   </div>;
