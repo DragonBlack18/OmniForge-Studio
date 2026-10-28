@@ -9,6 +9,11 @@ permissions:
   pull-requests: read
   actions: write
 
+# Do not occupy additional workers with obsolete cleanup attempts.
+concurrency:
+  group: one-time-omniforge-run-cleanup
+  cancel-in-progress: true
+
 jobs:
   cancel-superseded:
     name: Cancel only obsolete PR 19 workflows
