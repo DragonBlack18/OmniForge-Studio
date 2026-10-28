@@ -25,6 +25,15 @@ export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
       { key: 'timeoutMs', label: 'Tempo limite (ms)', kind: 'text', default: '3000' }
     ]
   },
+  'project.callLocalApi': {
+    category: 'Projetos', label: 'Chamar projeto por API',
+    description: 'Invoca uma capacidade local cadastrada em outro projeto. Confirma antes de enviar e valida contratos JSON.',
+    inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
+    fields: [
+      { key: 'projectId', label: 'Projeto de destino', kind: 'project', default: '' },
+      { key: 'capabilityId', label: 'Capacidade', kind: 'capability', default: '' }
+    ]
+  },
   'io.writeJson': {
     category: 'Arquivos', label: 'Gravar JSON', description: 'Grava o resultado em .omniforge/output dentro do projeto aberto.',
     inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],

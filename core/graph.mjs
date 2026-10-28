@@ -1,10 +1,11 @@
 import { getNodeDefinition } from './catalog.mjs';
 import { validateLocalHttpConfig } from './http.mjs';
+import { findProjectCapability } from './capabilities.mjs';
 
 const MAX_NODES = 400;
 const MAX_EDGES = 800;
 
-export function validateFlow(flow) {
+export function validateFlow(flow, { projects = [] } = {}) {
   const errors = [];
   const warnings = [];
   if (!flow || typeof flow !== 'object' || Array.isArray(flow)) {
@@ -50,6 +51,9 @@ export function validateFlow(flow) {
     }
     if (node.type === 'http.localJson') {
       try { validateLocalHttpConfig(node.config); } catch (error) { errors.push(`HTTP inválido em ${node.id}: ${error.message}`); }
+    }
+    if (node.type === 'project.callLocalApi') {
+      try { findProjectCapability(node.config, projects); } catch (error) { errors.push(`Projeto/API inválido em ${node.id}: ${error.message}`); }
     }
     if (node.type === 'io.writeJson') {
       const p = node.config.fileName;

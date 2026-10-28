@@ -7,3 +7,6 @@ export { summarizeLocalHttpNodes } from './http.mjs';
 export { recordRunHistory, listRunHistory, readRunHistory } from './history.mjs';
 
 export { inspectProject, listProjects, registerProject, getProject, forgetProject, markProjectOpened } from './projects.mjs';
+
+export { registerCapability, forgetCapability } from './projects.mjs';
+export { validateSchema, validateCapabilityDefinition, assertPayloadSchema, findProjectCapability, summarizeProjectCalls, executeProjectCapability } from './capabilities.mjs';

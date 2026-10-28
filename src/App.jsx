@@ -24,8 +24,8 @@ self.MonacoEnvironment = {
 };
 loader.config({ monaco });
 
-const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'http.localJson': '⇄' };
-const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL' };
+const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'http.localJson': '⇄', 'project.callLocalApi': '⊞' };
+const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
 const DEFAULT = exampleFlow();
 const toUiNodes = flow => flow.nodes.map(node => ({
   id: node.id, type: 'block', position: node.position,
@@ -45,7 +45,7 @@ function BlockNode({ data, selected }) {
       {meta.inputs.length > 0 && <Handle type="target" position={Position.Left} id="in" className="node-handle" />}
       <div className="graph-node__overline"><span>{ICONS[data.kind]}</span>{LABELS[data.kind]}</div>
       <div className="graph-node__title">{meta.label}</div>
-      <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : data.kind === 'logic.pick' ? (data.config.path || 'Selecionar campo') : data.kind === 'http.localJson' ? (data.config.url || 'API local') : (data.config.fileName || 'Arquivo')}</div>
+      <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : data.kind === 'logic.pick' ? (data.config.path || 'Selecionar campo') : data.kind === 'http.localJson' ? (data.config.url || 'API local') : data.kind === 'project.callLocalApi' ? (data.config.capabilityId || 'Selecione uma capacidade') : (data.config.fileName || 'Arquivo')}</div>
       {meta.outputs.length > 0 && <Handle type="source" position={Position.Right} id="out" className="node-handle" />}
     </div>
   );
@@ -84,7 +84,9 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.1.4', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.1.5', mode: '...' });
+  const [connectorProjectId, setConnectorProjectId] = useState('');
+  const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
   const graph = useMemo(() => toFlow(nodes, edges), [nodes, edges]);
   // React Flow emits change notifications after dragging, moving or deleting nodes.
@@ -167,6 +169,24 @@ export default function App() {
     notify('Projeto removido apenas do catálogo. Os arquivos originais foram preservados.');
   });
 
+
+  const addCapability = () => execute(async () => {
+    if (!connectorProjectId) throw new Error('Selecione o projeto que disponibiliza a API.');
+    let inputSchema, outputSchema;
+    try { inputSchema = JSON.parse(newCapability.inputSchema); outputSchema = JSON.parse(newCapability.outputSchema); }
+    catch { throw new Error('Schemas de entrada e saída devem ser JSON válido.'); }
+    await window.omni.registerCapability(connectorProjectId, { ...newCapability, inputSchema, outputSchema });
+    setProjects(await window.omni.listProjects());
+    notify('Capacidade local registrada. Agora adicione o bloco “Chamar projeto por API” e configure suas portas.');
+  });
+
+  const forgetCapability = (projectId, id) => execute(async () => {
+    if (!window.confirm('Remover esta capacidade do catálogo? Fluxos que dependem dela deixarão de validar até sua configuração ser corrigida.')) return;
+    await window.omni.forgetCapability(projectId, id);
+    setProjects(await window.omni.listProjects());
+    notify('Capacidade removida do catálogo; projetos e arquivos intactos.');
+  });
+
   const addNode = (type) => {
     const id = `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const next = createNode(type, id, { x: 160 + nodes.length * 60, y: 110 + nodes.length * 50 });
@@ -186,18 +206,18 @@ export default function App() {
 
   const changeConfig = (key, value) => {
     setNodes(all => all.map(node => node.id === selectedId
-      ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value } } }
+      ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value, ...(key === 'projectId' ? { capabilityId: '' } : {}) } } }
       : node));
     setValidation(null);
     setFlowDirty(true);
   };
 
-  const validate = () => {
-    const checked = validateFlow(graph);
+  const validate = () => execute(async () => {
+    const checked = await window.omni.validateFlow(graph);
     setValidation(checked);
     setMode('canvas');
-    notify(checked.valid ? 'Validação concluída: estrutura aprovada.' : `Validação identificou ${checked.errors.length} problema(s).`);
-  };
+    notify(checked.valid ? 'Validação concluída: estrutura e capacidades aprovadas.' : `Validação identificou ${checked.errors.length} problema(s).`);
+  });
 
   const save = () => execute(async () => {
     if (!workspace) throw new Error('Abra uma pasta para salvar o fluxo.');
@@ -212,7 +232,7 @@ export default function App() {
     const result = await window.omni.executeFlow(graph, dryRun);
     setLastRun(result);
     if (result.history?.saved) setHistory(await window.omni.listRunHistory());
-    const checked = validateFlow(graph);
+    const checked = await window.omni.validateFlow(graph);
     setValidation(checked);
     if (result.history && !result.history.saved) notify('Histórico indisponível: a execução foi concluída, mas não foi registrada.');
     else notify(result.ok
@@ -263,6 +283,7 @@ export default function App() {
         <nav className="rail" aria-label="Ferramentas">
           <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
           <button title="Catálogo de projetos" aria-label="Catálogo de projetos" className={mode === 'projects' ? 'rail-active' : ''} onClick={() => setMode('projects')}>▤</button>
+          <button title="Conectores de projetos" aria-label="Conectores de projetos" className={mode === 'integrations' ? 'rail-active' : ''} onClick={() => setMode('integrations')}>⇄</button>
           <button title="Editor de código" className={mode === 'code' ? 'rail-active' : ''} onClick={() => {setMode('code'); setSideMode('files');}}>◧</button>
           <button title="Histórico de execuções" aria-label="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
           <button title="Sobre o projeto" className={mode === 'about' ? 'rail-active' : ''} onClick={() => setMode('about')}>ⓘ</button>
@@ -275,7 +296,7 @@ export default function App() {
           </div>
           {sideMode === 'catalog' ? (
             <div className="sidebar-content">
-              <div className="section-label">CATÁLOGO / V0.1.4</div>
+              <div className="section-label">CATÁLOGO / V0.1.5</div>
               <p className="sidebar-description">Blocos reais com validação. APIs limitadas ao próprio computador e somente com autorização.</p>
               {Object.entries(NODE_CATALOG).map(([type, node]) => (
                 <button key={type} className="catalog-item" onClick={() => addNode(type)}>
@@ -379,6 +400,47 @@ export default function App() {
               </section>
             </>
           )}
+          {mode === 'integrations' && (
+            <>
+              <div className="main-toolbar">
+                <div className="toolbar-heading"><span className="eyebrow">CONTRATOS / API LOCAL</span><strong>Conectar projetos por blocos</strong></div>
+                <div className="toolbar-actions"><button disabled={busy} className="button button--subtle" onClick={() => execute(async () => setProjects(await window.omni.listProjects()))}>↻ Atualizar</button></div>
+              </div>
+              <section className="integrations-page">
+                <p className="projects-intro">Cadastre a API HTTP local de um projeto. O OmniForge NÃO executa scripts, instala dependências nem inicia servidores. O projeto precisa expor uma API real em 127.0.0.1. A cada execução haverá autorização e verificação de entrada/saída.</p>
+                <div className="integrations-layout">
+                  <form className="capability-form" onSubmit={event => { event.preventDefault(); addCapability(); }}>
+                    <h3>Adicionar capacidade</h3>
+                    <label>Projeto que oferece a API
+                      <select required value={connectorProjectId} onChange={event => setConnectorProjectId(event.target.value)}>
+                        <option value="">Selecione o projeto</option>
+                        {projects.filter(p => p.available).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                      </select>
+                    </label>
+                    {[
+                      ['id','Identificador único'], ['label','Nome da capacidade'], ['url','URL HTTP local'], ['timeoutMs','Timeout (ms)']
+                    ].map(([key,label]) => <label key={key}>{label}<input required value={newCapability[key]} onChange={e => setNewCapability(old => ({ ...old, [key]: e.target.value }))}/></label>)}
+                    <label>Método<select value={newCapability.method} onChange={e => setNewCapability(old => ({ ...old, method: e.target.value }))}><option>POST</option><option>GET</option></select></label>
+                    <label>Schema de entrada (JSON, subconjunto tipado)<textarea rows={4} spellCheck={false} value={newCapability.inputSchema} onChange={e => setNewCapability(old => ({ ...old, inputSchema: e.target.value }))}/></label>
+                    <label>Schema de saída (JSON, subconjunto tipado)<textarea rows={4} spellCheck={false} value={newCapability.outputSchema} onChange={e => setNewCapability(old => ({ ...old, outputSchema: e.target.value }))}/></label>
+                    <button type="submit" disabled={busy || !connectorProjectId} className="button button--solid">Registrar API local</button>
+                  </form>
+                  <section className="capabilities-list">
+                    <h3>Capacidades cadastradas</h3>
+                    {!projects.some(p => p.capabilities?.length) && <p className="projects-intro">Ainda não há capacidades. Cadastre uma API para disponibilizá-la no bloco “Chamar projeto por API”.</p>}
+                    {projects.flatMap(p => (p.capabilities || []).map(c => ({ ...c, projectId: p.id, projectName: p.label, available: p.available }))).map(c => (
+                      <article className="capability-card" key={`${c.projectId}-${c.id}`}>
+                        <strong>{c.label}</strong><small>{c.projectName} · {c.id}</small>
+                        <code>{c.method} {c.url}</code>
+                        <div><span className={c.available ? 'project-available' : 'project-offline'}>{c.available ? 'ATIVA NO CATÁLOGO' : 'PROJETO OFFLINE'}</span>
+                          <button disabled={busy} onClick={() => forgetCapability(c.projectId, c.id)} className="button button--outline">Remover</button></div>
+                      </article>
+                    ))}
+                  </section>
+                </div>
+              </section>
+            </>
+          )}
           {mode === 'history' && (
             <>
               <div className="main-toolbar">
@@ -437,7 +499,17 @@ export default function App() {
               {NODE_CATALOG[selected.data.kind].fields.map(field => (
                 <label key={field.key} className="setting-field">
                   <span>{field.label}</span>
-                  {field.kind === 'select' ? (
+                  {field.kind === 'project' ? (
+                    <select value={selected.data.config.projectId || ''} onChange={event => changeConfig('projectId', event.target.value)}>
+                      <option value="">Selecione um projeto</option>
+                      {projects.filter(p => p.available).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                    </select>
+                  ) : field.kind === 'capability' ? (
+                    <select value={selected.data.config.capabilityId || ''} onChange={event => changeConfig('capabilityId', event.target.value)}>
+                      <option value="">Selecione uma capacidade</option>
+                      {(projects.find(p => p.id === selected.data.config.projectId)?.capabilities || []).map(c => <option key={c.id} value={c.id}>{c.label} ({c.id})</option>)}
+                    </select>
+                  ) : field.kind === 'select' ? (
                     <select value={selected.data.config[field.key] || field.default} onChange={event => changeConfig(field.key, event.target.value)}>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select>
                   ) : field.kind === 'json' ? (
                     <textarea rows={8} spellCheck={false} value={selected.data.config[field.key] || ''} onChange={event => changeConfig(field.key, event.target.value)} />
@@ -466,7 +538,7 @@ export default function App() {
           </div>
         </aside>
       </div>
-      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.4 · Workspace local</span></footer>
+      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.5 · Workspace local</span></footer>
     </div>
   );
 }

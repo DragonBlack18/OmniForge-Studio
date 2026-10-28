@@ -127,3 +127,7 @@ O nó `HTTP local JSON` chama APIs reais da própria máquina (`http://127.0.0.1
 ## v0.1.4 — Catálogo de projetos
 
 Abra **Meus projetos** no menu vertical, clique em **Adicionar projeto**, selecione uma pasta local e use **Abrir** para alternar. Nenhum arquivo é modificado ao apenas cadastrar ou esquecer um projeto. Consulte `docs/V0.1.4_PROJECT_CATALOG.md`.
+
+## v0.1.5 — Conectar projetos por API
+
+Em **Conectores de projetos**, cadastre uma API JSON já oferecida por outro projeto local (`127.0.0.1`). Depois adicione **Chamar projeto por API** ao canvas, selecione o provedor e a capacidade, e conecte as portas. Simulação não envia requests; execução real exige confirmação e valida JSON de ambos os lados. Consulte `docs/V0.1.5_PROJECT_API.md`.
