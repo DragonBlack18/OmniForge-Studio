@@ -113,7 +113,7 @@ test('DXF truncado, vazio, binário ou sem seção ENTITIES é recusado',()=>{
 test('limite de 2000 entidades é aplicado também após expandir LWPOLYLINE',()=>{
   const vertices=[0,'LWPOLYLINE',90,2000,70,1];
   for(let i=0;i<2000;i++)vertices.push(10,i,20,0);
-  checkReject(header()+entities(...vertices),/2000 entidades após conversão/);
+  checkReject(header()+entities(...vertices,...line()),/2000 entidades após conversão/);
 });
 
 test('leitor real de arquivo DXF não grava nada no workspace nem altera a fonte',async t=>{
