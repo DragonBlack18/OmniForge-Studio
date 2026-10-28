@@ -254,7 +254,7 @@ export default function App() {
   const refreshExtensions=async()=>setExtensions(await window.omni.listExtensions());
   const installExtension=()=>execute(async()=>{
     const installed=await window.omni.installExtension();
-    if(installed){await refreshExtensions();notify('Extensão instalada desativada. Ative e autorize para executar.');}
+    if(installed){await refreshExtensions();notify(installed.alreadyInstalled?'Extensão já instalada: permissões existentes preservadas.':'Extensão instalada desativada. Ative e autorize para executar.');}
     else notify('Instalação cancelada; catálogo intacto.');
   });
   const installExampleExtension=()=>execute(async()=>{

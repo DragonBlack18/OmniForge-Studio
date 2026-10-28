@@ -64,8 +64,13 @@ try {
   const readonly=entry('etiqueta-ordem',{ordem:'123',material:'Inox'});
   const denied=await page.evaluate(flow=>window.omni.validateFlow(flow),readonly);
   assert.equal(denied.valid,false);
-  await page.getByRole('checkbox',{name:/Transformar dados nos fluxos/}).check();
-  await page.getByText('Permissão autorizada neste workspace.',{exact:false}).waitFor();
+  await page.getByRole('checkbox',{name:/Transformar dados nos fluxos/}).click();
+  // A controlled checkbox is updated only AFTER native user consent and a
+  // persisted grant. .check() incorrectly requires synchronous state changes.
+  await page.waitForFunction(async()=>{
+    const entries=await window.omni.listExtensions();
+    return entries[0]?.granted.includes('workflow.transform')===true;
+  });
   const validateRead=await page.evaluate(flow=>window.omni.validateFlow(flow),readonly);
   assert.equal(validateRead.valid,true,validateRead.errors.join(';'));
   const executed=await page.evaluate(flow=>window.omni.executeFlow(flow,false),readonly);
@@ -74,8 +79,11 @@ try {
   const writeFlow=entry();
   const blocked=await page.evaluate(flow=>window.omni.validateFlow(flow),writeFlow);
   assert.equal(blocked.valid,false);
-  await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).check();
-  await page.getByText('Permissão autorizada neste workspace.',{exact:false}).waitFor();
+  await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).click();
+  await page.waitForFunction(async()=>{
+    const entries=await window.omni.listExtensions();
+    return entries[0]?.granted.includes('workspace.output.write')===true;
+  });
   phase='write-and-history';
   const approved=await page.evaluate(flow=>window.omni.validateFlow(flow),writeFlow);
   assert.equal(approved.valid,true,approved.errors.join(';'));
@@ -88,7 +96,7 @@ try {
   assert.ok(history.length>=2);
   phase='real-package-and-revoke';
   await page.getByTestId('extension-install').click();
-  await page.getByText('Extensão instalada desativada.',{exact:false}).waitFor();
+  await page.getByText('Extensão já instalada:',{exact:false}).waitFor();
   assert.equal((await page.evaluate(()=>window.omni.listExtensions())).length,1);
   // Invariant: installing the identical manifest must not change current grants.
   assert.equal((await page.evaluate(()=>window.omni.listExtensions()))[0].granted.length,2);
@@ -102,8 +110,11 @@ try {
   assert.ok(typed.some(x=>x.includes('Executar extensão local')));
   // Return to Extension Hub: revoke write; existing data must remain.
   await page.getByRole('button',{name:'Central de extensões'}).click();
-  await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).uncheck();
-  await page.getByText('Permissão revogada neste workspace.',{exact:false}).waitFor();
+  await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).click();
+  await page.waitForFunction(async()=>{
+    const entries=await window.omni.listExtensions();
+    return entries[0]?.granted.includes('workspace.output.write')===false;
+  });
   const revoked=await page.evaluate(flow=>window.omni.validateFlow(flow),writeFlow);
   assert.equal(revoked.valid,false);
   assert.deepEqual(JSON.parse(await fs.readFile(outputFile,'utf8')),{massaGramas:1250});

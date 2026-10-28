@@ -127,7 +127,7 @@ export default function ExtensionsHub({
     </div>
     <footer className="extensions-footer">
       <NavGlyph name="info" size={16}/>
-      O Hub v1 aceita apenas operações declarativas limitadas e assinaturas SHA-256 de integridade local.
+      O Hub v1 aceita apenas operações declarativas limitadas e hashes SHA-256 de integridade local.
       SHA-256 não autentica um autor. Este módulo não instala VSIX, não executa plugins JS arbitrários nem substitui um sandbox de código não confiável.
     </footer>
   </section>;
