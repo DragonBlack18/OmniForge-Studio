@@ -290,8 +290,12 @@ try {
 } catch (error) {
   if (client) {
     try {
+      // Bound screenshot capture: a crashed Chromium renderer must never hang CI.
       const pages = client.windows();
-      if (pages.length) await pages[0].screenshot({ path: path.join(process.cwd(), 'smoke-failure.png') });
+      if (pages.length) await Promise.race([
+        pages[0].screenshot({path:path.join(process.cwd(),'smoke-failure.png')}).catch(()=>{}),
+        new Promise(resolve=>setTimeout(resolve,2500))
+      ]);
     } catch { /* never hide the original error */ }
   }
   console.error(error);
@@ -308,7 +312,16 @@ try {
       new Promise(resolve => setTimeout(resolve, 3000))
     ]);
   }
-  if (testServer) { testServer.closeAllConnections(); await new Promise(resolve => testServer.close(resolve)); }
-  await fs.rm(workspace, { recursive: true, force: true });
+  if (testServer) {
+    testServer.closeAllConnections();
+    await Promise.race([
+      new Promise(resolve=>testServer.close(resolve)),
+      new Promise(resolve=>setTimeout(resolve,2500))
+    ]);
+  }
+  await fs.rm(workspace, { recursive:true, force:true }).catch(()=>{});
   clearTimeout(smokeWatchdog);
+  // Disposable CI runner only. Playwright may leave handles after an assertion
+  // failure even when the Electron test process was terminated.
+  if (process.exitCode) process.exit(process.exitCode);
 }
