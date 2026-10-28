@@ -1,8 +1,8 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.2.1",
-  "description": "Electron engineering workbench with supervised workflows and project-local CAD Sketch 2D",
+  "version": "0.2.2",
+  "description": "Electron engineering workbench with supervised workflows and safe CAD DXF ASCII import",
   "private": true,
   "license": "UNLICENSED",
   "author": "Davi Brand",
@@ -18,7 +18,8 @@
     "test:core": "node --test",
     "smoke:electron": "node scripts/smoke-electron.mjs",
     "dist:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
-    "demo:core": "node scripts/demo-core.mjs"
+    "demo:core": "node scripts/demo-core.mjs",
+    "smoke:cad-import": "node scripts/smoke-cad-import.mjs"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",

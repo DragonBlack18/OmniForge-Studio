@@ -9,6 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omniforge-electron-smoke-'));
+const isolatedProfile = await fs.mkdtemp(path.join(os.tmpdir(), 'omniforge-e2e-profile-'));
+const isolatedEnv = process.platform === 'win32'
+  ? { APPDATA:isolatedProfile, LOCALAPPDATA:isolatedProfile }
+  : { XDG_CONFIG_HOME:isolatedProfile };
 let client;
 let testServer;
 // A hung UI or Electron child must fail visibly rather than occupy the Windows
@@ -27,9 +31,12 @@ function checkpoint(name) {
 async function bootAndOpen() {
   client = await electron.launch({
     args: ['.'], cwd: projectRoot, timeout: 45_000,
-    env: { ...process.env, ELECTRON_RENDERER_URL: '' }
+    env: { ...process.env, ...isolatedEnv, OMNIFORGE_E2E:'1', OMNIFORGE_E2E_USER_DATA:isolatedProfile, ELECTRON_RENDERER_URL: '' }
   });
   const page = await client.firstWindow({ timeout: 45_000 });
+  const profileRoot = await client.evaluate(({app}) => app.getPath('userData'));
+  assert.ok(path.normalize(profileRoot).toLowerCase().startsWith(path.normalize(isolatedProfile).toLowerCase()),
+    'Smoke Electron deve usar perfil de teste isolado, não o perfil padrão do runner.');
   page.setDefaultTimeout(25_000);
   page.on('pageerror', error => process.stderr.write(`[renderer] ${error.message}\n`));
   await page.getByText('OMNIFORGE', { exact: false }).first().waitFor();
@@ -320,6 +327,7 @@ try {
     ]);
   }
   await fs.rm(workspace, { recursive:true, force:true }).catch(()=>{});
+  await fs.rm(isolatedProfile,{recursive:true,force:true}).catch(()=>{});
   clearTimeout(smokeWatchdog);
   // Disposable CI runner only. Playwright may leave handles after an assertion
   // failure even when the Electron test process was terminated.

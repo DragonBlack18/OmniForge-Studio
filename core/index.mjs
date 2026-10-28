@@ -1,5 +1,7 @@
 export { NODE_CATALOG, createNode, exampleFlow } from './catalog.mjs';
 export { loadCadDocument, saveCadDocument, exportCadSketch } from './cad-store.mjs';
+export { parseCadDxf } from './cad-import.mjs';
+export { readCadDxfFile } from './cad-import-file.mjs';
 export { validateFlow } from './graph.mjs';
 export { runFlow } from './runner.mjs';
 export { runSupervisedFlow } from './supervisor.mjs';

@@ -1,6 +1,6 @@
 # Plano de implementação incremental — versões e gates
 
-A ordem protege o núcleo funcional contra regressões. O tamanho das versões é deliberadamente pequeno; nada entra no produto como botão ativo sem executor real.
+A versão v0.2.2 introduz importação DXF ASCII 2D; plugin SDK foi reprogramado para v0.2.3. Ambas dependem de gates separados. A ordem protege o núcleo funcional contra regressões. O tamanho das versões é deliberadamente pequeno; nada entra no produto como botão ativo sem executor real.
 
 | Marco | Escopo verificável | Gate de aceite |
 |---|---|---|

@@ -32,7 +32,8 @@
 ## Escopos e gates futuros
 
 - 0.2.1: executor supervisionado em processo filho (timeout de 120 s, cancelamento, progresso), CAD numérico e layers. Implementado na branch de integração; precisa CI/E2E e empacotamento antes de release.
-- 0.2.2: plugin SDK declarativo, pacote assinado/verificado e permissões por capability.
+- 0.2.2: importação DXF ASCII 2D não destrutiva, conforme grupos e unidades do formato Autodesk; parser original e restrito. Em branch de integração, ainda depende de CI.
+- 0.2.3: plugin SDK declarativo, pacote assinado/verificado e permissões por capability.
 - 0.3: agendamento/webhooks locais persistentes, retries e idempotência.
 - 0.4: gestão de credenciais, HTTP(S) com allowlists, provedores de e-mail e integrações de produtividade.
 - 0.5: Eclipse Theia + Open VSX (integração real, sem prometer 100% de compatibilidade).

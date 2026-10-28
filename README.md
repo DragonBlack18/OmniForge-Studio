@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.2.1 (candidato de integração)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.2.2 (branch de desenvolvimento, ainda não publicada)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -12,7 +12,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
-| Engenharia 2D | CAD Sketch 2D em mm com linhas/retângulos/círculos, edição numérica, snap, grade ajustável, camadas e DXF/SVG | Não é CAD paramétrico 3D |
+| Engenharia 2D | CAD Sketch 2D em mm, edição numérica, camadas, exportações DXF/SVG e importação DXF ASCII 2D validada | Não é CAD paramétrico 3D |
 | Desktop | Electron com isolamento de contexto, IPC restrito, limite de execução (120 s), eventos de progresso, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
 
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
@@ -24,6 +24,14 @@ Não estão implementados: IA generativa nativa, agentes, Theia/Open VSX, termin
 A barra principal agora agrupa Workspace, Recursos e Acompanhamento. A biblioteca de blocos e o explorador são contextuais e podem ser ocultados; o inspector aparece apenas no canvas de automações. Os controles mantêm seus nomes acessíveis, sem alterar os documentos salvos.
 
 Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. No CAD, **Ctrl+S também salva o desenho**. O atalho nunca abre a janela de salvar a página do navegador.
+
+## Importação DXF 2D (v0.2.2)
+
+No CAD Sketch, clique em **Importar DXF**. O arquivo é lido pela janela nativa, sem gravação imediata. A importação suporta LINE, CIRCLE e LWPOLYLINE sem curvas, converte polegadas/pés/centímetros/metros em mm e exige confirmação quando o DXF não declara unidades. Objetos incompatíveis, incluindo arcos, blocos, sólidos 3D e DWG, bloqueiam a importação por completo em vez de desaparecer silenciosamente. Após conferir o resultado, clique em **Salvar desenho**.
+
+O importador mantém o histórico anterior do CAD e permite desfazer antes de salvar. Limites de segurança: DXF ASCII/UTF-8 até 2 MB, no máximo 2.000 entidades e 32 camadas. Esta versão não é um leitor universal de DXF/AutoCAD.
+
+Teste isolado com Electron Windows: `npm run smoke:cad-import`. Documentação: [Importação CAD DXF](docs/V0.2.2_DXF_IMPORT.md).
 
 ## Instalação de desenvolvimento
 
@@ -69,6 +77,7 @@ docs/                   decisões, pesquisa open source, segurança e entregas
 ## Documentação
 
 - [CAD Sketch 2D — escopo, segurança e limites](docs/V0.2.0_CAD_SKETCH.md)
+- [Importação DXF ASCII 2D — unidades, limites e segurança](docs/V0.2.2_DXF_IMPORT.md)
 - [Pesquisa de repositórios abertos, direitos de uso e integrações futuras](docs/OPEN_SOURCE_RESEARCH_2026-10-28.md)
 - [Arquitetura por domínios](docs/ARCHITECTURE.md)
 - [Modelo de segurança](docs/SECURITY.md)
