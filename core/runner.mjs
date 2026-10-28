@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { validateFlow } from './graph.mjs';
 import { writeOutputJson, verifyWorkspace } from './workspace.mjs';
+import { fetchLocalJson } from './http.mjs';
+const NOT_EXECUTED = Symbol('omni.http.simulation.skipped');
 
 /** Execution is deterministic, sequential and exclusively uses registered node types. */
-export async function runFlow(flow, { workspace, dryRun = true } = {}) {
+export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false } = {}) {
   const validation = validateFlow(flow);
   if (!validation.valid) return { ok: false, stage: 'validation', ...validation, steps: [], artifacts: [] };
   await verifyWorkspace(workspace);
@@ -19,10 +21,22 @@ export async function runFlow(flow, { workspace, dryRun = true } = {}) {
       const edge = flow.edges.find(edge => edge.target === id);
       const input = edge ? values.get(edge.source) : undefined;
       let output;
+      if (input === NOT_EXECUTED) {
+        values.set(id, NOT_EXECUTED);
+        steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'Dependência de HTTP não executada em simulação.' });
+        continue;
+      }
       if (node.type === 'trigger.manual') {
         output = JSON.parse(node.config.payload);
       } else if (node.type === 'logic.pick') {
         output = getPath(input, node.config.path);
+      } else if (node.type === 'http.localJson') {
+        if (dryRun) {
+          values.set(id, NOT_EXECUTED);
+          steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'HTTP não enviado no modo simulação.' });
+          continue;
+        }
+        output = await fetchLocalJson(node.config, input, { networkApproved });
       } else if (node.type === 'io.writeJson') {
         const result = await writeOutputJson(workspace, node.config.fileName, input, { dryRun });
         artifacts.push(result);
@@ -37,7 +51,8 @@ export async function runFlow(flow, { workspace, dryRun = true } = {}) {
       return { ok: false, runId, stage: 'execution', dryRun, steps, artifacts, error: `Falha no nó ${id}: ${error.message}` };
     }
   }
-  return { ok: true, runId, dryRun, stage: 'completed', steps, artifacts, warnings: validation.warnings };
+  const partialSimulation = steps.some(step => step.status === 'SKIP');
+  return { ok: true, runId, dryRun, partialSimulation, stage: 'completed', steps, artifacts, warnings: validation.warnings };
 }
 
 function getPath(value, dotted) {

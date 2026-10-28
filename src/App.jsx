@@ -24,8 +24,8 @@ self.MonacoEnvironment = {
 };
 loader.config({ monaco });
 
-const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣' };
-const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS' };
+const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'http.localJson': '⇄' };
+const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL' };
 const DEFAULT = exampleFlow();
 const toUiNodes = flow => flow.nodes.map(node => ({
   id: node.id, type: 'block', position: node.position,
@@ -45,7 +45,7 @@ function BlockNode({ data, selected }) {
       {meta.inputs.length > 0 && <Handle type="target" position={Position.Left} id="in" className="node-handle" />}
       <div className="graph-node__overline"><span>{ICONS[data.kind]}</span>{LABELS[data.kind]}</div>
       <div className="graph-node__title">{meta.label}</div>
-      <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : data.kind === 'logic.pick' ? (data.config.path || 'Selecionar campo') : (data.config.fileName || 'Arquivo')}</div>
+      <div className="graph-node__details">{data.kind === 'trigger.manual' ? 'Entrada JSON' : data.kind === 'logic.pick' ? (data.config.path || 'Selecionar campo') : data.kind === 'http.localJson' ? (data.config.url || 'API local') : (data.config.fileName || 'Arquivo')}</div>
       {meta.outputs.length > 0 && <Handle type="source" position={Position.Right} id="out" className="node-handle" />}
     </div>
   );
@@ -80,7 +80,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.1.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.1.2', mode: '...' });
   const selected = nodes.find(node => node.id === selectedId);
   const graph = useMemo(() => toFlow(nodes, edges), [nodes, edges]);
   // React Flow emits change notifications after dragging, moving or deleting nodes.
@@ -178,7 +178,7 @@ export default function App() {
     const checked = validateFlow(graph);
     setValidation(checked);
     notify(result.ok
-      ? (dryRun ? 'Simulação concluída: nenhuma escrita realizada.' : 'Execução real concluída: saída salva no projeto.')
+      ? (result.partialSimulation ? 'Simulação parcial: nenhum HTTP foi enviado nem respostas inventadas.' : dryRun ? 'Simulação concluída: nenhuma escrita realizada.' : 'Execução real concluída.')
       : `Execução bloqueada: ${result.error || result.errors?.[0] || 'falha de validação'}`);
   });
 
@@ -223,8 +223,8 @@ export default function App() {
           </div>
           {sideMode === 'catalog' ? (
             <div className="sidebar-content">
-              <div className="section-label">CATÁLOGO / V0.1</div>
-              <p className="sidebar-description">Três blocos com execução real. Mais conectores serão liberados após testes.</p>
+              <div className="section-label">CATÁLOGO / V0.1.2</div>
+              <p className="sidebar-description">Blocos reais com validação. APIs limitadas ao próprio computador e somente com autorização.</p>
               {Object.entries(NODE_CATALOG).map(([type, node]) => (
                 <button key={type} className="catalog-item" onClick={() => addNode(type)}>
                   <span className="catalog-icon">{ICONS[type]}</span>
@@ -322,7 +322,9 @@ export default function App() {
               {NODE_CATALOG[selected.data.kind].fields.map(field => (
                 <label key={field.key} className="setting-field">
                   <span>{field.label}</span>
-                  {field.kind === 'json' ? (
+                  {field.kind === 'select' ? (
+                    <select value={selected.data.config[field.key] || field.default} onChange={event => changeConfig(field.key, event.target.value)}>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select>
+                  ) : field.kind === 'json' ? (
                     <textarea rows={8} spellCheck={false} value={selected.data.config[field.key] || ''} onChange={event => changeConfig(field.key, event.target.value)} />
                   ) : (
                     <input value={selected.data.config[field.key] || ''} onChange={event => changeConfig(field.key, event.target.value)}/>
@@ -342,14 +344,14 @@ export default function App() {
             </>}
             {lastRun && <>
               <div className="run-divider">{lastRun.dryRun ? 'SIMULAÇÃO' : 'EXECUÇÃO REAL'} · {lastRun.ok ? 'PASS' : 'FAIL'}</div>
-              {(lastRun.steps || []).map(step => <div key={step.nodeId} className="log-line"><span className={step.status === 'PASS' ? 'log-success' : 'log-error'}>{step.status}</span> {step.nodeId} <span className="log-muted">{step.elapsedMs}ms</span>{step.message && <div className="log-error">{step.message}</div>}</div>)}
+              {(lastRun.steps || []).map(step => <div key={step.nodeId} className="log-line"><span className={step.status === 'PASS' ? 'log-success' : step.status === 'SKIP' ? 'log-muted' : 'log-error'}>{step.status}</span> {step.nodeId} <span className="log-muted">{step.elapsedMs}ms</span>{step.message && <div className="log-error">{step.message}</div>}</div>)}
               {(lastRun.artifacts || []).map((item, index) => <div key={index} className="log-line log-muted">{item.simulated ? 'Seria gravado' : 'Gravado'}: {item.relativePath}</div>)}
               {lastRun.error && <div className="log-line log-error">{lastRun.error}</div>}
             </>}
           </div>
         </aside>
       </div>
-      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.1 · Workspace local</span></footer>
+      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.2 · Workspace local</span></footer>
     </div>
   );
 }

@@ -15,6 +15,16 @@ export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
     inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
     fields: [{ key: 'path', label: 'Caminho do campo', kind: 'text', default: 'venda' }]
   },
+  'http.localJson': {
+    category: 'Integrações', label: 'HTTP local JSON',
+    description: 'Consulta uma API em 127.0.0.1. GET ou POST JSON; exige autorização para executar. No modo simulação nenhuma requisição é enviada.',
+    inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
+    fields: [
+      { key: 'url', label: 'URL da API local', kind: 'text', default: 'http://127.0.0.1:8000/api/teste' },
+      { key: 'method', label: 'Método', kind: 'select', options: ['GET', 'POST'], default: 'POST' },
+      { key: 'timeoutMs', label: 'Tempo limite (ms)', kind: 'text', default: '3000' }
+    ]
+  },
   'io.writeJson': {
     category: 'Arquivos', label: 'Gravar JSON', description: 'Grava o resultado em .omniforge/output dentro do projeto aberto.',
     inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
