@@ -110,6 +110,9 @@ try {
   assert.ok(typed.some(x=>x.includes('Executar extensão local')));
   // Return to Extension Hub: revoke write; existing data must remain.
   await page.getByRole('button',{name:'Central de extensões'}).click();
+  // The Extensions Hub is remounted on navigation. Open this package's
+  // management panel again before exercising revocation controls.
+  await page.getByRole('button',{name:'Detalhes de Engenharia de dados'}).click();
   await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).click();
   await page.waitForFunction(async()=>{
     const entries=await window.omni.listExtensions();
