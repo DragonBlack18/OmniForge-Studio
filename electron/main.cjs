@@ -11,6 +11,8 @@ let mainWindow;
 let workspaceRoot = null;
 let executionInProgress = false;
 let saveInProgress = false;
+let registryMutationInProgress = false;
+let activeProjectId = null;
 const projectRoot = path.resolve(__dirname, '..');
 const isDevelopment = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
 
@@ -41,14 +43,41 @@ async function initializeIpc() {
   const core = await import('../core/index.mjs');
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
   register('catalog', () => core.NODE_CATALOG);
-  register('selectWorkspace', async () => {
+  const catalogDataRoot = app.getPath('userData');
+  const ensureIdle = () => {
+    if (saveInProgress || executionInProgress || registryMutationInProgress) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
+  };
+  async function serialRegistryAction(action) {
+    ensureIdle();
+    registryMutationInProgress = true;
+    try { return await action(); }
+    finally { registryMutationInProgress = false; }
+  }
+  async function activateProject(project) {
+    const candidate = project.path;
+    const [document, files] = await Promise.all([core.readFlowDocument(candidate), core.listProjectFiles(candidate)]);
+    await core.markProjectOpened(catalogDataRoot, project.id);
+    workspaceRoot = candidate;
+    activeProjectId = project.id;
+    return { workspace: candidate, projectId: project.id, flow: document.flow, flowRevision: document.revision, files };
+  }
+  register('listProjects', () => core.listProjects(catalogDataRoot));
+  register('registerProject', async () => serialRegistryAction(async () => {
+    const selected = await dialog.showOpenDialog(mainWindow, { title: 'Cadastrar projeto no catálogo (sem alterar arquivos)', properties: ['openDirectory'] });
+    if (selected.canceled || selected.filePaths.length === 0) return null;
+    return core.registerProject(catalogDataRoot, selected.filePaths[0]);
+  }));
+  register('openProject', id => serialRegistryAction(async () => activateProject(await core.getProject(catalogDataRoot, id))));
+  register('forgetProject', id => serialRegistryAction(async () => {
+    if (id === activeProjectId) throw new Error('Abra outro projeto antes de esquecer o projeto ativo.');
+    return core.forgetProject(catalogDataRoot, id);
+  }));
+  register('selectWorkspace', () => serialRegistryAction(async () => {
     const selected = await dialog.showOpenDialog(mainWindow, { title: 'Abrir projeto existente', properties: ['openDirectory'] });
     if (selected.canceled || selected.filePaths.length === 0) return null;
-    const candidate = await core.verifyWorkspace(selected.filePaths[0]);
-    const [document, files] = await Promise.all([core.readFlowDocument(candidate), core.listProjectFiles(candidate)]);
-    workspaceRoot = candidate;
-    return { workspace: candidate, flow: document.flow, flowRevision: document.revision, files };
-  });
+    const project = await core.registerProject(catalogDataRoot, selected.filePaths[0]);
+    return activateProject(project);
+  }));
   register('listFiles', () => core.listProjectFiles(requireWorkspace()));
   register('listRunHistory', () => core.listRunHistory(requireWorkspace()));
   register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));

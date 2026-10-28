@@ -120,12 +120,10 @@ omniforge-studio/
 
 **Importante:** esta etapa ainda não implementa integração HTTP, envio de e-mail, Theia, extensões do VS Code, inteligência artificial ou CAD. Essas capacidades permanecem no roadmap e não aparecem como botões funcionais.
 
-## Versões recentes e downloads individuais
+## v0.1.2 — HTTP local controlado
 
-Baixe cada executável de maneira independente no [GitHub Releases](https://github.com/DragonBlack18/OmniForge-Studio/releases): `OmniForge-Studio-Setup-<versão>-x64.exe` (instalador) ou `OmniForge-Studio-Portable-<versão>-x64.exe` (sem instalação). A publicação só acontece após os testes Node, build do frontend e smoke Electron Windows passarem no workflow. Execute o arquivo manualmente; navegadores e Windows não permitem execução automática segura apenas pelo clique.
+O nó `HTTP local JSON` chama APIs reais da própria máquina (`http://127.0.0.1:PORTA`) após confirmação em uma janela nativa; a simulação não envia requisições. Documentação completa em [`docs/V0.1.2_HTTP_LOCAL.md`](docs/V0.1.2_HTTP_LOCAL.md). Serviços em rede e APIs externas ainda não são suportados.
 
-**v0.1.2 — API local real:** novo bloco HTTP JSON (GET/POST) para `127.0.0.1`, sujeito a confirmação nativa. Redes externas, credenciais e redirecionamento estão bloqueados. A simulação não acessa a rede nem cria respostas artificiais. [Detalhes](docs/V0.1.2_HTTP_LOCAL.md).
+## v0.1.4 — Catálogo de projetos
 
-**v0.1.3 — histórico persistente:** uma nova área mostra execuções reais e simuladas, etapas e diagnósticos. O histórico local pertence à pasta do projeto e não é apagado por atualização do executável. Não salva o corpo dos dados de entrada ou resposta. [Detalhes](docs/V0.1.3_RUN_HISTORY.md).
-
-**Limitação:** o aplicativo permanece em pré-lançamento, sem assinatura de código e sem controle industrial de produção. Nenhuma opção de atualização silenciosa é ativada.
+Abra **Meus projetos** no menu vertical, clique em **Adicionar projeto**, selecione uma pasta local e use **Abrir** para alternar. Nenhum arquivo é modificado ao apenas cadastrar ou esquecer um projeto. Consulte `docs/V0.1.4_PROJECT_CATALOG.md`.
