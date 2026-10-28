@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { initialCadSketch,validateCadSketch,makeCadEntity,addCadEntity,deleteCadEntity,cadEntityMetrics,cadStats,cadSvg,cadDxf,snapCadPoint } from '../core/cad2d.mjs';
+import { initialCadSketch,validateCadSketch,makeCadEntity,addCadEntity,deleteCadEntity,cadEntityMetrics,cadStats,cadSvg,cadDxf,snapCadPoint,replaceCadEntity,addCadLayer,removeCadLayer,cadBounds } from '../core/cad2d.mjs';
 import { loadCadDocument,saveCadDocument,exportCadSketch } from '../core/cad-store.mjs';
 async function workspace(t){const r=await fs.mkdtemp(path.join(os.tmpdir(),'of-cad-'));t.after(()=>fs.rm(r,{recursive:true,force:true}));return r;}
 const model=()=>{
@@ -90,4 +90,42 @@ test('CAD bloqueia symlink na pasta de desenho e na saída',async t=>{
 test('limita quantidade de entidades para evitar travamento e payloads hostis',()=>{
  const doc=initialCadSketch();doc.entities=Array.from({length:2001},(_,i)=>makeCadEntity('line',{x:0,y:i},{x:1,y:i}));
  assert.throws(()=>validateCadSketch(doc),/limites/);
+});
+
+test('edição numérica altera a geometria real, medidas e DXF sem duplicar entidades',()=>{
+ const original=model(),old=original.entities[0];
+ const edited=replaceCadEntity(original,{...old,b:{x:120,y:0}});
+ assert.equal(edited.entities.length,3);
+ assert.equal(edited.entities[0].b.x,120);
+ assert.equal(cadEntityMetrics(edited.entities[0]).length,120);
+ assert.equal(original.entities[0].b.x,30);
+ assert.match(cadDxf(edited),/11\n120\n21\n0/);
+});
+test('edição numérica recusa geometria inválida ou camada bloqueada',()=>{
+ const s=model(),e=s.entities[0];
+ assert.throws(()=>replaceCadEntity(s,{...e,b:{x:e.a.x,y:e.a.y}}),/tamanho nulo/);
+ assert.throws(()=>replaceCadEntity(s,{...e,b:{x:Infinity,y:3}}),/inválida/);
+ assert.throws(()=>replaceCadEntity(s,{...e,type:'circle'}),/não altera tipo/);
+ s.layers[0].locked=true;
+ assert.throws(()=>replaceCadEntity(s,{...e,b:{x:99,y:40}}),/bloqueada/);
+});
+test('camadas adicionais persistem e exclusão é permitida somente sem entidades',()=>{
+ const doc=initialCadSketch();
+ const withLayer=addCadLayer(doc,{id:'cotas',name:'Cotas',color:'#AACCEE'});
+ assert.equal(withLayer.layers.length,3);
+ const withLine=addCadEntity(withLayer,makeCadEntity('line',{x:0,y:0},{x:5,y:7},'cotas','cota1'));
+ assert.throws(()=>removeCadLayer(withLine,'cotas'),/possui entidades/);
+ const removed=removeCadLayer(withLayer,'cotas');
+ assert.equal(removed.layers.length,2);
+ assert.equal(doc.layers.length,2);
+ assert.throws(()=>addCadLayer(withLayer,{id:'cotas',name:'Repetida'}),/duplicada/);
+});
+test('ajuste de vista calcula limites de círculos e respeita visibilidade',()=>{
+ let s=initialCadSketch();
+ assert.equal(cadBounds(s),null);
+ s=addCadEntity(s,makeCadEntity('circle',{x:10,y:20},{x:30,y:20}));
+ assert.deepEqual(cadBounds(s),{minX:-10,maxX:30,minY:0,maxY:40});
+ s.layers[0].visible=false;
+ assert.equal(cadBounds(s),null);
+ assert.deepEqual(cadBounds(s,{visibleOnly:false}),{minX:-10,maxX:30,minY:0,maxY:40});
 });
