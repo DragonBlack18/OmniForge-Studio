@@ -230,7 +230,8 @@ try {
   await page.getByRole('button',{name:'Círculo',exact:true}).click();
   await page.mouse.move(rect.x+rect.width*.42,rect.y+rect.height*.4);
   await page.mouse.down();
-  await page.mouse.move(rect.x+rect.width*.46,rect.y+rect.height*.4,{steps:3});
+  // Move more than one 10-mm grid cell to avoid a zero-radius circle from snap rounding.
+  await page.mouse.move(rect.x+rect.width*.58,rect.y+rect.height*.4,{steps:6});
   await page.mouse.up();
   await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '2');
 
