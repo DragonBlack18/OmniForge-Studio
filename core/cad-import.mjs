@@ -159,8 +159,11 @@ export function parseCadDxf(contents,{assumeMillimeters=false}={}) {
     if(layerIds.has(key))return layerIds.get(key);
     if(layers.length>=MAX_LAYERS)throw new Error('DXF excede o máximo de 32 camadas.');
     let id=name==='0'?'principal':SAFE_LAYER_ID.test(name)?name:null;
-    if(!id || declaredIds.has(id))id='dxf_'+String(layers.length+1).padStart(3,'0');
-    if(declaredIds.has(id))throw new Error('IDs de camada DXF duplicados.');
+    if(!id || declaredIds.has(id)) {
+      let suffix=layers.length+1;
+      do {id='dxf_'+String(suffix++).padStart(3,'0');}
+      while(declaredIds.has(id));
+    }
     const def=definitions.get(key);
     layers.push({
       id,name:name==='0'?'Principal':def?.name||name,
@@ -169,6 +172,9 @@ export function parseCadDxf(contents,{assumeMillimeters=false}={}) {
     });
     declaredIds.add(id);layerIds.set(key,id);return id;
   }
+  // Keep declared, even empty, layers; round-tripping OmniForge R12 DXF must
+  // not erase the construction layer or its user visibility/lock metadata.
+  for(const definition of definitions.values())layerId(definition.name);
   const entities=[];
   function point(x,y) {
     const px=ROUND(x*factor),py=ROUND(y*factor);
