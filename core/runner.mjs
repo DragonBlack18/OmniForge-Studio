@@ -6,14 +6,14 @@ const NOT_EXECUTED = Symbol('omni.http.simulation.skipped');
 
 /** Execution is deterministic, sequential and exclusively uses registered node types. */
 export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false } = {}) {
+  const runId = randomUUID();
   const validation = validateFlow(flow);
-  if (!validation.valid) return { ok: false, stage: 'validation', ...validation, steps: [], artifacts: [] };
+  if (!validation.valid) return { ok: false, runId, dryRun, stage: 'validation', ...validation, steps: [], artifacts: [] };
   await verifyWorkspace(workspace);
   const byId = new Map(flow.nodes.map(node => [node.id, node]));
   const values = new Map();
   const steps = [];
   const artifacts = [];
-  const runId = randomUUID();
   for (const id of validation.order) {
     const node = byId.get(id);
     const started = Date.now();

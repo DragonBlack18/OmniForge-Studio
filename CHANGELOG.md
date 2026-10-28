@@ -3,7 +3,7 @@
 - Histórico persistente por workspace, com arquivos JSON individuais e sem limpeza automática.
 - Visão de histórico e detalhes de PASS/FAIL/SKIP e tempo por bloco na interface Electron.
 - Metadados somente: sem payload, sem resposta de API e com redação de segredos comuns.
-- Suíte ampliada para 49 testes, incluindo isolamento e preservação entre projetos.
+- Suíte ampliada para 50 testes, incluindo isolamento e preservação entre projetos.
 
 ## [0.1.2] — 2026-10-28
 

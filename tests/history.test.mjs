@@ -91,3 +91,18 @@ test('limites de busca e isolamento entre dois projetos', async t => {
   assert.deepEqual(await listRunHistory(two), []);
   await assert.rejects(listRunHistory(one, { limit: 101 }), /inválido/);
 });
+
+test('falha de validação preserva runId e flag de simulação no histórico', async t => {
+  const root = await tempFolder(t);
+  const flow = exampleFlow();
+  flow.nodes[0].config.payload = '{dados invalidos';
+  const result = await runFlow(flow, { workspace: root, dryRun: true });
+  assert.equal(result.ok, false);
+  assert.equal(result.dryRun, true);
+  assert.match(result.runId, /^[0-9a-f-]{36}$/);
+  const history = await recordRunHistory(root, result);
+  const saved = await readRunHistory(root, history.id);
+  assert.equal(saved.stage, 'validation');
+  assert.equal(saved.dryRun, true);
+  assert.equal(saved.ok, false);
+});
