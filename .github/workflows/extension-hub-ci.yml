@@ -39,7 +39,7 @@ jobs:
   desktop-e2e:
     name: Real Electron extension install + full regression
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -55,3 +55,24 @@ jobs:
       - name: DXF import E2E
         run: npm run smoke:cad-import
         timeout-minutes: 5
+      - name: Build real Windows Portable and NSIS packages
+        run: npm run dist:win
+        timeout-minutes: 15
+      - name: Installed app smoke including Extension Hub ASAR runtime
+        shell: pwsh
+        run: ./scripts/windows-distribution-smoke.ps1
+        timeout-minutes: 10
+      - name: Hash generated unsigned binaries
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter '*.exe' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash, $_.Name
+          } | Out-File release/SHA256SUMS.txt -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: OmniForge-ExtensionHub-v0.3.0-Windows-unsigned
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error
