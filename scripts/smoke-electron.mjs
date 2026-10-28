@@ -39,7 +39,7 @@ try {
   await page.getByText('Execução real concluída', { exact: false }).waitFor();
   const result = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'output', 'venda.json'), 'utf8'));
   assert.equal(result.id, 1001);
-  await page.getByRole('button', { name: 'ARQUIVOS' }).click();
+  await page.getByRole('button', { name: 'ARQUIVOS', exact: true }).click();
   await page.getByText('exemplo.py').click();
   await page.getByText('exemplo.py', { exact: false }).first().waitFor();
   const loaded = await page.evaluate(async () => window.omni.readFile('exemplo.py'));
