@@ -57,3 +57,10 @@
 .cad-status{background:#132a32;color:#abd0d4}
 .cad-settings,.cad-precision{background:#172832;border-color:#304651}
 .cad-add-layer input,.cad-coordinate-grid input,.cad-settings select{background:#111e27;border-color:#3a545f;color:#dcebf0}
+
+/* DXF import is a native file read; no project file is changed until explicit Save. */
+.cad-import-action{border-color:#4e7180;color:#c8e3e9;background:#20343f}
+.cad-import-action:hover:not(:disabled){background:#284855;border-color:#71a6b1}
+.cad-top-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:1380px){.cad-topbar{min-height:80px}.cad-context{max-width:220px}}
+@media(max-width:1130px){.cad-topbar{flex-wrap:wrap;gap:6px;justify-content:space-between}.cad-context{order:3;flex-basis:100%;max-width:unset}.cad-top-actions{margin-left:auto}}

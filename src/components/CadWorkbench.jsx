@@ -236,6 +236,41 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
     return ()=>window.removeEventListener('keydown',shortcut);
   },[visible,workspace,dirty,working,sketch,revision]);
 
+  async function importDxf() {
+    if (!workspace || working) return;
+    if (dirty && !window.confirm('Importar DXF substitui o esboço atual ainda não salvo. Deseja continuar?')) return;
+    setWorking(true);
+    try {
+      const imported = await window.omni.importCadDxf();
+      if (!imported) {
+        setStatus('Importação cancelada. O desenho atual foi preservado.');
+        return;
+      }
+      // The dialog/reader is read-only. Import changes only this editor buffer;
+      // native save with the previous revision remains a separate user action.
+      setUndo(old => [...old.slice(-(MAX_UNDO - 1)), structuredClone(sketch)]);
+      setRedo([]);
+      setSketch(imported.sketch);
+      setDirtyFlag(true);
+      setLayerId(imported.sketch.layers[0].id);
+      setSelected(null);setFrom(null);setHover(null);setTool('select');
+      const bounds = cadBounds(imported.sketch);
+      if(bounds) {
+        const w=Math.max(1,bounds.maxX-bounds.minX);
+        const h=Math.max(1,bounds.maxY-bounds.minY);
+        setView({
+          cx:(bounds.minX+bounds.maxX)/2,
+          cy:(bounds.minY+bounds.maxY)/2,
+          zoom:clamp(Math.min(dimensions.w/(w*1.35),dimensions.h/(h*1.35)),0.1,60)
+        });
+      }
+      const units = imported.meta.assumedMillimeters ? 'mm confirmados' :
+        imported.meta.units + (imported.meta.scaleToMm!==1?' convertidos para mm':'');
+      setStatus(`DXF importado: ${imported.sourceName} · ${imported.meta.entityCount} entidades · ${units}. Não salvo: use Salvar desenho.`);
+    } catch(error) {
+      setStatus('Importação DXF recusada: '+error.message);
+    } finally {setWorking(false);}
+  }
   async function exportFormat(format){
     if(!workspace||working)return;
     setWorking(true);
@@ -256,6 +291,8 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       <div className="cad-heading"><span className="cad-eyebrow">ENGENHARIA / DESENHO TÉCNICO</span><strong>CAD Sketch <span>2D</span></strong></div>
       <div className="cad-context"><span className="cad-online-dot"/>{workspace?workspace.split(/[\\/]/).pop():'Sem projeto'} · mm · <span data-testid="cad-entity-count">{stats.count}</span> entidades {dirty?'• não salvo':''}</div>
       <div className="cad-top-actions">
+        <button type="button" disabled={!workspace||working} onClick={importDxf}
+          className="cad-action cad-import-action" data-testid="cad-import-dxf" title="Importar LINE, CIRCLE e LWPOLYLINE reta do DXF ASCII">Importar DXF</button>
         <button type="button" disabled={!workspace||!dirty||working} onClick={save} className="cad-action cad-primary" data-testid="cad-save">Salvar desenho</button>
         <button type="button" disabled={!workspace||working} onClick={()=>exportFormat('dxf')} className="cad-action">Exportar DXF</button>
         <button type="button" disabled={!workspace||working} onClick={()=>exportFormat('svg')} className="cad-action">Exportar SVG</button>
