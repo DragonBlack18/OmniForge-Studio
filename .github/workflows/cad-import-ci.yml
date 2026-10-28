@@ -1,0 +1,68 @@
+name: CAD DXF Import v0.2.2 CI
+on:
+  push:
+    branches:
+      - feature/v0.2.2-dxf-import
+permissions:
+  contents: read
+
+concurrency:
+  group: omniforge-dxf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-tests:
+    name: Node core / DXF + production renderer
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: node --check core/cad-import.mjs
+      - run: node --check core/cad-import-file.mjs
+      - run: node --check electron/main.cjs
+      - run: npm test
+      - run: npm run build
+
+  windows-desktop:
+    name: Windows real DXF Electron + Setup/Portable
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - name: DXF import Electron E2E
+        run: npm run smoke:cad-import
+        timeout-minutes: 5
+      - name: Full existing Electron E2E
+        run: npm run smoke:electron
+        timeout-minutes: 5
+      - name: Package Windows binaries
+        run: npm run dist:win
+        timeout-minutes: 10
+      - name: Real Portable + Setup/NSIS smoke
+        shell: pwsh
+        run: ./scripts/windows-distribution-smoke.ps1
+        timeout-minutes: 5
+      - name: SHA-256 package artifacts
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter '*.exe' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash, $_.Name
+          } | Out-File release/SHA256SUMS.txt -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: OmniForge-DXF-v0.2.2-Windows-unsigned
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error
