@@ -23,7 +23,16 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
   const recordStep = step => {
     steps.push(step);
     if (typeof onStep === 'function') {
-      try { onStep({nodeId:step.nodeId,type:step.type,status:step.status,elapsedMs:step.elapsedMs}); }
+      try {
+        // Progress includes only bounded artifact metadata; never file contents or
+        // absolute paths. This makes timeout/cancel history auditable after a write.
+        onStep({
+          nodeId:step.nodeId,type:step.type,status:step.status,elapsedMs:step.elapsedMs,
+          artifacts:artifacts.slice(-100).map(a=>({
+            relativePath:a.relativePath,bytes:a.bytes,simulated:a.simulated===true
+          }))
+        });
+      }
       catch { /* listeners may not influence workflow execution */ }
     }
   };

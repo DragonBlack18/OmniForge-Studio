@@ -93,3 +93,31 @@ test('validação rejeita timeout e projetos inválidos', async t => {
     workspace,dryRun:false,networkApproved:false,projects:'*'
   }),/Parâmetros/);
 });
+
+test('cancelamento preserva metadados da saída já gravada e não apaga o arquivo', async t => {
+  const workspace=await dir(t), port=await slowServer(t);
+  const start=createNode('trigger.manual','begin',{x:0,y:0});
+  start.config.payload='{"confirmed":true}';
+  const save=createNode('io.writeJson','save',{x:200,y:0});
+  save.config.fileName='partial.json';
+  const request=createNode('http.localJson','remote',{x:400,y:0});
+  request.config={url:'http://127.0.0.1:'+port+'/wait',method:'GET',timeoutMs:'8000'};
+  const flow={schemaVersion:1,name:'Rastreabilidade de escrita anterior',nodes:[start,save,request],edges:[
+    {id:'1',source:'begin',sourceHandle:'out',target:'save',targetHandle:'in'},
+    {id:'2',source:'save',sourceHandle:'out',target:'remote',targetHandle:'in'}
+  ]};
+  const controller=new AbortController();
+  const result=await runSupervisedFlow(flow,{
+    workspace,dryRun:false,networkApproved:true,projects:[]
+  },{timeoutMs:5000,signal:controller.signal,onProgress:step=>{
+    if(step.nodeId==='save' && step.status==='PASS')controller.abort();
+  }});
+  assert.equal(result.ok,false);
+  assert.match(result.error,/cancelada/);
+  assert.ok(result.steps.some(step=>step.nodeId==='save' && step.status==='PASS'));
+  assert.deepEqual(result.artifacts,[{
+    relativePath:'.omniforge/output/partial.json',bytes:24,simulated:false
+  }]);
+  const saved=JSON.parse(await fs.readFile(path.join(workspace,'.omniforge/output/partial.json'),'utf8'));
+  assert.equal(saved.confirmed,true);
+});

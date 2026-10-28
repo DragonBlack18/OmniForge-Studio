@@ -31,9 +31,10 @@ export function runSupervisedFlow(flow, options = {}, {
     throw new Error('Sinal de cancelamento inválido.');
   const runId = randomUUID();
   const steps = [];
+  let partialArtifacts = [];
   const failed = reason => ({
     ok:false,runId,dryRun:options.dryRun,partialSimulation:false,
-    stage:'supervision',steps:[...steps],artifacts:[],error:reason
+    stage:'supervision',steps:[...steps],artifacts:[...partialArtifacts],error:reason
   });
   if (signal?.aborted) return Promise.resolve(failed('Execução cancelada antes do início.'));
   let child;
@@ -68,6 +69,16 @@ export function runSupervisedFlow(flow, options = {}, {
           elapsedMs:Number.isSafeInteger(raw.elapsedMs)?Math.max(0,raw.elapsedMs):0
         };
         steps.push(step);
+        // Persist evidence of completed file writes even if the next step
+        // hangs and the worker must be terminated. Never trust raw paths.
+        if (Array.isArray(raw.artifacts) && raw.artifacts.length <= 100) {
+          partialArtifacts = raw.artifacts.filter(a =>
+            typeof a?.relativePath === 'string' &&
+            /^\\.omniforge\\/output\\/[a-zA-Z0-9_.-]{1,120}$/.test(a.relativePath) &&
+            Number.isSafeInteger(a.bytes) && a.bytes >= 0 &&
+            typeof a.simulated === 'boolean'
+          ).map(a=>({relativePath:a.relativePath,bytes:a.bytes,simulated:a.simulated}));
+        }
         try { onProgress?.(step); } catch {}
       } else if (msg.type === 'result') {
         if (typeof msg.result?.ok !== 'boolean' || !Array.isArray(msg.result.steps) ||
