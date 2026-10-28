@@ -1,8 +1,8 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.2.0",
-  "description": "Electron engineering workbench with visual workflow automation and project-local CAD Sketch 2D",
+  "version": "0.2.1",
+  "description": "Electron engineering workbench with supervised workflows and project-local CAD Sketch 2D",
   "private": true,
   "license": "UNLICENSED",
   "author": "Davi Brand",
