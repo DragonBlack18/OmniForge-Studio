@@ -74,7 +74,7 @@ export function runSupervisedFlow(flow, options = {}, {
         if (Array.isArray(raw.artifacts) && raw.artifacts.length <= 100) {
           partialArtifacts = raw.artifacts.filter(a =>
             typeof a?.relativePath === 'string' &&
-            /^\\.omniforge\\/output\\/[a-zA-Z0-9_.-]{1,120}$/.test(a.relativePath) &&
+            /^\.omniforge\/output\/[a-zA-Z0-9_.-]{1,120}$/.test(a.relativePath) &&
             Number.isSafeInteger(a.bytes) && a.bytes >= 0 &&
             typeof a.simulated === 'boolean'
           ).map(a=>({relativePath:a.relativePath,bytes:a.bytes,simulated:a.simulated}));
