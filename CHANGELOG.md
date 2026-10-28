@@ -73,3 +73,12 @@
 - Geometrias e camadas validadas no núcleo, com preservação de revisão SHA-256 e proteção contra sobrescrita externa.
 - E2E Windows passa a aguardar efetivamente exportação DXF e SVG e a finalizar somente o processo de teste em caso de falha.
 - Testes de cancelamento, timeout, execução real, dry-run, cotas, layers e geometria exata; aprovação de release condicionada ao CI completo.
+
+### Refinamentos finais da interface v0.2.1
+
+- Navegação principal agrupada por Workspace / Recursos / Acompanhamento e opção de recolher, com ícones SVG originais.
+- Biblioteca e explorador contextuais, busca de blocos/arquivos, árvores recolhíveis, inspetor opcional e layout responsivo.
+- Visão geral reestruturada para dados locais reais, removendo elementos de aparência demonstrativa.
+- CAD alinhado ao design system grafite/verde-azulado, mantendo ferramentas e medidas em mm.
+- Ctrl+B abre/fecha a navegação, Ctrl+K busca blocos e Ctrl+S salva o documento ativo (incluindo CAD) sem acionar 'Salvar página' do Chromium.
+- E2E Windows atualizado para navegação, árvore de arquivos, atalho CAD e persistência; versão permanece pendente dos gates da última revisão.

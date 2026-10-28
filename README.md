@@ -49,6 +49,8 @@ Para construir Windows (ambiente preparado com as dependências necessárias):
 npm run dist:win
 ```
 
+O pacote de release exige sucesso no HEAD exato do PR: testes Node Linux/Windows, build Vite, Electron E2E, workflow real no executável instalado, Portable e Setup/NSIS. **Não publique binários nem faça merge com checks pendentes.**
+
 A integração contínua precisa aprovar testes Node Linux/Windows, build Vite, Electron E2E e abertura/fechamento do portátil e Setup antes de publicar binários em [Releases](https://github.com/DragonBlack18/OmniForge-Studio/releases).
 
 ## Estrutura do código
