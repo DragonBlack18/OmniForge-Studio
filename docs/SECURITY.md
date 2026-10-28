@@ -47,3 +47,7 @@ O fluxo declarativo é executado por `core/run-child.cjs` como processo filho do
 
 ### Falha do processo principal
 Se o canal IPC entre o executor e o processo principal cair, o worker encerra imediatamente sem continuar etapas assíncronas. Isso reduz execuções órfãs após crash, mas não desfaz gravações ou chamadas de rede concluídas. O teste de regressão simula desconexão de IPC durante HTTP lento.
+
+## Importação DXF 2D v0.2.2
+
+A fonte é selecionada pelo diálogo nativo de arquivo e nunca por um caminho arbitrário do renderer. Extensão .dxf, tamanho até 2 MB, arquivo regular, sem symlink e UTF-8 válido. O parser não executa código nem plugins e valida unidades/geometrias antes de criar o documento em memória. Sem INSUNITS, o usuário deve aceitar explicitamente interpretar milímetros; o padrão é cancelar. A importação não grava nem substitui documentos automaticamente e usa as revisões SHA-256 existentes ao salvar. Não há importação parcial de ARC, INSERT, SPLINE, DWG ou geometria 3D.

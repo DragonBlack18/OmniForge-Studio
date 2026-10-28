@@ -82,3 +82,13 @@
 - CAD alinhado ao design system grafite/verde-azulado, mantendo ferramentas e medidas em mm.
 - Ctrl+B abre/fecha a navegação, Ctrl+K busca blocos e Ctrl+S salva o documento ativo (incluindo CAD) sem acionar 'Salvar página' do Chromium.
 - E2E Windows atualizado para navegação, árvore de arquivos, atalho CAD e persistência; versão permanece pendente dos gates da última revisão.
+
+## [0.2.2] — Importação DXF ASCII 2D (candidata, sem release)
+
+- Leitor DXF em módulo original, separado do modelo geométrico: LINE, CIRCLE e LWPOLYLINE reta.
+- Conversão explícita de polegadas/pés/cm/m para mm; DXF sem unidade requer aprovação nativa, padrão cancelar.
+- Camadas com cores/visibilidade/lock, incluindo camadas vazias, sem exceder limites.
+- Arquivo externo escolhido pelo diálogo Electron; leitura limitada a 2 MB e UTF-8, sem links simbólicos, escritas ou caminhos arbitrários enviados pelo renderer.
+- Importação em memória com ajuste de enquadramento, histórico Undo e confirmação antes de descartar edições ainda não salvas.
+- Suíte de testes unitários e filesystem; smoke Electron dedicado para importação real, cancelamento, persistência, exportação e rejeição de objetos incompatíveis.
+- Não importa DWG, ARC/3D, blocos, splines ou dados silenciosamente parciais. A integração depende do merge e da validação da v0.2.1.
