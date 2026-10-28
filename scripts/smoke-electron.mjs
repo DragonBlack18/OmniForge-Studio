@@ -39,6 +39,13 @@ try {
   await page.getByText('Execução real concluída', { exact: false }).waitFor();
   const result = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'output', 'venda.json'), 'utf8'));
   assert.equal(result.id, 1001);
+  // The directory opened through the legacy command is also in the new local catalog.
+  await page.getByRole('button', { name: 'Catálogo de projetos' }).click();
+  await page.getByText('Meus projetos (1)').waitFor();
+  const catalog = await page.evaluate(() => window.omni.listProjects());
+  assert.equal(catalog.length, 1);
+  assert.equal(catalog[0].available, true);
+  await page.getByRole('button', { name: 'Abrir', exact: true }).click();
   await page.getByRole('button', { name: 'Histórico de execuções' }).click();
   await page.getByText('Histórico de execuções', { exact: true }).waitFor();
   const savedHistory = await page.evaluate(async () => window.omni.listRunHistory());
@@ -59,6 +66,8 @@ try {
   const document = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'flows', 'principal.json'), 'utf8'));
   assert.equal(document.nodes.length, 3);
   const afterRestart = await page.evaluate(async () => window.omni.listRunHistory());
+  const catalogAfterRestart = await page.evaluate(() => window.omni.listProjects());
+  assert.equal(catalogAfterRestart.length, 1, 'Cadastro de projeto deve persistir após reinício.');
   assert.ok(afterRestart.length >= 2, 'Histórico deve persistir depois de reiniciar o desktop');
   assert.equal(await page.getByRole('button', { name: 'Salvar fluxo' }).isDisabled(), true);
   await page.getByRole('button', { name: 'Validar' }).click();

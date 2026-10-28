@@ -66,6 +66,8 @@ export default function App() {
   const [mode, setMode] = useState('canvas');
   const [sideMode, setSideMode] = useState('catalog');
   const [workspace, setWorkspace] = useState('');
+  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [projects, setProjects] = useState([]);
   const [files, setFiles] = useState([]);
   const [nodes, setNodes, onNodesChange] = useNodesState(toUiNodes(DEFAULT));
   const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT.edges);
@@ -82,7 +84,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.1.3', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.1.4', mode: '...' });
   const selected = nodes.find(node => node.id === selectedId);
   const graph = useMemo(() => toFlow(nodes, edges), [nodes, edges]);
   // React Flow emits change notifications after dragging, moving or deleting nodes.
@@ -106,6 +108,7 @@ export default function App() {
   useEffect(() => {
     if (!window.omni) { setStatus('Abra esta interface pelo Electron: npm run dev.'); return; }
     window.omni.info().then(setInfo).catch(e => setStatus(e.message));
+    window.omni.listProjects().then(setProjects).catch(e => setStatus(`Catálogo indisponível: ${e.message}`));
   }, []);
 
   const notify = useCallback(message => setStatus(message), []);
@@ -117,11 +120,9 @@ export default function App() {
     finally { setBusy(false); }
   }, [notify]);
 
-  const openWorkspace = () => execute(async () => {
-    if ((dirty || flowDirty) && !window.confirm('Existem alterações não salvas. Deseja trocar de projeto e descartá-las?')) return;
-    const result = await window.omni.selectWorkspace();
-    if (!result) return;
+  const applyProject = async result => {
     setWorkspace(result.workspace);
+    setActiveProjectId(result.projectId);
     setFiles(result.files);
     setNodes(toUiNodes(result.flow));
     setEdges(result.flow.edges);
@@ -132,7 +133,38 @@ export default function App() {
     setLastRun(null); setValidation(null);
     setHistory(await window.omni.listRunHistory());
     setSelectedHistory(null);
+    setProjects(await window.omni.listProjects());
+    setMode('canvas');
     notify(`Projeto aberto: ${result.workspace}`);
+  };
+
+  const confirmProjectSwitch = () => !(dirty || flowDirty) ||
+    window.confirm('Existem alterações não salvas. Deseja trocar de projeto e descartá-las?');
+
+  const openWorkspace = () => execute(async () => {
+    if (!confirmProjectSwitch()) return;
+    const result = await window.omni.selectWorkspace();
+    if (result) await applyProject(result);
+  });
+
+  const registerProject = () => execute(async () => {
+    const registered = await window.omni.registerProject();
+    if (!registered) return;
+    setProjects(await window.omni.listProjects());
+    notify(registered.alreadyRegistered ? 'Este projeto já está cadastrado.' : `Projeto cadastrado: ${registered.label}`);
+  });
+
+  const openProjectById = id => execute(async () => {
+    if (!confirmProjectSwitch()) return;
+    await applyProject(await window.omni.openProject(id));
+  });
+
+  const forgetProjectById = id => execute(async () => {
+    if (id === activeProjectId) throw new Error('Abra outro projeto antes de remover o projeto ativo do catálogo.');
+    if (!window.confirm('Esquecer este projeto apenas no catálogo? A pasta e os arquivos permanecerão intactos.')) return;
+    await window.omni.forgetProject(id);
+    setProjects(await window.omni.listProjects());
+    notify('Projeto removido apenas do catálogo. Os arquivos originais foram preservados.');
   });
 
   const addNode = (type) => {
@@ -230,6 +262,7 @@ export default function App() {
       <div className="workspace-layout">
         <nav className="rail" aria-label="Ferramentas">
           <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
+          <button title="Catálogo de projetos" aria-label="Catálogo de projetos" className={mode === 'projects' ? 'rail-active' : ''} onClick={() => setMode('projects')}>▤</button>
           <button title="Editor de código" className={mode === 'code' ? 'rail-active' : ''} onClick={() => {setMode('code'); setSideMode('files');}}>◧</button>
           <button title="Histórico de execuções" aria-label="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
           <button title="Sobre o projeto" className={mode === 'about' ? 'rail-active' : ''} onClick={() => setMode('about')}>ⓘ</button>
@@ -242,7 +275,7 @@ export default function App() {
           </div>
           {sideMode === 'catalog' ? (
             <div className="sidebar-content">
-              <div className="section-label">CATÁLOGO / V0.1.3</div>
+              <div className="section-label">CATÁLOGO / V0.1.4</div>
               <p className="sidebar-description">Blocos reais com validação. APIs limitadas ao próprio computador e somente com autorização.</p>
               {Object.entries(NODE_CATALOG).map(([type, node]) => (
                 <button key={type} className="catalog-item" onClick={() => addNode(type)}>
@@ -317,6 +350,33 @@ export default function App() {
                   onChange={v => {setFileContent(v ?? ''); setDirty(true);}}
                   options={{ automaticLayout: true, fontSize: 14, minimap: { enabled: true }, scrollBeyondLastLine: false, wordWrap: 'on' }} /></div>
               ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}
+            </>
+          )}
+          {mode === 'projects' && (
+            <>
+              <div className="main-toolbar">
+                <div className="toolbar-heading"><span className="eyebrow">CENTRAL DE WORKSPACES / LOCAL</span><strong>Meus projetos ({projects.length})</strong></div>
+                <div className="toolbar-actions">
+                  <button className="button button--subtle" disabled={busy} onClick={() => execute(async () => { setProjects(await window.omni.listProjects()); notify('Catálogo atualizado.'); })}>↻ Atualizar</button>
+                  <button className="button button--solid" disabled={busy || !window.omni} onClick={registerProject}>+ Adicionar projeto</button>
+                </div>
+              </div>
+              <section className="projects-page">
+                <p className="projects-intro">Adicione pastas existentes sem copiar ou alterar seus arquivos. Fluxos e históricos permanecem dentro de cada projeto; a lista é guardada separadamente nos dados locais do OmniForge.</p>
+                {!projects.length && <div className="projects-empty">Nenhum projeto cadastrado. Use “Adicionar projeto” para começar.</div>}
+                <div className="project-cards">
+                  {projects.map(project => (
+                    <article className="project-card" key={project.id}>
+                      <div className="project-card__heading"><strong>{project.label}</strong><span className={project.available ? 'project-available' : 'project-offline'}>{project.available ? 'DISPONÍVEL' : 'OFFLINE'}</span></div>
+                      <small>{project.kind}</small><div className="project-card__path" title={project.path}>{project.path}</div>
+                      <div className="project-card__footer"><span>{project.id === activeProjectId ? '● Projeto ativo' : project.lastOpenedAt ? 'Aberto anteriormente' : 'Ainda não aberto'}</span><div>
+                        <button disabled={busy || !project.available} className="button button--subtle" onClick={() => openProjectById(project.id)}>Abrir</button>
+                        <button disabled={busy || project.id === activeProjectId} className="button button--outline" onClick={() => forgetProjectById(project.id)}>Esquecer</button>
+                      </div></div>
+                    </article>
+                  ))}
+                </div>
+              </section>
             </>
           )}
           {mode === 'history' && (
@@ -406,7 +466,7 @@ export default function App() {
           </div>
         </aside>
       </div>
-      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.3 · Workspace local</span></footer>
+      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.4 · Workspace local</span></footer>
     </div>
   );
 }

@@ -5,3 +5,5 @@ export { loadFlow, readFlowDocument, saveFlow, listProjectFiles, readProjectFile
 
 export { summarizeLocalHttpNodes } from './http.mjs';
 export { recordRunHistory, listRunHistory, readRunHistory } from './history.mjs';
+
+export { inspectProject, listProjects, registerProject, getProject, forgetProject, markProjectOpened } from './projects.mjs';
