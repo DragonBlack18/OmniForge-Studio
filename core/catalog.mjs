@@ -1,0 +1,52 @@
+/**
+ * Node definitions are stable contracts. The canvas renders these schemas;
+ * the engine alone defines what happens at execution time.
+ */
+export const CATALOG_SCHEMA_VERSION = 1;
+
+export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
+  'trigger.manual': {
+    category: 'Gatilhos', label: 'Início manual', description: 'Inicia o fluxo usando um JSON informado no nó.',
+    inputs: [], outputs: [{ id: 'out', type: 'json' }],
+    fields: [{ key: 'payload', label: 'JSON de entrada', kind: 'json', default: '{"venda":{"id":1001,"total":299.90,"cliente":"Exemplo"}}' }]
+  },
+  'logic.pick': {
+    category: 'Lógica', label: 'Selecionar campo', description: 'Lê um caminho de um objeto JSON, sem executar código arbitrário.',
+    inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
+    fields: [{ key: 'path', label: 'Caminho do campo', kind: 'text', default: 'venda' }]
+  },
+  'io.writeJson': {
+    category: 'Arquivos', label: 'Gravar JSON', description: 'Grava o resultado em .omniforge/output dentro do projeto aberto.',
+    inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
+    fields: [{ key: 'fileName', label: 'Arquivo de saída (.json)', kind: 'text', default: 'venda.json' }]
+  }
+}));
+
+export function getNodeDefinition(type) {
+  return typeof type === 'string' && Object.hasOwn(NODE_CATALOG, type) ? NODE_CATALOG[type] : undefined;
+}
+
+export function createNode(type, id, position) {
+  const manifest = getNodeDefinition(type);
+  if (!manifest) throw new Error(`Tipo de nó desconhecido: ${type}`);
+  return {
+    id, type, position,
+    config: Object.fromEntries(manifest.fields.map(field => [field.key, field.default]))
+  };
+}
+
+export function exampleFlow() {
+  return {
+    schemaVersion: 1,
+    name: 'Venda - fluxo inicial',
+    nodes: [
+      createNode('trigger.manual', 'inicio', { x: 75, y: 160 }),
+      createNode('logic.pick', 'selecionar', { x: 370, y: 160 }),
+      createNode('io.writeJson', 'gravar', { x: 665, y: 160 })
+    ],
+    edges: [
+      { id: 'e1', source: 'inicio', target: 'selecionar', sourceHandle: 'out', targetHandle: 'in' },
+      { id: 'e2', source: 'selecionar', target: 'gravar', sourceHandle: 'out', targetHandle: 'in' }
+    ]
+  };
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+release/
+.vite/
+*.log
+*.tmp
+.env
+.env.*
+!.env.example
+.omniforge/
+.DS_Store
+.vscode/
