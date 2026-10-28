@@ -100,7 +100,8 @@ try {
   await page.getByRole('button', { name: '+ Adicionar projeto' }).click();
   await page.getByText('Meus projetos (2)').waitFor();
   const projects = await page.evaluate(() => window.omni.listProjects());
-  const backend = projects.find(p => path.normalize(p.path).toLowerCase() === path.normalize(backendFolder).toLowerCase());
+  const canonicalBackend = await fs.realpath(backendFolder);
+  const backend = projects.find(p => path.normalize(p.path).toLowerCase() === path.normalize(canonicalBackend).toLowerCase());
   assert.ok(backend?.id);
   await page.getByRole('button', { name: 'Conectores de projetos' }).click();
   await page.getByLabel('Projeto que oferece a API').selectOption(backend.id);
