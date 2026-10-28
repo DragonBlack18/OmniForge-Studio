@@ -134,8 +134,8 @@ async function initializeIpc() {
     if (executionInProgress) throw new Error('Já existe um fluxo em execução.');
     executionInProgress = true;
     activeRunController = new AbortController();
-    const root = requireWorkspace();
     try {
+      const root = requireWorkspace();
       let networkApproved = false;
       const projects = await core.listProjects(catalogDataRoot);
       if (!dryRun && core.validateFlow(flow, { projects }).valid) {
