@@ -82,24 +82,25 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   },[workspace,setDirtyFlag]);
 
   const record=useCallback(next=>{
+    if(working)return;
     setUndo(old=>[...old.slice(-(MAX_UNDO-1)),structuredClone(sketch)]);
     setRedo([]);setSketch(next);setDirtyFlag(true);
-  },[sketch,setDirtyFlag]);
+  },[sketch,setDirtyFlag,working]);
   const undoOnce=useCallback(()=>{
-    if(!undo.length)return;
+    if(working||!undo.length)return;
     setRedo(old=>[...old.slice(-(MAX_UNDO-1)),structuredClone(sketch)]);
     setSketch(undo[undo.length-1]);setUndo(x=>x.slice(0,-1));setSelected(null);setDirtyFlag(true);
-  },[undo,sketch,setDirtyFlag]);
+  },[undo,sketch,setDirtyFlag,working]);
   const redoOnce=useCallback(()=>{
-    if(!redo.length)return;
+    if(working||!redo.length)return;
     setUndo(old=>[...old.slice(-(MAX_UNDO-1)),structuredClone(sketch)]);
     setSketch(redo[redo.length-1]);setRedo(x=>x.slice(0,-1));setSelected(null);setDirtyFlag(true);
-  },[redo,sketch,setDirtyFlag]);
+  },[redo,sketch,setDirtyFlag,working]);
   const erase=useCallback(()=>{
-    if(!selected)return;
+    if(working||!selected)return;
     try{record(deleteCadEntity(sketch,selected));setSelected(null);setStatus('Entidade removida do desenho.');}
     catch(e){setStatus(e.message);}
-  },[selected,sketch,record]);
+  },[selected,sketch,record,working]);
   useEffect(()=>{
     if(!visible)return;
     const handler=e=>{
@@ -153,6 +154,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   }
   function pointerUp(event){
     if(panRef.current){panRef.current=null;return;}
+    if(working){setFrom(null);setHover(null);return;}
     if(!from||!workspace||!['line','rectangle','circle'].includes(tool))return;
     const to=toSnapped(event);
     setFrom(null);setHover(null);
