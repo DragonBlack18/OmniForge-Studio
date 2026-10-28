@@ -363,9 +363,13 @@ export default function App() {
         event.preventDefault();
         setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
         requestAnimationFrame(()=>catalogSearchRef.current?.focus());
-      }else if(key==='s' && workspace && !busy){
-        if(mode==='canvas' && flowDirty){event.preventDefault();save();}
-        else if(mode==='code' && fileName && dirty){event.preventDefault();saveFile();}
+      }else if(key==='s'){
+        // Never open Chromium's Save Page dialog in the desktop application.
+        // CAD handles its own document save while the shell handles files/flows.
+        event.preventDefault();
+        if(!workspace || busy || event.repeat)return;
+        if(mode==='canvas' && flowDirty)save();
+        else if(mode==='code' && fileName && dirty)saveFile();
       }
     };
     window.addEventListener('keydown',handleShortcut);

@@ -224,6 +224,18 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       setRevision(result.revision);setDirtyFlag(false);setStatus(`Desenho salvo: ${result.path}`);
     }catch(e){setStatus(`Erro ao salvar: ${e.message}`);}finally{setWorking(false);}
   }
+  useEffect(()=>{
+    if(!visible || !workspace)return;
+    const shortcut=event=>{
+      if(!(event.ctrlKey||event.metaKey) || event.altKey || event.key.toLowerCase()!=='s')return;
+      event.preventDefault();
+      if(event.repeat || working || !dirty)return;
+      save();
+    };
+    window.addEventListener('keydown',shortcut);
+    return ()=>window.removeEventListener('keydown',shortcut);
+  },[visible,workspace,dirty,working,sketch,revision]);
+
   async function exportFormat(format){
     if(!workspace||working)return;
     setWorking(true);

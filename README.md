@@ -23,7 +23,7 @@ Não estão implementados: IA generativa nativa, agentes, Theia/Open VSX, termin
 
 A barra principal agora agrupa Workspace, Recursos e Acompanhamento. A biblioteca de blocos e o explorador são contextuais e podem ser ocultados; o inspector aparece apenas no canvas de automações. Os controles mantêm seus nomes acessíveis, sem alterar os documentos salvos.
 
-Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. O CAD tem comandos próprios para salvar o desenho.
+Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. No CAD, **Ctrl+S também salva o desenho**. O atalho nunca abre a janela de salvar a página do navegador.
 
 ## Instalação de desenvolvimento
 

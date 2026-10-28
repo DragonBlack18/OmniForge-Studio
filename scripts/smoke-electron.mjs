@@ -217,7 +217,8 @@ try {
   await page.getByRole('button',{name:'+ Criar'}).click();
   await page.getByText('Camada criada:',{exact:false}).waitFor();
   await page.getByLabel('Espaçamento da grade').selectOption('10');
-  await page.getByTestId('cad-save').click();
+  // Ctrl+S saves the CAD document, not the browser/Chromium page.
+  await page.keyboard.press('Control+s');
   await page.getByText('Desenho salvo:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Exportar DXF'}).click();
   await page.getByText('Arquivo DXF real exportado:',{exact:false}).waitFor();

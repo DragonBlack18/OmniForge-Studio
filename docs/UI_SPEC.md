@@ -66,3 +66,5 @@ Estas telas não devem surgir ativas enquanto não houver APIs e testes correspo
 - Painel inicial reflete apenas dados reais do workspace, catálogo e última execução da sessão. Recursos planejados são marcados como indisponíveis, sem cards simulados.
 - Paleta grafite/teal controlada, contraste acessível, foco visível, suporte a movimento reduzido, tipografia e espaçamento consistentes.
 - Preferências de layout não alteram `.omniforge/`, arquivos ou dados de projetos. Nenhum schema de persistência foi modificado.
+
+- Atalho `Ctrl+S` salva também o CAD ativo e sempre suprime o comando \"Salvar página\" do Chromium; nenhuma escrita ocorre se o desenho não foi alterado.
