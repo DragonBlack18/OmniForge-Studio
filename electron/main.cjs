@@ -1,6 +1,7 @@
 'use strict';
 const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, session } = require('electron');
 const path = require('node:path');
+const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 
 protocol.registerSchemesAsPrivileged([{
@@ -21,6 +22,27 @@ let exitPromptOpen = false;
 let userApprovedExit = false;
 const projectRoot = path.resolve(__dirname, '..');
 const isDevelopment = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
+
+// Isolated userData is allowed ONLY for local E2E smoke processes.
+// Do not trust arbitrary profile paths from the renderer and never enable
+// this override in a packaged application used with real project data.
+const smokeProfile=process.env.OMNIFORGE_E2E_USER_DATA;
+if (!app.isPackaged && process.env.OMNIFORGE_E2E === '1' &&
+    typeof smokeProfile === 'string' && smokeProfile.length > 0 &&
+    smokeProfile.length < 4096 && path.isAbsolute(smokeProfile)) {
+  const tempBase=path.resolve(os.tmpdir());
+  const target=path.resolve(smokeProfile);
+  const relative=path.relative(tempBase,target);
+  if (relative && relative !== '..' && !relative.startsWith('..'+path.sep) &&
+      !path.isAbsolute(relative)) {
+    // Electron must use app.setPath() before app.whenReady; changing APPDATA
+    // alone does not consistently isolate the runtime on Windows.
+    app.setPath('userData',target);
+  } else {
+    throw new Error('Smoke profile must live under the system temporary directory.');
+  }
+}
+
 
 function assertTrustedSender(event) {
   if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {

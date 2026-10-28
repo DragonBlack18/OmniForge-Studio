@@ -35,7 +35,7 @@ timeout.unref();
 try {
   client=await electron.launch({
     args:['.'],cwd:root,timeout:45000,
-    env:{...process.env,...isolatedEnv,ELECTRON_RENDERER_URL:''}
+    env:{...process.env,...isolatedEnv,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:isolatedProfile,ELECTRON_RENDERER_URL:''}
   });
   page=await client.firstWindow({timeout:45000});
   const profileRoot=await client.evaluate(({app})=>app.getPath('userData'));
