@@ -50,6 +50,8 @@ async function initializeIpc() {
     return { workspace: candidate, flow: document.flow, flowRevision: document.revision, files };
   });
   register('listFiles', () => core.listProjectFiles(requireWorkspace()));
+  register('listRunHistory', () => core.listRunHistory(requireWorkspace()));
+  register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));
   register('readFile', relative => core.readProjectFile(requireWorkspace(), relative));
   register('saveFile', (relative, content, expectedRevision) => core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision));
   register('saveFlow', async (flow, expectedRevision) => {
@@ -81,7 +83,12 @@ async function initializeIpc() {
           networkApproved = true;
         }
       }
-      return await core.runFlow(flow, { workspace: root, dryRun, networkApproved });
+      const result = await core.runFlow(flow, { workspace: root, dryRun, networkApproved });
+      try {
+        return { ...result, history: await core.recordRunHistory(root, result) };
+      } catch {
+        return { ...result, history: { saved: false, warning: 'Falha ao salvar histórico; resultado da execução preservado.' } };
+      }
     }
     finally { executionInProgress = false; }
   });

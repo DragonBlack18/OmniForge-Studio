@@ -72,6 +72,8 @@ export default function App() {
   const [selectedId, setSelectedId] = useState('inicio');
   const [validation, setValidation] = useState(null);
   const [lastRun, setLastRun] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [selectedHistory, setSelectedHistory] = useState(null);
   const [status, setStatus] = useState('Selecione uma pasta para começar.');
   const [busy, setBusy] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -80,7 +82,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.1.2', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.1.3', mode: '...' });
   const selected = nodes.find(node => node.id === selectedId);
   const graph = useMemo(() => toFlow(nodes, edges), [nodes, edges]);
   // React Flow emits change notifications after dragging, moving or deleting nodes.
@@ -128,6 +130,8 @@ export default function App() {
     setSelectedId(result.flow.nodes[0]?.id || null);
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false);
     setLastRun(null); setValidation(null);
+    setHistory(await window.omni.listRunHistory());
+    setSelectedHistory(null);
     notify(`Projeto aberto: ${result.workspace}`);
   });
 
@@ -175,11 +179,25 @@ export default function App() {
     if (!workspace) throw new Error('Abra uma pasta antes de executar.');
     const result = await window.omni.executeFlow(graph, dryRun);
     setLastRun(result);
+    if (result.history?.saved) setHistory(await window.omni.listRunHistory());
     const checked = validateFlow(graph);
     setValidation(checked);
-    notify(result.ok
+    if (result.history && !result.history.saved) notify('Histórico indisponível: a execução foi concluída, mas não foi registrada.');
+    else notify(result.ok
       ? (result.partialSimulation ? 'Simulação parcial: nenhum HTTP foi enviado nem respostas inventadas.' : dryRun ? 'Simulação concluída: nenhuma escrita realizada.' : 'Execução real concluída.')
       : `Execução bloqueada: ${result.error || result.errors?.[0] || 'falha de validação'}`);
+  });
+
+  const openHistory = () => execute(async () => {
+    if (!workspace) throw new Error('Abra um projeto para visualizar o histórico.');
+    setHistory(await window.omni.listRunHistory());
+    setSelectedHistory(null);
+    setMode('history');
+    notify('Histórico de execuções carregado.');
+  });
+
+  const showHistory = id => execute(async () => {
+    setSelectedHistory(await window.omni.readRunHistory(id));
   });
 
   const openFile = relative => execute(async () => {
@@ -213,6 +231,7 @@ export default function App() {
         <nav className="rail" aria-label="Ferramentas">
           <button title="Arquitetura visual" className={mode === 'canvas' ? 'rail-active' : ''} onClick={() => setMode('canvas')}>⌘</button>
           <button title="Editor de código" className={mode === 'code' ? 'rail-active' : ''} onClick={() => {setMode('code'); setSideMode('files');}}>◧</button>
+          <button title="Histórico de execuções" disabled={!workspace || busy} className={mode === 'history' ? 'rail-active' : ''} onClick={openHistory}>◷</button>
           <button title="Sobre o projeto" className={mode === 'about' ? 'rail-active' : ''} onClick={() => setMode('about')}>ⓘ</button>
         </nav>
 
@@ -223,7 +242,7 @@ export default function App() {
           </div>
           {sideMode === 'catalog' ? (
             <div className="sidebar-content">
-              <div className="section-label">CATÁLOGO / V0.1.2</div>
+              <div className="section-label">CATÁLOGO / V0.1.3</div>
               <p className="sidebar-description">Blocos reais com validação. APIs limitadas ao próprio computador e somente com autorização.</p>
               {Object.entries(NODE_CATALOG).map(([type, node]) => (
                 <button key={type} className="catalog-item" onClick={() => addNode(type)}>
@@ -300,6 +319,42 @@ export default function App() {
               ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}
             </>
           )}
+          {mode === 'history' && (
+            <>
+              <div className="main-toolbar">
+                <div className="toolbar-heading"><span className="eyebrow">OBSERVABILIDADE / WORKSPACE</span><strong>Histórico de execuções</strong></div>
+                <div className="toolbar-actions"><button disabled={busy} className="button button--subtle" onClick={openHistory}>↻ Atualizar histórico</button></div>
+              </div>
+              <div className="history-layout">
+                <div className="history-list">
+                  {!history.length && <p className="history-empty">Nenhuma execução registrada neste projeto.</p>}
+                  {history.map(item => (
+                    <button key={item.id} type="button" disabled={busy} onClick={() => showHistory(item.id)} className={`history-item ${selectedHistory?.id === item.id ? 'history-item--selected' : ''}`}>
+                      <strong className={item.ok ? 'log-success' : 'log-error'}>{item.ok ? (item.partialSimulation ? 'SIMULAÇÃO PARCIAL' : 'PASS') : 'FAIL'}</strong>
+                      <small>{item.dryRun ? 'Simulação' : 'Execução real'} · {item.stepCount} etapas</small>
+                      <time>{new Date(item.timestamp).toLocaleString('pt-BR')}</time>
+                    </button>
+                  ))}
+                </div>
+                <div className="history-detail">
+                  {selectedHistory ? <>
+                    <span className="eyebrow">REGISTRO SALVO / {selectedHistory.runId || 'VALIDAÇÃO'}</span>
+                    <h2>{selectedHistory.ok ? 'Execução concluída' : 'Execução com falha'}</h2>
+                    <p>{new Date(selectedHistory.timestamp).toLocaleString('pt-BR')} · {selectedHistory.dryRun ? 'Simulação' : 'Real'} · {selectedHistory.stage}</p>
+                    {selectedHistory.partialSimulation && <p className="history-notice">Simulação parcial: serviços HTTP não foram chamados e etapas dependentes não foram executadas.</p>}
+                    {selectedHistory.error && <p className="log-error">{selectedHistory.error}</p>}
+                    {selectedHistory.errors.map((message, index) => <p key={index} className="log-error">{message}</p>)}
+                    {selectedHistory.steps.map((step, index) => <div key={`${step.nodeId}-${index}`} className="history-step">
+                      <span className={step.status === 'PASS' ? 'log-success' : step.status === 'SKIP' ? 'log-muted' : 'log-error'}>{step.status}</span>
+                      <strong>{step.nodeId}</strong><small>{step.type} · {step.elapsedMs} ms</small>
+                      {step.message && <p>{step.message}</p>}
+                    </div>)}
+                    <p className="history-notice">Este histórico armazena metadados, não os dados de entrada ou as respostas das APIs.</p>
+                  </> : <div className="history-empty">Selecione uma execução na lista para examinar as etapas e seus resultados.</div>}
+                </div>
+              </div>
+            </>
+          )}
           {mode === 'about' && (
             <div className="about-page">
               <div className="about-mark">OF</div><span className="eyebrow">PLATAFORMA DE ENGENHARIA</span>
@@ -351,7 +406,7 @@ export default function App() {
           </div>
         </aside>
       </div>
-      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.2 · Workspace local</span></footer>
+      <footer className="statusbar"><span className="statusbar-left"><span className="indicator-dot" /> {status}</span><span>OmniForge Core 0.1.3 · Workspace local</span></footer>
     </div>
   );
 }
