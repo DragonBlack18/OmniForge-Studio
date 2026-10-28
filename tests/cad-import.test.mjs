@@ -63,6 +63,14 @@ test('LWPOLYLINE fechada com vértices XY gera segmentos reais e preserva camada
   assert.equal(result.sketch.entities[0].type,'line');
 });
 
+test('LWPOLYLINE fechada com vértice inicial repetido não cria segmento de tamanho nulo',()=>{
+  const points=[0,'LWPOLYLINE',90,4,70,1,
+    10,0,20,0,10,50,20,0,10,50,20,25,10,0,20,0];
+  const imported=parseCadDxf(header()+entities(...points));
+  assert.equal(imported.sketch.entities.length,3);
+  validateCadSketch(imported.sketch);
+});
+
 test('layer table preserva cor, visibilidade e bloqueio sem mutar outras camadas',()=>{
   const layers=groups(0,'SECTION',2,'TABLES',0,'TABLE',2,'LAYER',70,1,
     0,'LAYER',2,'cotas',70,4,62,-3,6,'CONTINUOUS',0,'ENDTAB',0,'ENDSEC');

@@ -224,7 +224,11 @@ export function parseCadDxf(contents,{assumeMillimeters=false}={}) {
       const closed=(flags&1)!==0;
       for(let i=1;i<converted.length;i++)
         emit('line',layer,{a:converted[i-1],b:converted[i]});
-      if(closed)emit('line',layer,{a:converted.at(-1),b:converted[0]});
+      // Some valid closed polylines repeat their first vertex at the end.
+      // Do not emit a degenerate duplicate closing segment in that case.
+      if(closed && (converted.at(-1).x!==converted[0].x ||
+                    converted.at(-1).y!==converted[0].y))
+        emit('line',layer,{a:converted.at(-1),b:converted[0]});
     }
   }
   const sketch={
