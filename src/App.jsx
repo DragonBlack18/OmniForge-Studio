@@ -97,6 +97,8 @@ export default function App() {
   const [selectedHistory, setSelectedHistory] = useState(null);
   const [status, setStatus] = useState('Selecione uma pasta para começar.');
   const [busy, setBusy] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [liveSteps, setLiveSteps] = useState([]);
   const [fileName, setFileName] = useState('');
   const [fileContent, setFileContent] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -104,7 +106,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.2.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.2.1', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -135,6 +137,11 @@ export default function App() {
     if (!window.omni?.setUnsavedChanges) return;
     window.omni.setUnsavedChanges(Boolean(dirty || flowDirty || cadDirty)).catch(() => {});
   }, [dirty, flowDirty, cadDirty]);
+
+  useEffect(() => {
+    if (!window.omni?.onFlowProgress) return;
+    return window.omni.onFlowProgress(step => setLiveSteps(old => [...old.slice(-79), step]));
+  }, []);
 
   useEffect(() => {
     if (!window.omni) { setStatus('Abra esta interface pelo Electron: npm run dev.'); return; }
@@ -266,7 +273,12 @@ export default function App() {
 
   const run = dryRun => execute(async () => {
     if (!workspace) throw new Error('Abra uma pasta antes de executar.');
-    const result = await window.omni.executeFlow(graph, dryRun);
+    setLiveSteps([]);
+    setLastRun(null);
+    setRunning(true);
+    let result;
+    try { result = await window.omni.executeFlow(graph, dryRun); }
+    finally { setRunning(false); }
     setLastRun(result);
     if (result.history?.saved) setHistory(await window.omni.listRunHistory());
     const checked = await window.omni.validateFlow(graph);
@@ -276,6 +288,10 @@ export default function App() {
       ? (result.partialSimulation ? 'Simulação parcial: nenhum HTTP foi enviado nem respostas inventadas.' : dryRun ? 'Simulação concluída: nenhuma escrita realizada.' : 'Execução real concluída.')
       : `Execução bloqueada: ${result.error || result.errors?.[0] || 'falha de validação'}`);
   });
+
+  const cancelRun = () => window.omni.cancelFlow().then(cancelled => {
+    notify(cancelled ? 'Cancelamento solicitado. Registrando o resultado...' : 'Nenhuma execução ativa para cancelar.');
+  }).catch(error => notify('Erro ao cancelar: ' + error.message));
 
   const openHistory = () => execute(async () => {
     if (!workspace) throw new Error('Abra um projeto para visualizar o histórico.');
@@ -390,6 +406,7 @@ export default function App() {
                   <button className="button button--subtle" onClick={validate}>Validar</button>
                   <button className="button button--subtle" disabled={busy || !workspace} onClick={() => run(true)}>Simular</button>
                   <button className="button button--run" disabled={busy || !workspace} onClick={() => run(false)}>▶ Executar</button>
+                  {running && <button className="button button--stop" type="button" data-testid="flow-cancel" onClick={cancelRun}>■ Cancelar</button>}
                 </div>
               </div>
               <div className="canvas-wrap">
@@ -586,7 +603,9 @@ export default function App() {
           ) : <div className="inspector-section"><p>Selecione um bloco para editar as configurações. As informações de validação e execução aparecem abaixo.</p></div>}
           <div className="inspector-heading inspector-heading--border">DIAGNÓSTICO <span>{validation?.valid === true ? 'PASS' : validation ? 'FAIL' : '—'}</span></div>
           <div className="diagnostic-log">
-            {!validation && !lastRun && <div className="log-muted">Valide, simule ou execute o fluxo para ver os resultados.</div>}
+            {running && <div className="run-active" data-testid="flow-running" role="status">● EXECUTOR ISOLADO · {liveSteps.length} etapa(s) concluída(s) · cancelamento disponível</div>}
+            {running && liveSteps.map((step, index) => <div key={'live-'+index} className="log-line"><span className={step.status === 'PASS' ? 'log-success' : 'log-muted'}>{step.status}</span> {step.nodeId} <span className="log-muted">{step.elapsedMs}ms</span></div>)}
+            {!running && !validation && !lastRun && <div className="log-muted">Valide, simule ou execute o fluxo para ver os resultados.</div>}
             {validation && <>
               <div className={validation.valid ? 'log-success' : 'log-error'}>{validation.valid ? '✓ Estrutura válida' : `× ${validation.errors.length} erro(s)`}</div>
               {validation.errors.map((message, i) => <div key={i} className="log-line log-error">{message}</div>)}
