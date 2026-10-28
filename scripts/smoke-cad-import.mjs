@@ -8,6 +8,10 @@ import { fileURLToPath } from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const workspace=await fs.mkdtemp(path.join(os.tmpdir(),'omni-dxf-electron-'));
+const isolatedProfile=await fs.mkdtemp(path.join(os.tmpdir(),'omni-dxf-profile-'));
+const isolatedEnv=process.platform==='win32'
+  ? {APPDATA:isolatedProfile,LOCALAPPDATA:isolatedProfile}
+  : {XDG_CONFIG_HOME:isolatedProfile};
 const dxf=path.join(workspace,'desenho-mm.dxf');
 const invalid=path.join(workspace,'unsupported-arc.dxf');
 const pairs=(...values)=>values.join('\n')+'\n';
@@ -31,9 +35,12 @@ timeout.unref();
 try {
   client=await electron.launch({
     args:['.'],cwd:root,timeout:45000,
-    env:{...process.env,ELECTRON_RENDERER_URL:''}
+    env:{...process.env,...isolatedEnv,ELECTRON_RENDERER_URL:''}
   });
   page=await client.firstWindow({timeout:45000});
+  const profileRoot=await client.evaluate(({app})=>app.getPath('userData'));
+  assert.ok(path.normalize(profileRoot).toLowerCase().startsWith(path.normalize(isolatedProfile).toLowerCase()),
+    'DXF E2E deve usar perfil isolado; não pode contaminar outros testes.');
   page.setDefaultTimeout(20000);
   page.on('pageerror',e=>console.error('[Renderer]',e.message));
   await page.getByText('OMNIFORGE',{exact:false}).first().waitFor();
@@ -116,5 +123,6 @@ try {
     }catch{}
   }
   await fs.rm(workspace,{recursive:true,force:true});
+  await fs.rm(isolatedProfile,{recursive:true,force:true}).catch(()=>{});
   clearTimeout(timeout);
 }
