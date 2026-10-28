@@ -5,6 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
 import { createNode, exampleFlow } from '../core/catalog.mjs';
+import { fork } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { runSupervisedFlow } from '../core/supervisor.mjs';
 
 async function dir(t) {
@@ -120,4 +122,30 @@ test('cancelamento preserva metadados da saída já gravada e não apaga o arqui
   }]);
   const saved=JSON.parse(await fs.readFile(path.join(workspace,'.omniforge/output/partial.json'),'utf8'));
   assert.equal(saved.confirmed,true);
+});
+
+test('worker termina ao perder o IPC com o processo pai (sem execução órfã)', async t => {
+  const workspace=await dir(t), port=await slowServer(t);
+  const child=fork(fileURLToPath(new URL('../core/run-child.cjs', import.meta.url)),[],{
+    execArgv:[],stdio:['ignore','ignore','ignore','ipc'],
+    env:{...process.env,ELECTRON_RUN_AS_NODE:'1'}
+  });
+  t.after(()=>{if(child.exitCode===null)child.kill();});
+  let disconnected=false;
+  const result=await new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{child.kill();reject(new Error('Worker órfão não encerrou em 4 s.'));},4000);
+    child.once('error',error=>{clearTimeout(timer);reject(error);});
+    child.once('exit',(code,signal)=>{clearTimeout(timer);resolve({code,signal});});
+    child.on('message',message=>{
+      if (!disconnected && message?.type==='step' && message.step?.nodeId==='start') {
+        disconnected=true;
+        child.disconnect();
+      }
+    });
+    child.send({type:'run',flow:localFlow(port),
+      options:{workspace,dryRun:false,networkApproved:true,projects:[]}
+    });
+  });
+  assert.equal(disconnected,true,'A execução deve iniciar antes de simular falha do pai.');
+  assert.equal(result.code,1,'IPC fechado deve encerrar o worker, sem deixar fluxo em background.');
 });
