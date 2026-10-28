@@ -142,7 +142,43 @@ try {
   const persistedProjects = await page.evaluate(() => window.omni.listProjects());
   assert.equal(persistedProjects.length, 2);
   assert.equal(persistedProjects.find(x => x.id === backend.id)?.capabilities?.[0]?.id, 'registrar-venda');
-  console.log('PASS Electron E2E: project catalog, cross-project POST with consent, typed JSON, persistence, restart, history');
+  // v0.1.10: real renderer validates catalog search and a built-in model.
+  await page.getByRole('button', { name:'Modelos de fluxo' }).click();
+  await page.getByText('Biblioteca de fluxos', { exact:true }).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Usar modelo'}).count(),5);
+  await page.evaluate(() => { window.confirm = () => true; });
+  await page.getByRole('button',{name:'Usar modelo'}).last().click();
+  await page.getByText('Modelo carregado: Normalizar texto.',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'Validar',exact:true}).click();
+  await page.getByText('Estrutura válida',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'BLOCOS',exact:true}).click();
+  await page.getByLabel('Buscar blocos').fill('somar lista');
+  assert.equal(await page.locator('.catalog-item').count(),1);
+  await page.getByLabel('Buscar blocos').fill('');
+  assert.ok((await page.locator('.catalog-item').count()) > 40);
+
+  // v0.1.6 Windows gate: native close must respond (including dirty buffers),
+  // rather than silently trapping the renderer through beforeunload.
+  await page.evaluate(() => window.omni.setUnsavedChanges(true));
+  await client.evaluate(({ dialog, BrowserWindow }) => {
+    dialog.showMessageBox = async () => ({ response: 0 });
+    BrowserWindow.getAllWindows()[0].close();
+  });
+  await page.waitForTimeout(250);
+  assert.equal(page.isClosed(), false, 'Cancelar deve manter a janela aberta.');
+  const nativeProcess = client.process();
+  const exited = new Promise((resolve, reject) => {
+    if (nativeProcess.exitCode !== null) return resolve(nativeProcess.exitCode);
+    const timer = setTimeout(() => reject(new Error('Electron permaneceu aberto após aceitar Sair.')), 12_000);
+    nativeProcess.once('exit', code => { clearTimeout(timer); resolve(code); });
+  });
+  await client.evaluate(({ dialog, BrowserWindow }) => {
+    dialog.showMessageBox = async () => ({ response: 1 });
+    BrowserWindow.getAllWindows()[0].close();
+  }).catch(() => {});
+  await exited;
+  client = null;
+  console.log('PASS Electron E2E: project catalog, cross-project POST, persistence and native cancel/exit');
 } catch (error) {
   if (client) {
     try {

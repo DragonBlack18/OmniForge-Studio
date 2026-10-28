@@ -1,8 +1,8 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.1.5",
-  "description": "Desktop visual engineering workspace — first functional milestone",
+  "version": "0.1.10",
+  "description": "Electron desktop studio with safe modular workflow engine and local project connectors",
   "private": true,
   "license": "UNLICENSED",
   "author": "Davi Brand",
@@ -17,7 +17,7 @@
     "test": "node --test",
     "test:core": "node --test",
     "smoke:electron": "node scripts/smoke-electron.mjs",
-    "dist:win": "npm run build && electron-builder --win nsis portable --x64",
+    "dist:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "demo:core": "node scripts/demo-core.mjs"
   },
   "devDependencies": {

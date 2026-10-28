@@ -131,3 +131,13 @@ Abra **Meus projetos** no menu vertical, clique em **Adicionar projeto**, seleci
 ## v0.1.5 — Conectar projetos por API
 
 Em **Conectores de projetos**, cadastre uma API JSON já oferecida por outro projeto local (`127.0.0.1`). Depois adicione **Chamar projeto por API** ao canvas, selecione o provedor e a capacidade, e conecte as portas. Simulação não envia requests; execução real exige confirmação e valida JSON de ambos os lados. Consulte `docs/V0.1.5_PROJECT_API.md`.
+
+## v0.1.10 — catálogo funcional e correção do fechamento
+
+A versão 0.1.10 reúne a correção do bug de fechamento do Windows/Portable, **55 nós reais** de processamento local de JSON em 10 categorias, busca/filtro de nós, portas SIM/NÃO com junção de caminhos e **cinco fluxos-modelo**. Consulte [o escopo e limites técnicos](docs/V0.1.6_TO_V0.1.10.md).
+
+**Importante:** a plataforma ainda não possui todo o ecossistema de módulos do n8n, nem execução de qualquer linguagem dentro dos blocos. APIs externas, credenciais, agendamentos, integração industrial e CAD exigem adapters e testes próprios.
+
+**Fechamento:** use o botão `Sair`, o X da janela ou Alt+F4. Com arquivos/fluxo não salvos haverá confirmação nativa. Os testes E2E Windows verificam cancelar e encerrar sem necessidade de Gerenciador de Tarefas.
+
+**Distribuição:** o workflow de release cria dois downloads `.exe` individuais (Setup x64 e Portable x64), não assinados, com hashes SHA-256. Os binários não são instalados automaticamente ao clicar; Windows exige confirmação. Os gates do runner Windows usam perfil descartável e não apagam dados de usuários reais.

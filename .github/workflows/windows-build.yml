@@ -15,11 +15,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verificar sintaxe do teste PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path scripts/windows-distribution-smoke.ps1).Path, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -ne 0) { throw ($errors | Out-String) }
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run build
       - run: npm run smoke:electron
       - run: npm run dist:win
+      - name: Teste real Portable + NSIS no Windows
+        shell: pwsh
+        run: ./scripts/windows-distribution-smoke.ps1
       - name: SHA-256 executáveis
         shell: pwsh
         run: |

@@ -1,3 +1,4 @@
+import { validatePureNode } from './pure-nodes.mjs';
 import { getNodeDefinition } from './catalog.mjs';
 import { validateLocalHttpConfig } from './http.mjs';
 import { findProjectCapability } from './capabilities.mjs';
@@ -40,6 +41,7 @@ export function validateFlow(flow, { projects = [] } = {}) {
       errors.push(`Configuração inválida no nó ${node.id}`);
       continue;
     }
+    try { validatePureNode(node); } catch (error) { errors.push(`Nó ${node.id}: ${error.message}`); }
     if (node.type === 'trigger.manual') {
       try { JSON.parse(node.config.payload); } catch { errors.push(`JSON de entrada inválido em ${node.id}.`); }
     }
@@ -55,7 +57,7 @@ export function validateFlow(flow, { projects = [] } = {}) {
     if (node.type === 'project.callLocalApi') {
       try { findProjectCapability(node.config, projects); } catch (error) { errors.push(`Projeto/API inválido em ${node.id}: ${error.message}`); }
     }
-    if (node.type === 'io.writeJson') {
+    if (node.type === 'io.writeJson' || node.type === 'io.readJson') {
       const p = node.config.fileName;
       if (typeof p !== 'string' || !/^[\w-]{1,100}\.json$/i.test(p)) {
         errors.push(`Nome de arquivo inválido em ${node.id}. Use um nome simples .json.`);
