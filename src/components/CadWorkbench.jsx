@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addCadEntity, addCadLayer, cadBounds, cadEntityMetrics, cadStats, deleteCadEntity, initialCadSketch, makeCadEntity, removeCadLayer, replaceCadEntity, snapCadPoint } from '../../core/cad2d.mjs';
+import { NavGlyph } from './NavigationSidebar.jsx';
 import './CadWorkbench.css';
 
 const TOOLS = [
-  ['select','↖','Selecionar'],['pan','✥','Mover vista'],['line','╱','Linha'],
-  ['rectangle','▭','Retângulo'],['circle','◯','Círculo']
+  ['select','pointer','Selecionar'],['pan','hand','Mover vista'],['line','line','Linha'],
+  ['rectangle','rectangle','Retângulo'],['circle','circle','Círculo']
 ];
 const MAX_UNDO = 60;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -251,7 +252,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
     <div className="cad-body">
       <aside className="cad-tools" aria-label="Ferramentas CAD">
         <span className="cad-label">DESENHAR</span>
-        {TOOLS.map(([id,icon,label])=><button key={id} title={label} aria-label={label} data-testid={`cad-tool-${id}`} className={`cad-tool ${tool===id?'is-active':''}`} onClick={()=>{setTool(id);setFrom(null);}}>{icon}</button>)}
+        {TOOLS.map(([id,icon,label])=><button key={id} title={label} aria-label={label} data-testid={`cad-tool-${id}`} className={`cad-tool ${tool===id?'is-active':''}`} onClick={()=>{setTool(id);setFrom(null);}}><NavGlyph name={icon} size={19}/></button>)}
         <div className="cad-tools-separator"/>
         <button title="Desfazer" aria-label="Desfazer" disabled={!undo.length} className="cad-tool cad-tool-small" onClick={undoOnce}>↶</button>
         <button title="Refazer" aria-label="Refazer" disabled={!redo.length} className="cad-tool cad-tool-small" onClick={redoOnce}>↷</button>
@@ -263,10 +264,10 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
         <div className="cad-viewport-badge"><span>ESBOÇO 2D</span> · GRADE {grid} mm · {snapEnabled?'SNAP ATIVO':'SNAP LIVRE'}</div>
         <svg ref={svgRef} aria-label="Área de desenho CAD" data-testid="cad-canvas" className={`cad-canvas cad-canvas--${tool}`} role="application"
           viewBox={vb} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{panRef.current=null;setFrom(null);}} onWheel={zoomWheel}>
-          <defs><pattern id="cad-grid" x="0" y="0" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d={`M ${grid} 0 L 0 0 0 ${grid}`} fill="none" stroke="#27374C" strokeWidth={0.65} vectorEffect="non-scaling-stroke"/></pattern></defs>
-          <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="#0B1422"/>
+          <defs><pattern id="cad-grid" x="0" y="0" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d={`M ${grid} 0 L 0 0 0 ${grid}`} fill="none" stroke="#30444c" strokeWidth={0.65} vectorEffect="non-scaling-stroke"/></pattern></defs>
+          <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="#0f1921"/>
           <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="url(#cad-grid)"/>
-          <line x1="-1000000" x2="1000000" y1="0" y2="0" stroke="#436386" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+          <line x1="-1000000" x2="1000000" y1="0" y2="0" stroke="#52717a" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
           <line y1="-1000000" y2="1000000" x1="0" x2="0" stroke="#436386" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
           {sketch.entities.filter(e=>sketch.layers.find(l=>l.id===e.layerId)?.visible).map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={id=>{if(tool==='select')setSelected(id);}}/>)}
           {from&&hover&&<g opacity="0.85" pointerEvents="none"><CadShape entity={{id:'preview',type:tool,layerId,a:from,b:hover,center:from,radius:Math.hypot(hover.x-from.x,hover.y-from.y)}} color="#E7C383" selected={false} onSelect={()=>{}}/></g>}

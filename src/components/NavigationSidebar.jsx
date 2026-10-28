@@ -20,6 +20,11 @@ const SHAPES = {
   search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z m6-2 4 4',
   layers: 'm12 2 9 5-9 5-9-5z m-9 10 9 5 9-5 m-18 5 9 5 9-5',
   check: 'M5 12l5 5L20 7',
+  pointer: 'M5 3 5 20 9.3 15.4 12.5 21 15.2 19.5 11.8 13.2 20 11z',
+  hand: 'M6 12V8a2 2 0 0 1 4 0v4-5a2 2 0 0 1 4 0v5-3a2 2 0 0 1 4 0v4-2a2 2 0 0 1 4 0v5a6 6 0 0 1-6 6h-4a6 6 0 0 1-5-3l-3-5a2 2 0 0 1 2-3z',
+  line: 'M4 20 20 4',
+  rectangle: 'M4 5h16v14H4z',
+  circle: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
   chevron: 'm9 6 6 6-6 6'
 };
 export function NavGlyph({name, size = 18}) {

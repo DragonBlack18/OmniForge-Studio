@@ -26,3 +26,34 @@
 .cad-viewport-zoom{font-variant-numeric:tabular-nums}
 .cad-tool:focus-visible,.cad-action:focus-visible,.cad-remove-layer:focus-visible{outline:2px solid #85d4f8;outline-offset:2px}
 @media(max-width:1250px){.cad-coordinate-grid{gap:7px}.cad-precision,.cad-settings{padding:12px}.cad-add-layer{flex-direction:column;align-items:stretch}}
+
+/* Shell parity: technical CAD controls use the same graphite/teal visual language. */
+.cad-workbench{background:#0f1921;color:#d8e6ec}
+.cad-topbar{background:#14212a;border-bottom:1px solid #2c424d}
+.cad-heading strong{font-weight:690;letter-spacing:-.03em}
+.cad-heading strong span{color:#91d0cf}
+.cad-eyebrow,.cad-label{color:#81a6b0}
+.cad-context{color:#8da8b4}
+.cad-online-dot{background:#83bea9}
+.cad-action{background:#1b2d36;border-color:#36505c;color:#c0d8df;border-radius:8px}
+.cad-action:hover:not(:disabled){background:#29434b;border-color:#618b91}
+.cad-primary{background:#317b80;border-color:#4b9ca0;color:#ecfcfd}
+.cad-primary:hover:not(:disabled){background:#3e8e91}
+.cad-tools{background:#111e27;border-color:#2e414e}
+.cad-tool{display:grid;place-items:center;background:#182731;color:#a4bfc9;border-radius:8px;width:44px;height:44px}
+.cad-tool.is-active{background:#1d3a40;color:#99d8d5;border-color:#679d9e;box-shadow:inset 0 0 0 1px #477e7b28}
+.cad-tool:hover:not(:disabled){background:#28404a;border-color:#4b727d}
+.cad-center{background:#0f1921}
+.cad-viewport-badge,.cad-viewport-help,.cad-viewport-zoom{background:#13232ccc;border-color:#344b55;color:#91b1bd;box-shadow:0 6px 16px #060d1580}
+.cad-viewport-badge span{color:#8accc9}
+.cad-properties{background:#14212a;border-color:#304551}
+.cad-property-heading{border-color:#304550;color:#88a6b3}
+.cad-property-heading strong{color:#8bc7c6}
+.cad-property-block strong{color:#d9e9ec}
+.cad-layer{background:#1a2b35}
+.cad-layer.selected{border-color:#558a8e;background:#203c43}
+.cad-layer-pick{color:#c7dce2}
+.cad-brief{background:#1b3238;border-color:#36565e}
+.cad-status{background:#132a32;color:#abd0d4}
+.cad-settings,.cad-precision{background:#172832;border-color:#304651}
+.cad-add-layer input,.cad-coordinate-grid input,.cad-settings select{background:#111e27;border-color:#3a545f;color:#dcebf0}
