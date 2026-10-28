@@ -132,8 +132,9 @@ export async function readExtensionFile(filePath) {
   let handle;
   try {
     const info=await fs.lstat(filePath);
-    if(info.isSymbolicLink()||!info.isFile()||info.size===0||info.size>EXTENSION_FILE_MAX_BYTES)
-      throw new Error('Arquivo de extensão inválido, grande ou link simbólico.');
+    if(info.isSymbolicLink())throw new Error('Arquivo de extensão não pode ser link simbólico.');
+    if(!info.isFile()||info.size===0)throw new Error('Arquivo de extensão deve ser arquivo regular não vazio.');
+    if(info.size>EXTENSION_FILE_MAX_BYTES)throw new Error('Manifesto excede 128 KB.');
     handle=await fs.open(filePath,constants.O_RDONLY|(constants.O_NOFOLLOW||0));
     const st=await handle.stat();
     if(!st.isFile()||st.size===0||st.size>EXTENSION_FILE_MAX_BYTES)
