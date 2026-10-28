@@ -191,7 +191,9 @@ try {
   await page.getByTestId('cad-save').click();
   await page.getByText('Desenho salvo:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Exportar DXF'}).click();
+  await page.getByText('Arquivo DXF real exportado:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Exportar SVG'}).click();
+  await page.getByText('Arquivo SVG real exportado:',{exact:false}).waitFor();
   const cadFolder=path.join(workspace,'.omniforge','cad');
   assert.equal(JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8')).entities.length,1);
   assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.dxf'),'utf8'),/\nLINE\n/);
@@ -262,7 +264,16 @@ try {
   process.exitCode = 1;
 } finally {
   checkpoint('cleanup');
-  if (client) await client.close().catch(() => {});
+  if (client) {
+    // On a failed assertion the native dirty-state close dialog may block
+    // Playwright close forever. Terminate only the Electron test child.
+    const child = client.process();
+    if (child && child.exitCode === null) child.kill();
+    await Promise.race([
+      client.close().catch(() => {}),
+      new Promise(resolve => setTimeout(resolve, 3000))
+    ]);
+  }
   if (testServer) { testServer.closeAllConnections(); await new Promise(resolve => testServer.close(resolve)); }
   await fs.rm(workspace, { recursive: true, force: true });
   clearTimeout(smokeWatchdog);
