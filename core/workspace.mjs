@@ -14,7 +14,7 @@ export async function verifyWorkspace(root) {
   return abs;
 }
 
-async function makeTrustedDirectory(root, relative) {
+export async function makeTrustedDirectory(root, relative) {
   const segments = relative.split('/');
   let current = root;
   for (const segment of segments) {

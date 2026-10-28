@@ -39,6 +39,13 @@ try {
   await page.getByText('Execução real concluída', { exact: false }).waitFor();
   const result = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'output', 'venda.json'), 'utf8'));
   assert.equal(result.id, 1001);
+  await page.getByRole('button', { name: 'Histórico de execuções' }).click();
+  await page.getByText('Histórico de execuções', { exact: true }).waitFor();
+  const savedHistory = await page.evaluate(async () => window.omni.listRunHistory());
+  assert.ok(savedHistory.length >= 2, 'Simulação e execução real precisam persistir no histórico');
+  const details = await page.evaluate(async id => window.omni.readRunHistory(id), savedHistory[0].id);
+  assert.ok(details.steps.length >= 3);
+  assert.ok(!JSON.stringify(details).includes('Exemplo'), 'Histórico não deve guardar payload');
   await page.getByRole('button', { name: 'ARQUIVOS', exact: true }).click();
   await page.getByText('exemplo.py').click();
   await page.getByText('exemplo.py', { exact: false }).first().waitFor();
@@ -51,10 +58,12 @@ try {
   page = await bootAndOpen();
   const document = JSON.parse(await fs.readFile(path.join(workspace, '.omniforge', 'flows', 'principal.json'), 'utf8'));
   assert.equal(document.nodes.length, 3);
+  const afterRestart = await page.evaluate(async () => window.omni.listRunHistory());
+  assert.ok(afterRestart.length >= 2, 'Histórico deve persistir depois de reiniciar o desktop');
   assert.equal(await page.getByRole('button', { name: 'Salvar fluxo' }).isDisabled(), true);
   await page.getByRole('button', { name: 'Validar' }).click();
   await page.getByText('Estrutura válida', { exact: false }).waitFor();
-  console.log('PASS Electron E2E: startup, workspace, save, dry-run, real run, file, restart, validation');
+  console.log('PASS Electron E2E: startup, workspace, save, dry-run, real run, file, restart, validation, persisted history');
 } catch (error) {
   if (client) {
     try {

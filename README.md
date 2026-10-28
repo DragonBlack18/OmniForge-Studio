@@ -119,3 +119,13 @@ omniforge-studio/
 `npm test` roda testes de motor e armazenamento sem instalar dependências de interface. `npm install`, `npm run build`, `npm run smoke:electron` e `npm run dist:win` exigem rede, npm e ambiente Windows; o pacote só é classificado como validado quando a execução do GitHub Actions terminar em sucesso. A geração dos binários não os assina digitalmente.
 
 **Importante:** esta etapa ainda não implementa integração HTTP, envio de e-mail, Theia, extensões do VS Code, inteligência artificial ou CAD. Essas capacidades permanecem no roadmap e não aparecem como botões funcionais.
+
+## Versões recentes e downloads individuais
+
+Baixe cada executável de maneira independente no [GitHub Releases](https://github.com/DragonBlack18/OmniForge-Studio/releases): `OmniForge-Studio-Setup-<versão>-x64.exe` (instalador) ou `OmniForge-Studio-Portable-<versão>-x64.exe` (sem instalação). A publicação só acontece após os testes Node, build do frontend e smoke Electron Windows passarem no workflow. Execute o arquivo manualmente; navegadores e Windows não permitem execução automática segura apenas pelo clique.
+
+**v0.1.2 — API local real:** novo bloco HTTP JSON (GET/POST) para `127.0.0.1`, sujeito a confirmação nativa. Redes externas, credenciais e redirecionamento estão bloqueados. A simulação não acessa a rede nem cria respostas artificiais. [Detalhes](docs/V0.1.2_HTTP_LOCAL.md).
+
+**v0.1.3 — histórico persistente:** uma nova área mostra execuções reais e simuladas, etapas e diagnósticos. O histórico local pertence à pasta do projeto e não é apagado por atualização do executável. Não salva o corpo dos dados de entrada ou resposta. [Detalhes](docs/V0.1.3_RUN_HISTORY.md).
+
+**Limitação:** o aplicativo permanece em pré-lançamento, sem assinatura de código e sem controle industrial de produção. Nenhuma opção de atualização silenciosa é ativada.

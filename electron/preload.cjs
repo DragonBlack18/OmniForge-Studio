@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   catalog: () => ipcRenderer.invoke('omni:catalog'),
   selectWorkspace: () => ipcRenderer.invoke('omni:selectWorkspace'),
   listFiles: () => ipcRenderer.invoke('omni:listFiles'),
+  listRunHistory: () => ipcRenderer.invoke('omni:listRunHistory'),
+  readRunHistory: id => ipcRenderer.invoke('omni:readRunHistory', id),
   readFile: relative => ipcRenderer.invoke('omni:readFile', relative),
   saveFile: (relative, content, revision) => ipcRenderer.invoke('omni:saveFile', relative, content, revision),
   saveFlow: (flow, revision) => ipcRenderer.invoke('omni:saveFlow', flow, revision),
