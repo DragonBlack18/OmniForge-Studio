@@ -33,6 +33,9 @@ jobs:
         run: npm run smoke:electron
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
+      - name: Teste real Portable + NSIS no Windows
+        shell: pwsh
+        run: ./scripts/windows-distribution-smoke.ps1
       - name: Validar hashes e nomes individuais
         shell: pwsh
         run: |
