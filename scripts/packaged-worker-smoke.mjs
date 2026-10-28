@@ -57,7 +57,8 @@ child.stdout.on('data',chunk=>stdout+=String(chunk).slice(0,30_000));
 child.stderr.on('data',chunk=>stderr+=String(chunk).slice(0,30_000));
 const result=await new Promise((resolve,reject)=>{
   child.once('error',reject);
-  child.once('exit',(code,signal)=>resolve({code,signal}));
+  // 'close' guarantees stdout/stderr are fully drained before checking PASS.
+  child.once('close',(code,signal)=>resolve({code,signal}));
 });
 clearTimeout(timer);
 console.log(stdout.trim());
