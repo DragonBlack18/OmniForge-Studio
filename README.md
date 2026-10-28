@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**Versão de fundação 0.1.1 — nome de trabalho, ainda não validado como marca.**
+**Versão de fundação 0.1.1 — aplicação desktop em validação contínua.**
 
 Ambiente desktop experimental para conectar editor de código, projeto local e automações por blocos. **Esta versão não é um substituto funcional do VS Code, do n8n nem do AutoCAD.** Ela entrega o primeiro fluxo verificável da arquitetura, e fixa contratos para expandir sem reescrever o núcleo.
 
@@ -22,7 +22,7 @@ Ambiente desktop experimental para conectar editor de código, projeto local e a
 2. **Não há execução arbitrária de Python, C++, Java, PowerShell ou JavaScript.** O mecanismo seguro de workers isolados será uma etapa específica, com permissões e testes.
 3. **Não há IA real, SMTP, PLC, OPC UA, MQTT ou CAD nesta primeira versão.** Nenhum desses módulos aparece como botão funcional.
 4. **O validador não prova ausência de bugs.** Confirma propriedades estruturais dos fluxos que entende; testes externos e efeitos colaterais ainda exigem validação real.
-5. **O processo gráfico e o instalador não foram executados neste ambiente de entrega**, pois o download das dependências npm não estava acessível. Foram realizados testes do núcleo Node e verificações sintáticas do processo principal. Não considere a versão pronta para produção.
+5. **A compilação do renderer e o teste Electron real passaram no GitHub Actions (Windows),** além dos testes Node em Windows/Linux. O instalador e a versão portátil usam workflow próprio, com artefatos não assinados; a confirmação de geração e instalação deve ser conferida no workflow. Não considere a versão pronta para produção.
 6. O gerenciador de arquivos é intencionalmente conservador. A lista limita até 160 entradas com profundidade máxima de 5 pastas.
 
 ## Executar no Windows
@@ -52,33 +52,30 @@ No Windows, após os testes:
 npm run dist:win
 ```
 
-Saídas esperadas: arquivos `.exe` em `release/`, sendo um instalador NSIS e outro pacote portátil. **Ainda não há binários criados ou assinados**, pois o empacotamento Windows não foi validado neste ambiente. Aplicativos sem assinatura podem receber avisos do SmartScreen.
+Saídas esperadas: arquivos `.exe` em `release/`, sendo um instalador NSIS e outro pacote portátil. **Os binários são produzidos pelo GitHub Actions**, sujeitos ao resultado da pipeline de empacotamento. Não são assinados digitalmente. Aplicativos sem assinatura podem receber avisos do SmartScreen.
 
 O alvo `portable` significa que não precisa instalar, **não** que seja totalmente independente de persistência: o app ainda usa preferências do Electron; os fluxos continuam associados às pastas escolhidas. Política de dados portáteis será definida em etapa futura.
 
-## Publicar no GitHub
+## Repositório oficial e validação GitHub
 
-O conteúdo foi preparado para um repositório exclusivo, sem misturar projetos já existentes. A conexão GitHub disponível nesta sessão não oferece ação de **criar novo repositório**. Por isso **nenhum push remoto, PR ou release foi realizado**.
+Código: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio). A branch `main` permanece protegida por revisão: o desenvolvimento inicial está em [`feature/v0.1.1-desktop-stability`](https://github.com/DragonBlack18/OmniForge-Studio/tree/feature/v0.1.1-desktop-stability), com [PR #1](https://github.com/DragonBlack18/OmniForge-Studio/pull/1) aberto como rascunho.
 
-1. Crie um repositório privado vazio (exemplo: `DragonBlack18/omniforge-studio`) no GitHub.
-2. Extraia este pacote em uma pasta local; execute o `npm test`.
-3. No terminal da pasta, siga os comandos abaixo:
+Para trabalhar com o projeto em uma pasta nova no Windows:
 
 ```powershell
-git init -b main
-git add .
-git commit -m "feat: foundation 0.1.1 - graph engine and desktop shell"
-git remote add origin https://github.com/DragonBlack18/omniforge-studio.git
-git push -u origin main
-git checkout -b develop
-git push -u origin develop
+git clone https://github.com/DragonBlack18/OmniForge-Studio.git
+cd OmniForge-Studio
+git switch feature/v0.1.1-desktop-stability
+npm install
+npm test
+npm run dev
 ```
 
-Crie o repositório com **esse nome** para poder usar a URL literalmente; caso prefira outro, altere a URL no comando. Nenhum projeto seu existente será modificado.
+As validações reais estão disponíveis nos [GitHub Actions](https://github.com/DragonBlack18/OmniForge-Studio/actions): **CI** (testes Node Linux/Windows, build React/Vite e smoke Electron Windows) e **Windows Desktop Package (unsigned)** (testes, compilação e tentativa de geração de instalador + portátil como artefatos). Confira o resultado da execução mais recente antes de fazer o merge ou instalar os binários. O build de produção no Windows não prova que todos os recursos planejados estejam prontos.
 
-O comando `npm run demo:core` executa o núcleo de verdade em uma pasta temporária e grava um arquivo JSON mesmo sem as dependências gráficas; para executá-lo isoladamente, basta `node scripts/demo-core.mjs`.
+Como ainda não existe `package-lock.json`, a instalação usa `npm install`. Futuramente, registrar a árvore exata de dependências e adotar `npm ci` nos gates.
 
-Ações automatizadas ficam em `.github/workflows/`: testes do núcleo no Linux/Windows, tentativa de build do frontend, e empacotamento Windows acionado manualmente ou por tag. Os workflows precisam ser observados no GitHub após o primeiro push. Idealmente gere e versione `package-lock.json` no primeiro `npm install` bem-sucedido e substitua `npm install` por `npm ci` nos workflows.
+O comando `npm run demo:core` executa o núcleo em uma pasta temporária e grava JSON mesmo sem as dependências gráficas; basta `node scripts/demo-core.mjs`.
 
 ## Organização
 
