@@ -188,6 +188,14 @@ try {
   await page.mouse.move(rect.x+rect.width*.65,rect.y+rect.height*.62,{steps:5});
   await page.mouse.up();
   await page.waitForFunction(() => document.querySelector('[data-testid=\"cad-entity-count\"]')?.textContent?.trim() === '1');
+  // Coordinates and layer creation must persist through real renderer actions.
+  await page.getByLabel('X final (mm)').fill('120');
+  await page.getByTestId('cad-apply-geometry').click();
+  await page.getByText('Medidas aplicadas com precisão',{exact:false}).waitFor();
+  await page.getByLabel('Nome da nova camada').fill('Cotas industriais');
+  await page.getByRole('button',{name:'+ Criar'}).click();
+  await page.getByText('Camada criada:',{exact:false}).waitFor();
+  await page.getByLabel('Espaçamento da grade').selectOption('10');
   await page.getByTestId('cad-save').click();
   await page.getByText('Desenho salvo:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Exportar DXF'}).click();
@@ -195,7 +203,10 @@ try {
   await page.getByRole('button',{name:'Exportar SVG'}).click();
   await page.getByText('Arquivo SVG real exportado:',{exact:false}).waitFor();
   const cadFolder=path.join(workspace,'.omniforge','cad');
-  assert.equal(JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8')).entities.length,1);
+  const persistedCad=JSON.parse(await fs.readFile(path.join(cadFolder,'sketch.json'),'utf8'));
+  assert.equal(persistedCad.entities.length,1);
+  assert.equal(persistedCad.layers.length,3);
+  assert.equal(persistedCad.entities[0].b.x,120);
   assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.dxf'),'utf8'),/\nLINE\n/);
   assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.svg'),'utf8'),/<line /);
   const cadBeforeRestart=await page.evaluate(()=>window.omni.loadCadSketch());
