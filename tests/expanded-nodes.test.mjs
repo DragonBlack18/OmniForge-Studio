@@ -44,7 +44,7 @@ for (const [type,[input,expected]] of Object.entries(cases)) {
 }
 test('todos os blocos do catálogo têm um executor explicitamente registrado', () => {
   for (const type of Object.keys(NODE_CATALOG)) {
-    assert.ok(Object.hasOwn(PURE_CATALOG,type)|| ['trigger.manual','logic.pick','logic.combine','io.writeJson','io.readJson','http.localJson','project.callLocalApi'].includes(type),type);
+    assert.ok(Object.hasOwn(PURE_CATALOG,type)|| ['trigger.manual','logic.pick','logic.combine','io.writeJson','io.readJson','http.localJson','project.callLocalApi','cad.sketchReport','cad.exportDrawing'].includes(type),type);
   }
 });
 test('todos os manifests possuem nomes, categorias, portas e campos corretos', () => {
@@ -98,8 +98,11 @@ test('leitura local JSON funciona com arquivo válido e bloqueia symlinks',async
 
 test('templates oficiais validam e executam sem dados simulados',async t=>{
   const {WORKFLOW_TEMPLATES}=await import('../core/templates.mjs');
-  assert.equal(WORKFLOW_TEMPLATES.length,5);
+  assert.equal(WORKFLOW_TEMPLATES.length,6);
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'omni-templates-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const { initialCadSketch, makeCadEntity, addCadEntity } = await import('../core/cad2d.mjs');
+  const { saveCadDocument } = await import('../core/cad-store.mjs');
+  await saveCadDocument(root,addCadEntity(initialCadSketch(),makeCadEntity('line',{x:0,y:0},{x:20,y:0})),null);
   for(const template of WORKFLOW_TEMPLATES){
     const result=await runFlow(template.flow,{workspace:root,dryRun:true});
     assert.equal(result.ok,true,template.id+': '+result.error);

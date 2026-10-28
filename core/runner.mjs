@@ -3,6 +3,8 @@ import { validateFlow } from './graph.mjs';
 import { writeOutputJson, readOutputJson, verifyWorkspace } from './workspace.mjs';
 import { fetchLocalJson } from './http.mjs';
 import { executeProjectCapability } from './capabilities.mjs';
+import { cadStats, cadEntityMetrics } from './cad2d.mjs';
+import { loadCadDocument, exportCadSketch } from './cad-store.mjs';
 import { executePureNode, PURE_CATALOG } from './pure-nodes.mjs';
 const NOT_EXECUTED = Symbol('omni.node.skipped');
 
@@ -68,6 +70,31 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
           continue;
         }
         output = await executeProjectCapability(node.config, input, { projects, networkApproved });
+      } else if (node.type === 'cad.sketchReport' || node.type === 'cad.exportDrawing') {
+        const document = await loadCadDocument(workspace);
+        if (!document.revision) throw new Error('Salve primeiro um desenho CAD no workspace.');
+        if (node.type === 'cad.sketchReport') {
+          const summary = cadStats(document.sketch);
+          output = { units: 'mm', ...summary, layers: document.sketch.layers.map(layer => ({
+            id: layer.id, name: layer.name,
+            entities: document.sketch.entities.filter(e => e.layerId === layer.id).length,
+            visible: layer.visible,
+            lengthMm: Number(document.sketch.entities.filter(e => e.layerId === layer.id)
+              .reduce((sum,e) => sum + cadEntityMetrics(e).length, 0).toFixed(4))
+          })) };
+        } else {
+          const format = node.config?.format;
+          if (!['svg','dxf'].includes(format)) throw new Error('Formato CAD inválido.');
+          const relativePath = `.omniforge/output/cad-sketch.${format}`;
+          if (dryRun) {
+            artifacts.push({ relativePath, simulated: true, bytes: 0 });
+            output = { format, relativePath, simulated: true };
+          } else {
+            const exported = await exportCadSketch(workspace, format, document.sketch);
+            artifacts.push(exported);
+            output = { format, relativePath: exported.relativePath, bytes: exported.bytes, simulated: false };
+          }
+        }
       } else if (node.type === 'io.readJson') {
         output = await readOutputJson(workspace, node.config.fileName);
       } else if (node.type === 'io.writeJson') {

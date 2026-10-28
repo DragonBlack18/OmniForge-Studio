@@ -28,7 +28,7 @@ self.MonacoEnvironment = {
 loader.config({ monaco });
 
 const ICONS = { 'trigger.manual': '▶', 'logic.pick': '◇', 'io.writeJson': '▣', 'io.readJson': '▤', 'http.localJson': '⇄', 'project.callLocalApi': '⊞' };
-const CATEGORY_ICONS = { 'Gatilhos': '▶', 'Lógica':'◇','Dados':'▤','Texto':'T','Matemática':'∑','Codificação':'#','Datas':'◷','Arquivos':'▣','Integrações':'⇄','Projetos':'⊞' };
+const CATEGORY_ICONS = { 'Gatilhos': '▶', 'Lógica':'◇','Dados':'▤','Texto':'T','Matemática':'∑','Codificação':'#','Datas':'◷','Arquivos':'▣','Integrações':'⇄','Projetos':'⊞','Engenharia':'▱' };
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
 const DEFAULT = exampleFlow();
 const toUiNodes = flow => flow.nodes.map(node => ({

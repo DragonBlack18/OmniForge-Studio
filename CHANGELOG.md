@@ -57,6 +57,7 @@
 
 - Desenho técnico 2D nativo em mm: linhas, retângulos, círculos, camadas, snapping, navegação, seleção, medidas e desfazer/refazer.
 - Persistência independente de CAD por workspace, revisão SHA-256, snapshots anteriores e exportação SVG/DXF R12.
+- Dois blocos executáveis de integração entre CAD e fluxos, além de um sexto modelo de automação.
 - Nova tela inicial com visão dos módulos realmente operacionais e dos recursos ainda planejados.
 - Revisão do design visual e da hierarquia da interface, mantendo a identidade OmniForge.
 - Corrigido diagnóstico `partialSimulation` em ramificações Se/Senão reais, com testes de regressão.

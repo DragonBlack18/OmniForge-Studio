@@ -8,7 +8,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 
 | Módulo | Entrega atual | Observação |
 |---|---|---|
-| Automação | 55 nós executáveis, canvas React Flow, 5 templates, validação, simulação, execução e histórico | Gatilho manual; não é o n8n completo |
+| Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, simulação, execução e histórico | Gatilho manual; não é o n8n completo |
 | Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |

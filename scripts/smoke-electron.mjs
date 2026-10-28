@@ -145,7 +145,7 @@ try {
   // v0.1.10: real renderer validates catalog search and a built-in model.
   await page.getByRole('button', { name:'Modelos de fluxo' }).click();
   await page.getByText('Biblioteca de fluxos', { exact:true }).waitFor();
-  assert.equal(await page.getByRole('button',{name:'Usar modelo'}).count(),5);
+  assert.equal(await page.getByRole('button',{name:'Usar modelo'}).count(),6);
   await page.evaluate(() => { window.confirm = () => true; });
   await page.getByRole('button',{name:'Usar modelo'}).last().click();
   await page.getByText('Modelo carregado: Normalizar texto.',{exact:false}).waitFor();
@@ -180,6 +180,20 @@ try {
   assert.match(await fs.readFile(path.join(workspace,'.omniforge','output','cad-sketch.svg'),'utf8'),/<line /);
   const cadBeforeRestart=await page.evaluate(()=>window.omni.loadCadSketch());
   assert.equal(cadBeforeRestart.sketch.entities.length,1);
+  const cadGraph = { schemaVersion:1,name:'CAD para automação',nodes:[
+    {id:'t',type:'trigger.manual',position:{x:0,y:0},config:{payload:'{}'}},
+    {id:'m',type:'cad.sketchReport',position:{x:240,y:0},config:{}},
+    {id:'o',type:'io.writeJson',position:{x:480,y:0},config:{fileName:'cad-automation-report.json'}}
+  ],edges:[
+    {id:'c1',source:'t',target:'m',sourceHandle:'out',targetHandle:'in'},
+    {id:'c2',source:'m',target:'o',sourceHandle:'out',targetHandle:'in'}
+  ]};
+  const cadRun=await page.evaluate(graph=>window.omni.executeFlow(graph,false),cadGraph);
+  assert.equal(cadRun.ok,true,cadRun.error);
+  const cadReport=JSON.parse(await fs.readFile(path.join(workspace,'.omniforge','output','cad-automation-report.json'),'utf8'));
+  assert.equal(cadReport.count,1);
+  assert.equal(cadReport.units,'mm');
+
   // The native exit confirmation should also cover unsaved CAD edits.
   await page.getByRole('button',{name:'Círculo',exact:true}).click();
   await page.mouse.move(rect.x+rect.width*.42,rect.y+rect.height*.4);

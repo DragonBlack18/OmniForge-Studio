@@ -32,6 +32,9 @@ const templates=[
     {1:{path:'itens'},2:{path:'ativo',operator:'eq',value:'true'},3:{path:'nome'},4:{fileName:'produtos-ativos.json'}}),
   makeTemplate('media-numerica','Calcular média','Gatilho → média numérica → gravar resultado.',
     ['trigger.manual','math.average','io.writeJson'],[10,20,30],{2:{fileName:'media.json'}}),
+  makeTemplate('relatorio-cad','Relatório do CAD 2D','Lê as métricas de um desenho CAD já salvo em .omniforge/cad e grava um relatório JSON real.',
+    ['trigger.manual','cad.sketchReport','io.writeJson'],
+    {origem:'CAD Sketch'}, {2:{fileName:'relatorio-cad.json'}}),
   makeTemplate('normalizar-texto','Normalizar texto','Gatilho → remover espaços → caixa alta → salvar.',
     ['trigger.manual','text.trim','text.upper','io.writeJson'],'   OmniForge Studio   ',{3:{fileName:'texto.json'}})
 ];
