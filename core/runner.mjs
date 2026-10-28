@@ -9,7 +9,7 @@ import { executePureNode, PURE_CATALOG } from './pure-nodes.mjs';
 const NOT_EXECUTED = Symbol('omni.node.skipped');
 
 /** Execution is deterministic, sequential and exclusively uses registered node types. */
-export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false, projects = [] } = {}) {
+export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false, projects = [], onStep } = {}) {
   const runId = randomUUID();
   const validation = validateFlow(flow, { projects });
   if (!validation.valid) return { ok: false, runId, dryRun, stage: 'validation', ...validation, steps: [], artifacts: [] };
@@ -20,6 +20,13 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
   const values = new Map();
   const steps = [];
   const artifacts = [];
+  const recordStep = step => {
+    steps.push(step);
+    if (typeof onStep === 'function') {
+      try { onStep({nodeId:step.nodeId,type:step.type,status:step.status,elapsedMs:step.elapsedMs}); }
+      catch { /* listeners may not influence workflow execution */ }
+    }
+  };
   for (const id of validation.order) {
     const node = byId.get(id);
     const started = Date.now();
@@ -31,7 +38,7 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
       const ports = node.type === 'logic.if' ? ['yes', 'no'] : ['out'];
       if (skipped && node.type !== 'logic.combine') {
         values.set(id, new Map(ports.map(port => [port, NOT_EXECUTED])));
-        steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'Ramo não selecionado ou API ignorada na simulação.' });
+        recordStep({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'Ramo não selecionado ou API ignorada na simulação.' });
         continue;
       }
       let output;
@@ -42,13 +49,13 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
       } else if (node.type === 'logic.if') {
         const condition = await executePureNode(node.type, input, node.config);
         values.set(id, new Map([['yes', condition ? input : NOT_EXECUTED], ['no', condition ? NOT_EXECUTED : input]]));
-        steps.push({ nodeId: id, type: node.type, status: 'PASS', elapsedMs: Date.now() - started, message: condition ? 'Ramo SIM selecionado.' : 'Ramo NÃO selecionado.' });
+        recordStep({ nodeId: id, type: node.type, status: 'PASS', elapsedMs: Date.now() - started, message: condition ? 'Ramo SIM selecionado.' : 'Ramo NÃO selecionado.' });
         continue;
       } else if (node.type === 'logic.combine') {
         const a = inputs.get('a'), b = inputs.get('b');
         if (a === NOT_EXECUTED && b === NOT_EXECUTED) {
           values.set(id, new Map([['out', NOT_EXECUTED]]));
-          steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started });
+          recordStep({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started });
           continue;
         }
         // If branches are mutually exclusive, forward the selected value.
@@ -59,14 +66,14 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
       } else if (node.type === 'http.localJson') {
         if (dryRun) {
           values.set(id, new Map([['out', NOT_EXECUTED]]));
-          steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'HTTP não enviado no modo simulação.' });
+          recordStep({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'HTTP não enviado no modo simulação.' });
           continue;
         }
         output = await fetchLocalJson(node.config, input, { networkApproved });
       } else if (node.type === 'project.callLocalApi') {
         if (dryRun) {
           values.set(id, new Map([['out', NOT_EXECUTED]]));
-          steps.push({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'API de outro projeto não acionada na simulação.' });
+          recordStep({ nodeId: id, type: node.type, status: 'SKIP', elapsedMs: Date.now() - started, message: 'API de outro projeto não acionada na simulação.' });
           continue;
         }
         output = await executeProjectCapability(node.config, input, { projects, networkApproved });
@@ -105,9 +112,9 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
         throw new Error(`Executor indisponível: ${node.type}`);
       }
       values.set(id, new Map([['out', output]]));
-      steps.push({ nodeId: id, type: node.type, status: 'PASS', elapsedMs: Date.now() - started });
+      recordStep({ nodeId: id, type: node.type, status: 'PASS', elapsedMs: Date.now() - started });
     } catch (error) {
-      steps.push({ nodeId: id, type: node.type, status: 'FAIL', elapsedMs: Date.now() - started, message: String(error.message).slice(0, 250) });
+      recordStep({ nodeId: id, type: node.type, status: 'FAIL', elapsedMs: Date.now() - started, message: String(error.message).slice(0, 250) });
       return { ok: false, runId, stage: 'execution', dryRun, steps, artifacts, error: `Falha no nó ${id}: ${error.message}` };
     }
   }
