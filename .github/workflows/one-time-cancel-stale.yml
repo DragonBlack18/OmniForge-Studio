@@ -1,0 +1,84 @@
+name: One-time cleanup of superseded OmniForge runs
+on:
+  push:
+    branches:
+      - maintenance/cancel-stale-actions-20261028
+
+permissions:
+  contents: read
+  pull-requests: read
+  actions: write
+
+jobs:
+  cancel-superseded:
+    name: Cancel only obsolete PR 19 workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Cancel outdated workflow runs (preserve current v0.2.1)
+        uses: actions/github-script@v7
+        with:
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const protectedSha = '7891f7d68506c420a4fde26947d7d16022fe5a4a';
+            const protectedRunIds = new Set([40755635359, 40755635438]);
+            const branch = 'feature/v0.2.1-supervisor-cad-stability';
+            const allowedWorkflowNames = new Set([
+              'CI',
+              'Windows Desktop Package (unsigned)'
+            ]);
+            const cancellable = new Set([
+              'queued', 'in_progress', 'pending', 'waiting', 'requested'
+            ]);
+            const { data: pull } = await github.rest.pulls.get({
+              owner, repo, pull_number: 19
+            });
+            if (pull.head.sha !== protectedSha) {
+              throw new Error('PR #19 head changed: refusing to cancel any run.');
+            }
+            const runs = await github.paginate(
+              github.rest.actions.listWorkflowRunsForRepo, {
+                owner, repo, per_page: 100
+              }
+            );
+            const stale = runs.filter(run =>
+              run.head_branch === branch &&
+              run.head_sha !== protectedSha &&
+              !protectedRunIds.has(run.id) &&
+              allowedWorkflowNames.has(run.name) &&
+              cancellable.has(run.status)
+            );
+            if (stale.length > 80) {
+              throw new Error('Unexpectedly high number of stale runs: ' + stale.length);
+            }
+            core.info('Eligible obsolete run IDs: ' +
+              stale.map(run => run.id + ' (' + run.status + ')').join(', '));
+            let accepted = 0;
+            const failures = [];
+            for (const run of stale) {
+              try {
+                await github.rest.actions.cancelWorkflowRun({
+                  owner, repo, run_id: run.id
+                });
+                accepted++;
+                core.info('Cancellation accepted: ' + run.id);
+              } catch (error) {
+                const latest = await github.rest.actions.getWorkflowRun({
+                  owner, repo, run_id: run.id
+                });
+                if (latest.data.status === 'completed') {
+                  core.info('Already completed: ' + run.id);
+                } else {
+                  failures.push(run.id + ': ' + (error.status || error.message));
+                }
+              }
+            }
+            core.summary.addHeading('OmniForge stale-run cleanup')
+              .addRaw('Current PR head preserved: ' + protectedSha + '\n\n')
+              .addRaw('Obsolete runs found: ' + stale.length + '\n\n')
+              .addRaw('Cancellation requests accepted: ' + accepted + '\n\n')
+              .addRaw('Failures: ' + (failures.join(', ') || 'none'))
+              .write();
+            if (failures.length) throw new Error(failures.join('; '));
