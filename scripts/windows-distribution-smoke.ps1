@@ -27,7 +27,7 @@ function Test-WindowCloses([string]$exe, [string]$kind) {
     $window.Refresh()
     if (!$window.CloseMainWindow()) { throw "$kind recusou solicitação de fechar pelo X." }
     if (!$window.WaitForExit(15000)) { throw "$kind ficou aberto depois de solicitar o fechamento." }
-    Write-Host "PASS $kind: abriu janela e fechou pelo X sem processo órfão."
+    Write-Host "PASS ${kind}: abriu janela e fechou pelo X sem processo órfão."
   } finally {
     # No Stop-Process or taskkill: failures are retained for diagnostics on the ephemeral runner.
   }
