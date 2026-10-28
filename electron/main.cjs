@@ -144,6 +144,62 @@ async function initializeIpc() {
     activeProjectId = project.id;
     return { workspace: candidate, projectId: project.id, flow: document.flow, flowRevision: document.revision, files };
   }
+  // Declarative packages are data, never arbitrary Node or browser code.
+  // Every mutation shares the project's registry mutex with flow execution.
+  register('listExtensions',()=>core.listInstalledExtensions(catalogDataRoot,workspaceRoot));
+  register('installExtension',()=>serialRegistryAction(async()=>{
+    const chosen=await dialog.showOpenDialog(mainWindow,{
+      title:'Instalar extensão declarativa OmniForge (.ofx.json)',
+      properties:['openFile'],filters:[{name:'Pacote OmniForge',extensions:['json']}]
+    });
+    if(chosen.canceled || chosen.filePaths.length!==1)return null;
+    const manifest=await core.readExtensionFile(chosen.filePaths[0]);
+    const existing=(await core.listInstalledExtensions(catalogDataRoot))
+      .find(item=>item.id===manifest.id);
+    const requested=manifest.permissions.join('\n  - ');
+    const approval=await dialog.showMessageBox(mainWindow,{
+      type:'warning',title:existing?'Atualizar extensão local':'Instalar extensão local',
+      message:(existing?'Atualizar':'Instalar')+' '+manifest.name+' v'+manifest.version+'?',
+      detail:'Origem: arquivo local selecionado pelo usuário.\n'+
+        'Identificador: '+manifest.id+'\n'+
+        'Permissões declaradas:\n  - '+requested+'\n\n'+
+        'Somente operações declarativas são aceitas. Nenhum JavaScript, executável ou pacote npm será executado. '+
+        'A extensão será instalada DESATIVADA. Ao atualizar, todas as permissões anteriores serão revogadas.',
+      buttons:['Cancelar','Confirmar instalação'],defaultId:0,cancelId:0,noLink:true
+    });
+    if(approval.response!==1)return null;
+    return core.installExtension(catalogDataRoot,manifest,{replace:Boolean(existing)});
+  }));
+  register('setExtensionEnabled',(id,enabled)=>serialRegistryAction(()=>
+    core.setExtensionEnabled(catalogDataRoot,id,enabled)
+  ));
+  register('setExtensionGrant',(id,permission,enabled)=>serialRegistryAction(async()=>{
+    const workspace=requireWorkspace();
+    if(enabled) {
+      const approval=await dialog.showMessageBox(mainWindow,{
+        type:'warning',title:'Autorizar capacidade local',
+        message:'Conceder a permissão '+permission+'?',
+        detail:'Extensão: '+id+'\nWorkspace: '+workspace+'\n\n'+
+          (permission==='workspace.output.write'
+            ? 'Esta permissão permite que a extensão grave JSON somente em .omniforge/output do projeto, quando um fluxo real for executado.'
+            : 'Esta permissão permite que a ação declarativa transforme os valores JSON neste workspace.')+
+          '\n\nA autorização pode ser revogada a qualquer momento na Central de Extensões.',
+        buttons:['Cancelar','Autorizar neste projeto'],defaultId:0,cancelId:0,noLink:true
+      });
+      if(approval.response!==1)return null;
+    }
+    return core.setExtensionGrant(catalogDataRoot,workspace,id,permission,enabled);
+  }));
+  register('removeExtension',id=>serialRegistryAction(async()=>{
+    const confirm=await dialog.showMessageBox(mainWindow,{
+      type:'warning',title:'Desinstalar extensão',
+      message:'Desinstalar '+id+'?',
+      detail:'Ações desta extensão deixarão de validar. Fluxos e arquivos já gravados serão preservados.',
+      buttons:['Cancelar','Desinstalar'],defaultId:0,cancelId:0,noLink:true
+    });
+    if(confirm.response!==1)return null;
+    return core.removeExtension(catalogDataRoot,id);
+  }));
   register('listProjects', () => core.listProjects(catalogDataRoot));
   register('registerProject', async () => serialRegistryAction(async () => {
     const selected = await dialog.showOpenDialog(mainWindow, { title: 'Cadastrar projeto no catálogo (sem alterar arquivos)', properties: ['openDirectory'] });
@@ -178,7 +234,10 @@ async function initializeIpc() {
     try { return await core.saveFlow(root, flow, expectedRevision); }
     finally { saveInProgress = false; }
   });
-  register('validateFlow', async flow => core.validateFlow(flow, { projects: await core.listProjects(catalogDataRoot) }));
+  register('validateFlow', async flow => core.validateFlow(flow,{
+    projects:await core.listProjects(catalogDataRoot),
+    extensions:workspaceRoot ? await core.extensionSnapshot(catalogDataRoot,workspaceRoot):[]
+  }));
   register('cancelFlow', () => {
     if (!executionInProgress || !activeRunController || activeRunController.signal.aborted) return false;
     activeRunController.abort();
@@ -193,7 +252,8 @@ async function initializeIpc() {
       const root = requireWorkspace();
       let networkApproved = false;
       const projects = await core.listProjects(catalogDataRoot);
-      if (!dryRun && core.validateFlow(flow, { projects }).valid) {
+      const extensions = await core.extensionSnapshot(catalogDataRoot,root);
+      if (!dryRun && core.validateFlow(flow, { projects, extensions }).valid) {
         const requests = [...core.summarizeLocalHttpNodes(flow), ...core.summarizeProjectCalls(flow, projects)];
         if (requests.length) {
           const destinations = requests.map(request => `${request.project ? request.project + ' / ' : ''}${request.method} ${request.destination}`).join('\n').slice(0, 1600);
@@ -208,7 +268,7 @@ async function initializeIpc() {
         }
       }
       const result = await core.runSupervisedFlow(flow,
-        { workspace: root, dryRun, networkApproved, projects },
+        { workspace: root, dryRun, networkApproved, projects, extensions },
         { signal: activeRunController.signal, onProgress: step => {
           if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('omni:flowProgress', step);
         } }
