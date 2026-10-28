@@ -19,6 +19,12 @@ A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. C
 
 Não estão implementados: IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
 
+## Interface de trabalho
+
+A barra principal agora agrupa Workspace, Recursos e Acompanhamento. A biblioteca de blocos e o explorador são contextuais e podem ser ocultados; o inspector aparece apenas no canvas de automações. Os controles mantêm seus nomes acessíveis, sem alterar os documentos salvos.
+
+Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. O CAD tem comandos próprios para salvar o desenho.
+
 ## Instalação de desenvolvimento
 
 Use **Node.js 22.12+** e uma pasta de projeto de testes.

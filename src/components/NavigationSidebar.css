@@ -1,0 +1,41 @@
+.primary-nav{width:228px;flex:0 0 228px;display:flex;flex-direction:column;min-height:0;background:#0e151b;border-right:1px solid #25303a;color:#c3d0d8;transition:width .18s ease,flex-basis .18s ease;overflow:hidden}
+.primary-nav__heading{height:57px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 14px 0 21px;flex:none;border-bottom:1px solid #1f2a34}
+.primary-nav__heading-text{font-size:9px;letter-spacing:.16em;color:#728898;font-weight:750}
+.primary-nav__collapse{display:grid;place-items:center;flex:none;width:29px;height:29px;background:transparent;border:1px solid transparent;color:#8599a6;border-radius:7px}
+.primary-nav__collapse:hover{background:#192631;color:#d8e4eb;border-color:#2d3c49}
+.primary-nav__groups{overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#314453 transparent;flex:1;padding:15px 10px 14px}
+.primary-nav__group{margin:0 0 21px}
+.primary-nav__group-title{font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:750;color:#6c8190;margin:0 10px 8px}
+.primary-nav__item{display:flex;align-items:center;gap:12px;width:100%;min-height:38px;border-radius:8px;padding:0 11px;border:1px solid transparent;background:transparent;color:#97aab7;text-align:left;white-space:nowrap;font-size:12px;font-weight:560;position:relative}
+.primary-nav__item svg{flex:none;color:#8099a8}
+.primary-nav__item-label{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.primary-nav__item:hover:not(:disabled){background:#17242d;color:#e5eff3}
+.primary-nav__item:hover:not(:disabled) svg{color:#b9e0e5}
+.primary-nav__item--active{background:#18303a!important;border-color:#284653!important;color:#d8f1f1!important;font-weight:670}
+.primary-nav__item--active:before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:2px;border-radius:3px;background:#80c7c5}
+.primary-nav__item--active svg{color:#8fcfcb}
+.primary-nav__item:disabled{opacity:.35}
+.primary-nav__count{font:10px ui-monospace,SFMono-Regular,Consolas,monospace;color:#8195a2;background:#192630;border:1px solid #2b3b47;border-radius:5px;padding:3px 6px;margin-left:auto}
+.primary-nav__bottom{flex:none;border-top:1px solid #26313d;padding:12px 10px 11px}
+.primary-nav__project{display:flex;gap:9px;align-items:center;min-width:0;padding:7px}
+.primary-nav__project-symbol{width:32px;height:32px;border-radius:8px;border:1px solid #334854;background:#1b303c;color:#8bbdc5;display:grid;place-items:center;flex:none}
+.primary-nav__project-copy{min-width:0;display:flex;flex-direction:column;gap:4px}
+.primary-nav__project-copy strong{font-size:11px;font-weight:680;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:155px;color:#d6e3e9}
+.primary-nav__project-copy small{font-size:10px;color:#758c9a}
+.primary-nav__switch{height:31px;margin:3px 5px 9px;display:flex;gap:8px;align-items:center;justify-content:center;width:calc(100% - 10px);font-size:10px;font-weight:650;background:#15232d;color:#a6c0cd;border:1px solid #293e4c;border-radius:7px}
+.primary-nav__switch:hover:not(:disabled){background:#1e3340;border-color:#4a6b78;color:#e3f5f6}
+.primary-nav__about{margin-top:5px;border-top:1px solid #26323c;border-radius:0;padding-top:6px;min-height:42px}
+.primary-nav--collapsed{width:64px;flex-basis:64px}
+.primary-nav--collapsed .primary-nav__heading{padding:0 17px;justify-content:center}
+.primary-nav--collapsed .primary-nav__heading-text,.primary-nav--collapsed .primary-nav__group-title,.primary-nav--collapsed .primary-nav__item-label,.primary-nav--collapsed .primary-nav__count,.primary-nav--collapsed .primary-nav__project-copy,.primary-nav--collapsed .primary-nav__switch span{display:none}
+.primary-nav--collapsed .primary-nav__groups{padding:16px 9px}
+.primary-nav--collapsed .primary-nav__group{padding:0 0 12px;border-bottom:1px solid #26333d;margin-bottom:14px}
+.primary-nav--collapsed .primary-nav__group:last-child{border-bottom:0}
+.primary-nav--collapsed .primary-nav__item{width:44px;justify-content:center;padding:0;min-height:41px}
+.primary-nav--collapsed .primary-nav__bottom{padding:10px 9px}
+.primary-nav--collapsed .primary-nav__project{padding:5px;justify-content:center}
+.primary-nav--collapsed .primary-nav__switch{width:44px;margin:3px 0 8px;padding:0}
+.primary-nav--collapsed .primary-nav__about{border-radius:7px}
+.primary-nav button:focus-visible{outline:2px solid #8cd8d5;outline-offset:-2px}
+@media(max-width:1180px){.primary-nav:not(.primary-nav--collapsed){width:201px;flex-basis:201px}}
+@media(prefers-reduced-motion:reduce){.primary-nav{transition:none}}

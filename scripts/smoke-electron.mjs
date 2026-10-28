@@ -45,6 +45,21 @@ try {
   await fs.writeFile(path.join(workspace, 'exemplo.py'), 'print("real")\n', 'utf8');
   checkpoint('first startup and initial workflow');
   let page = await bootAndOpen();
+  // Navigation is a real, persistent sidebar; unrelated pages must not keep
+  // the block library or node inspector occupying horizontal workspace.
+  await page.getByRole('button',{name:'Recolher menu lateral'}).click();
+  assert.ok((await page.getByTestId('primary-sidebar').getAttribute('class')).includes('collapsed'));
+  await page.getByRole('button',{name:'Expandir menu lateral'}).click();
+  await page.getByRole('button',{name:'Visão geral'}).click();
+  await page.getByTestId('workspace-overview').waitFor();
+  assert.equal(await page.getByTestId('context-sidebar').count(),0);
+  assert.equal(await page.locator('.inspector').count(),0);
+  await page.getByRole('button',{name:'Arquitetura visual'}).click();
+  await page.getByTestId('context-sidebar').waitFor();
+  await page.getByRole('button',{name:'Ocultar painel de ferramentas'}).click();
+  assert.equal(await page.getByTestId('context-sidebar').count(),0);
+  await page.getByRole('button',{name:'Mostrar painel de ferramentas'}).click();
+  await page.getByTestId('context-sidebar').waitFor();
   await page.getByRole('button', { name: 'Salvar fluxo' }).click();
   await page.getByText('Fluxo gravado em', { exact: false }).waitFor();
   await page.getByRole('button', { name: 'Simular' }).click();
@@ -68,7 +83,13 @@ try {
   const details = await page.evaluate(async id => window.omni.readRunHistory(id), savedHistory[0].id);
   assert.ok(details.steps.length >= 3);
   assert.ok(!JSON.stringify(details).includes('Exemplo'), 'Histórico não deve guardar payload');
+  await page.getByRole('button',{name:'Editor de código'}).click();
   await page.getByRole('button', { name: 'ARQUIVOS', exact: true }).click();
+  await page.getByLabel('Buscar arquivo').fill('exemplo');
+  assert.equal(await page.getByRole('treeitem',{name:'exemplo.py'}).count(),1);
+  await page.getByLabel('Buscar arquivo').fill('arquivo-que-nao-existe');
+  await page.getByText('Nenhum arquivo encontrado.').waitFor();
+  await page.getByLabel('Limpar busca de arquivos').click();
   await page.getByText('exemplo.py').click();
   await page.getByText('exemplo.py', { exact: false }).first().waitFor();
   const loaded = await page.evaluate(async () => window.omni.readFile('exemplo.py'));
