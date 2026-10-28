@@ -42,6 +42,7 @@ const GROUPS = [
   {title:'Recursos', items:[
     {mode:'templates',label:'Modelos de fluxo',aria:'Modelos de fluxo',icon:'templates'},
     {mode:'projects',label:'Projetos',aria:'Catálogo de projetos',icon:'folder'},
+    {mode:'extensions',label:'Extensões',aria:'Central de extensões',icon:'layers'},
     {mode:'integrations',label:'Integrações',aria:'Conectores de projetos',icon:'plug'}
   ]},
   {title:'Acompanhamento', items:[

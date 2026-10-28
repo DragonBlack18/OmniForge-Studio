@@ -15,6 +15,7 @@ import { validateFlow } from '../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../core/templates.mjs';
 import CadWorkbench from './components/CadWorkbench.jsx';
 import WorkspaceOverview from './components/WorkspaceOverview.jsx';
+import ExtensionsHub from './components/ExtensionsHub.jsx';
 import NavigationSidebar, { NavGlyph } from './components/NavigationSidebar.jsx';
 import { visibleFileEntries } from './utils/file-tree.mjs';
 
@@ -102,6 +103,7 @@ export default function App() {
   const [workspace, setWorkspace] = useState('');
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [extensions, setExtensions] = useState([]);
   const [files, setFiles] = useState([]);
   const [nodes, setNodes, onNodesChange] = useNodesState(toUiNodes(DEFAULT));
   const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT.edges);
@@ -170,6 +172,7 @@ export default function App() {
     if (!window.omni) { setStatus('Abra esta interface pelo Electron: npm run dev.'); return; }
     window.omni.info().then(setInfo).catch(e => setStatus(e.message));
     window.omni.listProjects().then(setProjects).catch(e => setStatus(`Catálogo indisponível: ${e.message}`));
+    window.omni.listExtensions().then(setExtensions).catch(e=>setStatus('Extensões: '+e.message));
   }, []);
 
   const notify = useCallback(message => setStatus(message), []);
@@ -196,6 +199,7 @@ export default function App() {
     setHistory(await window.omni.listRunHistory());
     setSelectedHistory(null);
     setProjects(await window.omni.listProjects());
+    setExtensions(await window.omni.listExtensions());
     setMode('canvas');
     notify(`Projeto aberto: ${result.workspace}`);
   };
@@ -247,6 +251,33 @@ export default function App() {
     notify('Capacidade removida do catálogo; projetos e arquivos intactos.');
   });
 
+  const refreshExtensions=async()=>setExtensions(await window.omni.listExtensions());
+  const installExtension=()=>execute(async()=>{
+    const installed=await window.omni.installExtension();
+    if(installed){await refreshExtensions();notify(installed.alreadyInstalled?'Extensão já instalada: permissões existentes preservadas.':'Extensão instalada desativada. Ative e autorize para executar.');}
+    else notify('Instalação cancelada; catálogo intacto.');
+  });
+  const installExampleExtension=()=>execute(async()=>{
+    const installed=await window.omni.installExampleExtension();
+    if(installed){await refreshExtensions();notify('Exemplo funcional instalado. Ative e autorize no workspace.');}
+  });
+  const enableExtension=(id,enabled)=>execute(async()=>{
+    await window.omni.setExtensionEnabled(id,enabled);
+    await refreshExtensions();setValidation(null);
+    notify(enabled?'Extensão ativada. Conceda permissões no workspace.':'Extensão desativada. Fluxos dependentes não serão executados.');
+  });
+  const grantExtension=(id,permission,enabled)=>execute(async()=>{
+    const result=await window.omni.setExtensionGrant(id,permission,enabled);
+    await refreshExtensions();setValidation(null);
+    notify(result?(enabled?'Permissão autorizada neste workspace.':'Permissão revogada neste workspace.'):'Autorização cancelada.');
+  });
+  const removeInstalledExtension=id=>execute(async()=>{
+    const result=await window.omni.removeExtension(id);
+    if(result){await refreshExtensions();setValidation(null);
+      notify('Extensão desinstalada. Arquivos e fluxos anteriores preservados.');}
+  });
+  const insertExtensionAction=(extensionId,actionId)=>addNode('extension.call',{extensionId,actionId});
+
   const applyTemplate = template => {
     if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
     const copy=structuredClone(template.flow);
@@ -255,9 +286,10 @@ export default function App() {
     notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
   };
 
-  const addNode = (type) => {
+  const addNode = (type, extraConfig = {}) => {
     const id = `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const next = createNode(type, id, { x: 160 + nodes.length * 60, y: 110 + nodes.length * 50 });
+    next.config={...next.config,...extraConfig};
     setNodes(previous => [...previous, toUiNodes({ nodes: [next] })[0]]);
     setFlowDirty(true);
     setSelectedId(id);
@@ -274,7 +306,7 @@ export default function App() {
 
   const changeConfig = (key, value) => {
     setNodes(all => all.map(node => node.id === selectedId
-      ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value, ...(key === 'projectId' ? { capabilityId: '' } : {}) } } }
+      ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value, ...(key === 'projectId' ? { capabilityId: '' } : {}), ...(key === 'extensionId' ? { actionId: '' } : {}) } } }
       : node));
     setValidation(null);
     setFlowDirty(true);
@@ -554,6 +586,12 @@ export default function App() {
               </section>
             </>
           )}
+          {mode === 'extensions' && <ExtensionsHub
+            extensions={extensions} workspace={workspace} busy={busy}
+            onInstall={installExtension} onInstallExample={installExampleExtension}
+            onEnable={enableExtension} onGrant={grantExtension}
+            onRemove={removeInstalledExtension} onAddAction={insertExtensionAction}
+            onRefresh={()=>execute(async()=>{await refreshExtensions();notify('Extensões atualizadas.');})}/>}
           {mode === 'integrations' && (
             <>
               <div className="main-toolbar">
@@ -653,7 +691,21 @@ export default function App() {
               {NODE_CATALOG[selected.data.kind].fields.map(field => (
                 <label key={field.key} className="setting-field">
                   <span>{field.label}</span>
-                  {field.kind === 'project' ? (
+                  {field.kind === 'extension' ? (
+                    <select aria-label="Extensão do nó" value={selected.data.config.extensionId||''}
+                      onChange={event=>changeConfig('extensionId',event.target.value)}>
+                      <option value="">Selecione uma extensão autorizada</option>
+                      {extensions.filter(item=>item.enabled&&item.granted.includes('workflow.transform'))
+                        .map(item=><option key={item.id} value={item.id}>{item.name} ({item.id})</option>)}
+                    </select>
+                  ) : field.kind === 'extensionAction' ? (
+                    <select aria-label="Ação da extensão" value={selected.data.config.actionId||''}
+                      onChange={event=>changeConfig('actionId',event.target.value)}>
+                      <option value="">Selecione uma ação</option>
+                      {(extensions.find(item=>item.id===selected.data.config.extensionId)?.actions||[])
+                        .map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  ) : field.kind === 'project' ? (
                     <select value={selected.data.config.projectId || ''} onChange={event => changeConfig('projectId', event.target.value)}>
                       <option value="">Selecione um projeto</option>
                       {projects.filter(p => p.available).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}

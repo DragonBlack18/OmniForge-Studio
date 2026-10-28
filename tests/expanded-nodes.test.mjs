@@ -44,7 +44,7 @@ for (const [type,[input,expected]] of Object.entries(cases)) {
 }
 test('todos os blocos do catálogo têm um executor explicitamente registrado', () => {
   for (const type of Object.keys(NODE_CATALOG)) {
-    assert.ok(Object.hasOwn(PURE_CATALOG,type)|| ['trigger.manual','logic.pick','logic.combine','io.writeJson','io.readJson','http.localJson','project.callLocalApi','cad.sketchReport','cad.exportDrawing'].includes(type),type);
+    assert.ok(Object.hasOwn(PURE_CATALOG,type)|| ['trigger.manual','logic.pick','logic.combine','io.writeJson','io.readJson','http.localJson','project.callLocalApi','cad.sketchReport','cad.exportDrawing','extension.call'].includes(type),type);
   }
 });
 test('todos os manifests possuem nomes, categorias, portas e campos corretos', () => {

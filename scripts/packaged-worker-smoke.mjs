@@ -40,6 +40,34 @@ const payload = `
     const saved = JSON.parse(await fs.readFile(path.join(root,'.omniforge','output','smoke.json'),'utf8'));
     if (saved.value !== 42) throw new Error('JSON não foi gravado pelo worker empacotado.');
     console.log('PACKAGED_SUPERVISOR_PASS: 2 steps, real file persisted in isolated temp workspace.');
+    // Prove that the shipped ASAR contains the full declarative runtime as
+    // well as the core runner. The grants here are a trusted test snapshot;
+    // UI/registry authorization is separately exercised in the Electron E2E.
+    const { EXAMPLE_EXTENSION }=await import(pathToFileURL(
+      path.join(path.dirname(process.argv[1]),'extension-example.mjs')
+    ).href);
+    const extFlow={
+      schemaVersion:1,name:'CI packaged extension runtime',
+      nodes:[
+        {id:'begin',type:'trigger.manual',position:{x:0,y:0},
+          config:{payload:'{"massaKg":2.25}'}},
+        {id:'extension',type:'extension.call',position:{x:200,y:0},
+          config:{extensionId:EXAMPLE_EXTENSION.id,actionId:'kg-para-gramas'}}
+      ],
+      edges:[{id:'ed',source:'begin',sourceHandle:'out',target:'extension',targetHandle:'in'}]
+    };
+    const extRun=await runSupervisedFlow(extFlow,{
+      workspace:root,dryRun:false,networkApproved:false,projects:[],
+      extensions:[{manifest:EXAMPLE_EXTENSION,enabled:true,
+        grants:['workflow.transform','workspace.output.write']}]
+    },{timeoutMs:12000});
+    if(!extRun.ok || extRun.steps.length!==2 || extRun.artifacts.length!==1)
+      throw new Error('Extensão não funcionou no worker empacotado: '+JSON.stringify(extRun));
+    const converted=JSON.parse(await fs.readFile(
+      path.join(root,'.omniforge','output','massa-convertida.json'),'utf8'));
+    if(converted.massaGramas!==2250)
+      throw new Error('Operação declarativa empacotada não calculou o valor real.');
+    console.log('PACKAGED_EXTENSION_PASS: authorized declarative action and real JSON output.');
   } finally {
     await fs.rm(root,{recursive:true,force:true});
   }
@@ -62,7 +90,9 @@ const result=await new Promise((resolve,reject)=>{
 });
 clearTimeout(timer);
 console.log(stdout.trim());
-if (timedOut || result.code !== 0 || !stdout.includes('PACKAGED_SUPERVISOR_PASS')) {
+if (timedOut || result.code !== 0 ||
+    !stdout.includes('PACKAGED_SUPERVISOR_PASS') ||
+    !stdout.includes('PACKAGED_EXTENSION_PASS')) {
   throw new Error('Falha no supervisor do app instalado: '+
     JSON.stringify({timedOut,...result,stderr:stderr.slice(-1500),stdout:stdout.slice(-1500)}));
 }

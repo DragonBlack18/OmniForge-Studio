@@ -26,6 +26,15 @@ export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
       { key: 'timeoutMs', label: 'Tempo limite (ms)', kind: 'text', default: '3000' }
     ]
   },
+  'extension.call': {
+    category:'Extensões',label:'Executar extensão local',
+    description:'Invoca uma ação declarativa instalada e autorizada neste workspace. O pacote não executa código JavaScript arbitrário.',
+    inputs:[{id:'in',type:'json',required:true}],outputs:[{id:'out',type:'json'}],
+    fields:[
+      {key:'extensionId',label:'Extensão instalada',kind:'extension',default:''},
+      {key:'actionId',label:'Ação da extensão',kind:'extensionAction',default:''}
+    ]
+  },
   'project.callLocalApi': {
     category: 'Projetos', label: 'Chamar projeto por API',
     description: 'Invoca uma capacidade local cadastrada em outro projeto. Confirma antes de enviar e valida contratos JSON.',

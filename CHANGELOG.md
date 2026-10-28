@@ -92,3 +92,16 @@
 - Importação em memória com ajuste de enquadramento, histórico Undo e confirmação antes de descartar edições ainda não salvas.
 - Suíte de testes unitários e filesystem; smoke Electron dedicado para importação real, cancelamento, persistência, exportação e rejeição de objetos incompatíveis.
 - Não importa DWG, ARC/3D, blocos, splines ou dados silenciosamente parciais. A integração depende do merge e da validação da v0.2.1.
+
+## [0.3.0] — Extension Hub declarativo / integração entre módulos (candidata)
+
+- Registro local de extensões instaladas pelo próprio usuário (não há mercado remoto, npm install, código arbitrário ou dependências externas).
+- Pacotes `.ofx.json` com contrato versionado, 10 operações transformadoras seguras, 16 ações por pacote e controle de saída JSON.
+- Manifestações com SHA-256 verificável e erro explícito caso alteradas fora da aplicação; atualização revoga grants de todas as pastas.
+- Permissões `workflow.transform` e `workspace.output.write` por workspace e revogação sem exclusão de arquivos de projeto.
+- Novo nó `extension.call` validado pelo graph e executado no worker separado, com simulação sem efeitos e histórico de metadados.
+- Central visual completa: instalar, ativar, permitir/revogar, incluir ações no canvas, desinstalar, buscar e listar pacotes.
+- Exemplo funcional de conversão de massa e etiqueta, disponível no repositório e em instalação assistida no aplicativo.
+- Testes Node reais de manifesto, execução, escrita, atomicidade, atualização, grants, symlink, adulteração e fluxo supervisionado.
+- Novo Playwright E2E Windows testa interface, pacote, permissão nativa, execução efetiva, revogação e preservação dos dados.
+- **Não é** execução de plugins não confiáveis nem suporte a extensões VS Code/Theia/VSIX; pré-release sujeita aos gates Windows.

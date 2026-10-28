@@ -6,12 +6,13 @@ import { executeProjectCapability } from './capabilities.mjs';
 import { cadStats, cadEntityMetrics } from './cad2d.mjs';
 import { loadCadDocument, exportCadSketch } from './cad-store.mjs';
 import { executePureNode, PURE_CATALOG } from './pure-nodes.mjs';
+import { runExtensionAction } from './extension-runtime.mjs';
 const NOT_EXECUTED = Symbol('omni.node.skipped');
 
 /** Execution is deterministic, sequential and exclusively uses registered node types. */
-export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false, projects = [], onStep } = {}) {
+export async function runFlow(flow, { workspace, dryRun = true, networkApproved = false, projects = [], extensions = [], onStep } = {}) {
   const runId = randomUUID();
-  const validation = validateFlow(flow, { projects });
+  const validation = validateFlow(flow, { projects, extensions });
   if (!validation.valid) return { ok: false, runId, dryRun, stage: 'validation', ...validation, steps: [], artifacts: [] };
   await verifyWorkspace(workspace);
   const byId = new Map(flow.nodes.map(node => [node.id, node]));
@@ -72,6 +73,10 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
         output = a === NOT_EXECUTED ? b : b === NOT_EXECUTED ? a : { a, b };
       } else if (Object.hasOwn(PURE_CATALOG, node.type)) {
         output = await executePureNode(node.type, input, node.config);
+      } else if(node.type==='extension.call') {
+        const performed=await runExtensionAction(node.config,input,{extensions,workspace,dryRun});
+        output=performed.output;
+        if(performed.artifact)artifacts.push(performed.artifact);
       } else if (node.type === 'http.localJson') {
         if (dryRun) {
           values.set(id, new Map([['out', NOT_EXECUTED]]));
