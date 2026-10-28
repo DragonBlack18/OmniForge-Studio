@@ -1,0 +1,87 @@
+name: Publicar executaveis Windows (Downloads individuais)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verificar e publicar Setup + Portable
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependencias do projeto
+        run: npm install --no-audit --no-fund
+      - name: Testes do motor
+        run: npm test
+      - name: Build da interface
+        run: npm run build
+      - name: Teste E2E real no Electron
+        run: npm run smoke:electron
+      - name: Gerar instalador e portatil
+        run: npm run dist:win
+      - name: Validar hashes e nomes individuais
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = node -p "require('./package.json').version"
+          if ($version -notmatch '^0\.[0-9]+\.[0-9]+$') { throw 'Versao nao permitida' }
+          $setup = "release/OmniForge-Studio-Setup-$version-x64.exe"
+          $portable = "release/OmniForge-Studio-Portable-$version-x64.exe"
+          foreach ($file in @($setup, $portable)) {
+            if (!(Test-Path -LiteralPath $file -PathType Leaf)) { throw "Executavel ausente: $file" }
+            if ((Get-Item -LiteralPath $file).Length -lt 1000000) { throw "Executavel incompleto: $file" }
+          }
+          @($setup, $portable) | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_).Hash, (Split-Path $_ -Leaf)
+          } | Set-Content -Path release/SHA256SUMS.txt -Encoding utf8
+          "OMNI_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Publicar dois downloads independentes no GitHub Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "v$env:OMNI_VERSION"
+          $existing = (& gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName | ConvertFrom-Json) | Where-Object { $_.tagName -eq $tag }
+          if ($LASTEXITCODE -ne 0) { throw "Falha na consulta ao GitHub Releases" }
+          if ($existing) {
+            Write-Host "Release $tag ja existe; nao substituir binarios publicados."
+            exit 0
+          }
+          $setup = "release/OmniForge-Studio-Setup-$env:OMNI_VERSION-x64.exe"
+          $portable = "release/OmniForge-Studio-Portable-$env:OMNI_VERSION-x64.exe"
+          $notes = @"
+          OmniForge Studio $tag — pre-lancamento Windows x64.
+
+          - Setup: instalador convencional per-user.
+          - Portable: executavel independente sem instalacao.
+          - Ambos sao executaveis NAO ASSINADOS e podem receber aviso do Windows SmartScreen.
+          - Clique no arquivo desejado em Assets para baixar; execute manualmente no seu computador.
+          - Funcionalidades ainda experimentais: uso local, sem controle de processos industriais.
+          "@
+          $notes | Set-Content -Path release/RELEASE_NOTES.md -Encoding utf8
+          & gh release create $tag $setup $portable release/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "OmniForge Studio $tag (Windows)" --notes-file release/RELEASE_NOTES.md --prerelease
+          if ($LASTEXITCODE -ne 0) { throw "Falha ao publicar os executaveis no GitHub Releases" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Windows-${{ github.sha }}
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 14

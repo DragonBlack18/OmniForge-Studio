@@ -1,0 +1,35 @@
+name: Windows Desktop Package (unsigned)
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  windows-package:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run build
+      - run: npm run smoke:electron
+      - run: npm run dist:win
+      - name: SHA-256 executáveis
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path release -Filter '*.exe' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash, $_.Name
+          } | Out-File -FilePath release/SHA256SUMS.txt -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OmniForge-Windows-unsigned
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error

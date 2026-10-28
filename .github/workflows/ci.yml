@@ -1,0 +1,51 @@
+name: CI
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+permissions:
+  contents: read
+jobs:
+  core-test:
+    name: Core Node ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm test
+      - run: node --check electron/main.cjs
+      - run: node --check scripts/smoke-electron.mjs
+  renderer-build:
+    name: Renderer production build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+  desktop-windows-smoke:
+    name: Windows production Electron smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - run: npm run smoke:electron
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: electron-smoke-failure
+          path: smoke-failure.png
+          if-no-files-found: ignore
