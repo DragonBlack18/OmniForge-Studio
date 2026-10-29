@@ -276,7 +276,13 @@ async function initializeIpc() {
     announceSchedule(created.id,'created');
     return created;
   }));
-  register('setScheduleEnabled',(id,enabled)=>serialRegistryAction(async()=>{
+  register('setScheduleEnabled',(id,enabled)=>{
+    // Pausing future runs is allowed even when that scheduled run is active.
+    // The store serializes this change and the active job finishes/cancels separately.
+    if(enabled===false)return core.setScheduleEnabled(catalogDataRoot,id,false).then(result=>{
+      announceSchedule(id,'paused');return result;
+    });
+    return serialRegistryAction(async()=>{
     const job=await core.getSchedule(catalogDataRoot,id);
     if(enabled){
       const project=await core.getProject(catalogDataRoot,job.projectId);
@@ -297,7 +303,8 @@ async function initializeIpc() {
     const changed=await core.setScheduleEnabled(catalogDataRoot,id,enabled);
     announceSchedule(id,enabled?'enabled':'paused');
     return changed;
-  }));
+    });
+  });
   register('rebindSchedule',id=>serialRegistryAction(async()=>{
     const job=await core.getSchedule(catalogDataRoot,id);
     if(job.enabled||job.state==='running')
@@ -333,7 +340,8 @@ async function initializeIpc() {
   }));
   register('runScheduleNow',async id=>{
     const service=scheduler();
-    if(executionInProgress||service.busy||schedulePromptOpen)
+    if(executionInProgress||service.busy||schedulePromptOpen||
+       registryMutationInProgress||saveInProgress||cadMutationInProgress)
       throw new Error('Já existe uma execução em andamento.');
     const job=await core.getSchedule(catalogDataRoot,id);
     if(!job.enabled)throw new Error('Ative o agendamento antes de executá-lo.');
@@ -535,8 +543,10 @@ app.whenReady().then(async () => {
   await createWindow();
   if(scheduleReady) {
     scheduleService.start();
-    powerMonitor.on('resume',()=>{
-      scheduleService?.onResume().catch(()=>{});
+    powerMonitor.on('suspend',()=>scheduleService?.stop());
+    powerMonitor.on('resume',async()=>{
+      try {await scheduleService?.onResume();}
+      finally {if(scheduleReady) scheduleService?.start();}
     });
   }
 }).catch(error => {
