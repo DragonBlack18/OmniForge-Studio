@@ -31,12 +31,34 @@ export async function makeTrustedDirectory(root, relative) {
   return current;
 }
 
+// On Windows antivirus/indexers can temporarily hold the destination open.
+// Retry only transient sharing/access errors, without deleting or truncating
+// the destination; if all attempts fail the original file remains intact.
+const WINDOWS_RENAME_RETRY_DELAYS = [25, 50, 100, 175, 250, 350, 450, 550];
+export async function renameAtomicWithRetry(source, destination, {
+  rename = fs.rename,
+  wait = ms => new Promise(resolve => setTimeout(resolve, ms)),
+  platform = process.platform
+} = {}) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(source, destination);
+      return;
+    } catch (error) {
+      if (platform !== 'win32' ||
+          !['EPERM', 'EACCES', 'EBUSY'].includes(error?.code) ||
+          attempt === WINDOWS_RENAME_RETRY_DELAYS.length) throw error;
+      await wait(WINDOWS_RENAME_RETRY_DELAYS[attempt]);
+    }
+  }
+}
+
 export async function atomicWrite(file, text, mode = 0o600) {
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
     await fs.writeFile(temp, text, { flag: 'wx', mode, encoding: 'utf8' });
     await fs.chmod(temp, mode); 
-    await fs.rename(temp, file);
+    await renameAtomicWithRetry(temp, file);
   } finally {
     await fs.rm(temp, { force: true }).catch(() => {});
   }

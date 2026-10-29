@@ -1,3 +1,10 @@
+## [0.4.1] — Windows atomic persistence hotfix (candidate)
+
+- Prevent intermittent Windows EPERM/EACCES/EBUSY failures while replacing local schedule metadata, flow snapshots and CAD documents.
+- Bounded retry only for Windows transient rename errors; no deletion or destructive fallback of the previous destination.
+- Deterministic tests cover eventual success, exhaustion, nonretryable errors, non-Windows behavior, and a real atomic write.
+- Release only after green Windows scheduler E2E, all regressions and Setup/Portable package checks.
+
 ## [0.1.3] — 2026-10-28
 
 - Histórico persistente por workspace, com arquivos JSON individuais e sem limpeza automática.
