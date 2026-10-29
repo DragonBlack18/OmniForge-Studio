@@ -151,5 +151,8 @@ try {
   }
   await fs.rm(sandbox, { recursive: true, force: true }).catch(() => {});
   clearTimeout(watchdog);
-  if (process.exitCode) process.exit(process.exitCode);
+  // Playwright's Electron transport can retain referenced handles on Windows
+  // after close(); exit explicitly once all assertions and cleanup finish.
+  // Never let a passing CI test hang until the workflow timeout.
+  process.exit(process.exitCode || 0);
 }
