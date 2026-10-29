@@ -60,7 +60,7 @@ export class LocalScheduleEngine {
     this.releaseSlot=releaseSlot;this.onChange=onChange;this.onProgress=onProgress;
     this.now=now;this.pollMs=pollMs;this.projectResolver=projectResolver;
     this.validator=validator;this.runner=runner;this.historyRecorder=historyRecorder;
-    this.timer=null;this.busy=false;this.stopped=false;
+    this.timer=null;this.busy=false;this.stopped=false;this.activeId=null;
   }
   emit(event) {
     try {this.onChange(event);} catch { /* UI must not influence scheduling */ }
@@ -104,6 +104,7 @@ export class LocalScheduleEngine {
     let job;
     try {
       job=await claimSchedule(this.userData,id,{now:this.now(),force});
+      this.activeId=job.id;
       this.emit({kind:'started',id:job.id,projectId:job.projectId});
       let workspace=null;
       try {
@@ -139,7 +140,7 @@ export class LocalScheduleEngine {
         return {status:'blocked',id:job.id};
       }
     } finally {
-      this.busy=false;
+      this.busy=false;this.activeId=null;
       try {this.releaseSlot(controller);} catch { /* shutdown remains owned by main */ }
     }
   }
