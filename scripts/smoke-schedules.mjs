@@ -14,8 +14,20 @@ const profile=path.join(lab,'profile');
 await Promise.all([fs.mkdir(workspace),fs.mkdir(profile)]);
 const hash=source=>createHash('sha256').update(source).digest('hex');
 let client,page,phase='boot';
-const watchdog=setTimeout(()=>{console.error('[SCHEDULE E2E] timeout, phase='+phase);process.exit(1);},160_000);
+const watchdog=setTimeout(()=>{console.error('[SCHEDULE E2E] timeout, phase='+phase);process.exit(1);},225_000);
 watchdog.unref();
+async function waitForSchedule(predicate,{timeoutMs=35_000,intervalMs=250}={}) {
+  const deadline=Date.now()+timeoutMs;
+  let last=null;
+  while(Date.now()<deadline) {
+    const jobs=await page.evaluate(()=>window.omni.listSchedules());
+    last=jobs[0]??null;
+    if(predicate(last))return last;
+    await new Promise(resolve=>setTimeout(resolve,intervalMs));
+  }
+  throw new Error('Agendamento não atingiu o estado esperado: '+
+    JSON.stringify({phase,last}));
+}
 async function openDesktop() {
   client=await electron.launch({
     args:['.'],cwd:projectRoot,timeout:45000,
@@ -57,15 +69,9 @@ try {
     {code:'ENOENT'});
   phase='activate then run real';
   await page.getByRole('button',{name:'Ativar',exact:true}).click();
-  await page.waitForFunction(async()=>{
-    const jobs=await window.omni.listSchedules();
-    return jobs[0]?.enabled===true;
-  });
+  await waitForSchedule(job=>job?.enabled===true);
   await page.getByRole('button',{name:'Executar agora'}).click();
-  await page.waitForFunction(async()=>{
-    const jobs=await window.omni.listSchedules();
-    return jobs[0]?.lastOutcome==='PASS' && jobs[0]?.runs===1;
-  },{timeout:30000});
+  await waitForSchedule(job=>job?.lastOutcome==='PASS' && job?.runs===1);
   const projects=await page.evaluate(()=>window.omni.listProjects());
   const schedules=await page.evaluate(()=>window.omni.listSchedules());
   const historyInfo=await page.evaluate(async()=>{
@@ -87,12 +93,16 @@ try {
   const output=JSON.parse(await fs.readFile(outputPath,'utf8'));
   assert.equal(output.id,1001);
   assert.equal((await page.evaluate(()=>window.omni.listRunHistory())).length,1);
+  phase='real interval trigger (not a simulated clock)';
+  // Verify an actual timer-triggered SECOND run without clicking Execute again.
+  // The Node tests additionally validate clock jumps without a 60s sleep.
+  await waitForSchedule(job=>job?.lastOutcome==='PASS' && job?.runs===2,
+    {timeoutMs:92_000,intervalMs:350});
+  assert.equal((await page.evaluate(()=>window.omni.listRunHistory())).length,2);
+  assert.equal(JSON.parse(await fs.readFile(outputPath,'utf8')).id,1001);
   phase='pause and restart';
   await page.getByRole('button',{name:'Pausar',exact:true}).click();
-  await page.waitForFunction(async()=>{
-    const jobs=await window.omni.listSchedules();
-    return jobs[0]?.enabled===false;
-  });
+  await waitForSchedule(job=>job?.enabled===false);
   await client.close();client=null;
   await openDesktop();
   await page.getByRole('button',{name:'Central de agendamentos'}).click();
@@ -100,7 +110,7 @@ try {
   const persisted=(await page.evaluate(()=>window.omni.listSchedules()))[0];
   assert.equal(persisted.id,created.id);
   assert.equal(persisted.enabled,false);
-  assert.equal(persisted.runs,1);
+  assert.equal(persisted.runs,2);
   phase='revision protection';
   const flow=JSON.parse(await fs.readFile(originalFlow,'utf8'));
   flow.name='Fluxo revisado externamente';
@@ -120,7 +130,7 @@ try {
   assert.equal(JSON.parse(await fs.readFile(originalFlow,'utf8')).name,'Fluxo revisado externamente');
   assert.equal(JSON.parse(await fs.readFile(
     path.join(workspace,'.omniforge/output/venda.json'),'utf8')).id,1001);
-  console.log('SCHEDULE_E2E_PASS: native scheduling, real worker, history, pause, restart, revision pin and nondestructive removal.');
+  console.log('SCHEDULE_E2E_PASS: native scheduling, manual worker, real 1-minute timer, history, restart, revision pin and nondestructive removal.');
 } catch(error) {
   console.error('[SCHEDULE E2E] failed at phase='+phase,error);
   process.exitCode=1;
