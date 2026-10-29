@@ -16,15 +16,22 @@ await Promise.all([fs.mkdir(workspace), fs.mkdir(profile)]);
  // overrides that redirect the CLI toward an unrelated index or worktree.
 const localGitEnv = { ...process.env };
 for (const key of Object.keys(localGitEnv)) if (/^GIT_/i.test(key)) delete localGitEnv[key];
+// The fixture keeps the runner's expected CLI defaults; the independent
+// post-commit verifier uses the Electron adapter's sanitized Git environment.
 const git = (...args) => execFileSync('git', args, {
-  cwd: workspace, env: localGitEnv, windowsHide: true, encoding: 'utf8'
+  cwd: workspace, windowsHide: true, encoding: 'utf8', timeout: 12_000
 }).trim();
+const isolatedGit = (...args) => execFileSync('git', args, {
+  cwd: workspace, env: localGitEnv, windowsHide: true, encoding: 'utf8', timeout: 12_000
+}).trim();
+console.log('[GIT E2E] initializing real Git fixture');
 git('init', '-q');
 git('config', 'user.name', 'OmniForge E2E');
 git('config', 'user.email', 'e2e@example.invalid');
 await fs.writeFile(path.join(workspace, 'tracked.txt'), 'versão anterior\n');
 git('add', '--', 'tracked.txt');
 git('commit', '--no-gpg-sign', '-qm', 'base commit');
+console.log('[GIT E2E] fixture committed');
 await fs.writeFile(path.join(workspace, 'tracked.txt'), 'versão alterada\n');
 await fs.writeFile(path.join(workspace, 'nova.txt'), 'conteúdo real\n');
 let client;
@@ -117,10 +124,10 @@ try {
     (await window.omni.gitStatus()).commits[0]?.subject === 'feat: commit Git de verdade');
   // Compare independent processes against the exact same isolated Git
   // environment; account for brief Windows file/lock propagation delays.
-  let observed = git('log', '-1', '--format=%s');
+  let observed = isolatedGit('log', '-1', '--format=%s');
   for (let i = 0; i < 40 && observed !== 'feat: commit Git de verdade'; i++) {
     await new Promise(resolve => setTimeout(resolve, 100));
-    observed = git('log', '-1', '--format=%s');
+    observed = isolatedGit('log', '-1', '--format=%s');
   }
   assert.equal(observed, 'feat: commit Git de verdade',
     'O Git local deve refletir o commit verificado pelo IPC.');
