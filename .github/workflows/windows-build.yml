@@ -34,6 +34,8 @@ jobs:
         timeout-minutes: 5
       - run: npm run smoke:extensions
         timeout-minutes: 5
+      - run: npm run smoke:schedules
+        timeout-minutes: 5
       - run: npm run dist:win
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh

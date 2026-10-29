@@ -1,0 +1,80 @@
+name: OmniForge v0.4.0 Local Scheduler CI
+on:
+  push:
+    branches: [feature/v0.4.0-local-scheduler]
+permissions:
+  contents: read
+concurrency:
+  group: scheduler-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  node-tests:
+    name: Schedule + core regressions on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+      - run: node --check core/schedule-store.mjs
+      - run: node --check core/schedule-engine.mjs
+      - run: node --check electron/main.cjs
+      - run: npm test
+  renderer:
+    name: Renderer production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+  windows:
+    name: Real scheduled automation + Windows NSIS/Portable
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: Schedule Center real Electron E2E
+        run: npm run smoke:schedules
+        timeout-minutes: 5
+      - name: Existing automation Electron E2E
+        run: npm run smoke:electron
+        timeout-minutes: 5
+      - name: Extension Hub Electron E2E
+        run: npm run smoke:extensions
+        timeout-minutes: 5
+      - name: CAD DXF Electron E2E
+        run: npm run smoke:cad-import
+        timeout-minutes: 5
+      - name: Build real Windows setup and portable
+        run: npm run dist:win
+        timeout-minutes: 15
+      - name: Real NSIS install/uninstall and ASAR worker
+        shell: pwsh
+        run: ./scripts/windows-distribution-smoke.ps1
+        timeout-minutes: 10
+      - name: Calculate SHA256
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter '*.exe' | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash, $_.Name
+          } | Out-File release/SHA256SUMS.txt -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: OmniForge-v0.4.0-Scheduler-Windows-unsigned
+          path: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error

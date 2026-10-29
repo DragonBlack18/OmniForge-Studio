@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, session, powerMonitor } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
@@ -20,6 +20,9 @@ let activeProjectId = null;
 let hasUnsavedChanges = false;
 let exitPromptOpen = false;
 let userApprovedExit = false;
+let scheduleService = null;
+let scheduleReady = false;
+let schedulePromptOpen = false;
 const projectRoot = path.resolve(__dirname, '..');
 const isDevelopment = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
 
@@ -215,6 +218,155 @@ async function initializeIpc() {
     if(confirm.response!==1)return null;
     return core.removeExtension(catalogDataRoot,id);
   }));
+  // Local scheduler: only the Electron main process owns the timer and
+  // the permission to start a supervised automation. No background service.
+  scheduleService = new core.LocalScheduleEngine({
+    userData:catalogDataRoot,
+    acquireSlot:()=>{
+      if(executionInProgress||saveInProgress||cadMutationInProgress||
+         registryMutationInProgress||schedulePromptOpen)return null;
+      executionInProgress=true;
+      activeRunController=new AbortController();
+      return activeRunController;
+    },
+    releaseSlot:controller=>{
+      if(activeRunController!==controller)return;
+      executionInProgress=false;activeRunController=null;
+      if(exitAfterRun){
+        exitAfterRun=false;userApprovedExit=true;
+        setImmediate(()=>app.quit());
+      }
+    },
+    onChange:event=>{
+      if(mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('omni:scheduleChanged',event);
+    },
+    onProgress:({scheduleId,step})=>{
+      if(mainWindow && !mainWindow.isDestroyed())
+        mainWindow.webContents.send('omni:scheduleProgress',{scheduleId,step});
+    }
+  });
+  try {
+    await scheduleService.bootstrap();
+    scheduleReady=true;
+  } catch {
+    // Corrupt/unsafe schedule storage must not make the entire desktop unusable.
+    scheduleReady=false;
+  }
+  const scheduler=()=>{
+    if(!scheduleReady)throw new Error(
+      'Agendador indisponível: verifique a integridade do catálogo local.'
+    );
+    return scheduleService;
+  };
+  const announceSchedule=(id,kind='updated')=>{
+    if(mainWindow && !mainWindow.isDestroyed())
+      mainWindow.webContents.send('omni:scheduleChanged',{id,kind});
+  };
+  register('listSchedules',()=>core.listSchedules(catalogDataRoot));
+  register('createSchedule',data=>serialRegistryAction(async()=>{
+    const projectId=activeProjectId;
+    const workspace=requireWorkspace();
+    if(!projectId)throw new Error('Abra um projeto cadastrado antes de agendar.');
+    const {document}=await core.validateScheduledDocument(workspace,catalogDataRoot);
+    const created=await core.createSchedule(catalogDataRoot,{
+      label:data?.label,intervalMinutes:data?.intervalMinutes,
+      projectId,flowRevision:document.revision
+    });
+    announceSchedule(created.id,'created');
+    return created;
+  }));
+  register('setScheduleEnabled',(id,enabled)=>{
+    // Pausing future runs is allowed even when that scheduled run is active.
+    // The store serializes this change and the active job finishes/cancels separately.
+    if(enabled===false)return core.setScheduleEnabled(catalogDataRoot,id,false).then(result=>{
+      announceSchedule(id,'paused');return result;
+    });
+    return serialRegistryAction(async()=>{
+    const job=await core.getSchedule(catalogDataRoot,id);
+    if(enabled){
+      const project=await core.getProject(catalogDataRoot,job.projectId);
+      await core.validateScheduledDocument(project.path,catalogDataRoot,job.flowRevision);
+      const approval=await dialog.showMessageBox(mainWindow,{
+        type:'warning',title:'Autorizar execução automática local',
+        message:'Ativar '+job.label+'?',
+        detail:'O OmniForge executará o fluxo salvo do projeto '+project.label+
+          ' a cada '+job.intervalMinutes+' minuto(s), apenas enquanto este aplicativo estiver aberto.\\n\\n'+
+          'Podem ocorrer gravações reais na pasta .omniforge/output do projeto. '+
+          'Chamadas HTTP, APIs externas e reexecução de horários perdidos são bloqueadas. '+
+          'Alterações do fluxo exigirão nova aprovação.\\n\\n'+
+          'O agendamento poderá ser pausado a qualquer momento.',
+        buttons:['Cancelar','Ativar agendamento'],defaultId:0,cancelId:0,noLink:true
+      });
+      if(approval.response!==1)return null;
+    }
+    const changed=await core.setScheduleEnabled(catalogDataRoot,id,enabled);
+    announceSchedule(id,enabled?'enabled':'paused');
+    return changed;
+    });
+  });
+  register('rebindSchedule',id=>serialRegistryAction(async()=>{
+    const job=await core.getSchedule(catalogDataRoot,id);
+    if(job.enabled||job.state==='running')
+      throw new Error('Pause o agendamento antes de atualizar a revisão.');
+    const project=await core.getProject(catalogDataRoot,job.projectId);
+    const {document}=await core.validateScheduledDocument(project.path,catalogDataRoot);
+    const approval=await dialog.showMessageBox(mainWindow,{
+      type:'warning',title:'Atualizar vínculo do agendamento',
+      message:'Aprovar a revisão atual do fluxo?',
+      detail:'Agendamento: '+job.label+'\\nProjeto: '+project.label+
+        '\\n\\nEsta ação não ativa o agendamento. '+
+        'Verifique o fluxo salvo antes de reativá-lo.',
+      buttons:['Cancelar','Aprovar revisão'],defaultId:0,cancelId:0,noLink:true
+    });
+    if(approval.response!==1)return null;
+    const updated=await core.rebindSchedule(catalogDataRoot,id,document.revision);
+    announceSchedule(id,'rebound');
+    return updated;
+  }));
+  register('removeSchedule',id=>serialRegistryAction(async()=>{
+    const job=await core.getSchedule(catalogDataRoot,id);
+    const answer=await dialog.showMessageBox(mainWindow,{
+      type:'warning',title:'Excluir agendamento',
+      message:'Excluir '+job.label+'?',
+      detail:'Serão removidas apenas as configurações do agendamento. '+
+        'Os fluxos, históricos e arquivos do projeto não serão apagados.',
+      buttons:['Cancelar','Excluir agendamento'],defaultId:0,cancelId:0,noLink:true
+    });
+    if(answer.response!==1)return null;
+    const result=await core.removeSchedule(catalogDataRoot,id);
+    announceSchedule(id,'removed');
+    return result;
+  }));
+  register('runScheduleNow',async id=>{
+    const service=scheduler();
+    if(executionInProgress||service.busy||schedulePromptOpen||
+       registryMutationInProgress||saveInProgress||cadMutationInProgress)
+      throw new Error('Já existe uma execução em andamento.');
+    const job=await core.getSchedule(catalogDataRoot,id);
+    if(!job.enabled)throw new Error('Ative o agendamento antes de executá-lo.');
+    schedulePromptOpen=true;
+    let approved=false;
+    try{
+      const result=await dialog.showMessageBox(mainWindow,{
+        type:'warning',title:'Executar agendamento agora',
+        message:'Executar '+job.label+' agora?',
+        detail:'Esta é uma execução REAL do fluxo salvo. '+
+          'Saídas JSON podem ser gravadas. Nenhum HTTP é permitido.',
+        buttons:['Cancelar','Executar agora'],defaultId:0,cancelId:0,noLink:true
+      });
+      approved=result.response===1;
+    } finally {schedulePromptOpen=false;}
+    if(!approved)return null;
+    return service.runNow(id,{force:true});
+  });
+  register('cancelScheduleRun',id=>{
+    const service=scheduler();
+    if(service.activeId!==id || !activeRunController ||
+       activeRunController.signal.aborted)return false;
+    activeRunController.abort();
+    return true;
+  });
   register('listProjects', () => core.listProjects(catalogDataRoot));
   register('registerProject', async () => serialRegistryAction(async () => {
     const selected = await dialog.showOpenDialog(mainWindow, { title: 'Cadastrar projeto no catálogo (sem alterar arquivos)', properties: ['openDirectory'] });
@@ -366,7 +518,7 @@ async function createWindow() {
       }
     }).catch(() => {}).finally(() => { exitPromptOpen = false; });
   });
-  mainWindow.on('closed', () => { mainWindow = null; hasUnsavedChanges = false; });
+  mainWindow.on('closed', () => { scheduleService?.stop(); mainWindow = null; hasUnsavedChanges = false; });
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
@@ -389,10 +541,18 @@ app.whenReady().then(async () => {
   configureProtocol();
   await initializeIpc();
   await createWindow();
+  if(scheduleReady) {
+    scheduleService.start();
+    powerMonitor.on('suspend',()=>scheduleService?.stop());
+    powerMonitor.on('resume',async()=>{
+      try {await scheduleService?.onResume();}
+      finally {if(scheduleReady) scheduleService?.start();}
+    });
+  }
 }).catch(error => {
   dialog.showErrorBox('Erro ao iniciar OmniForge', String(error.message));
   app.quit();
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().then(()=>{ if(scheduleReady) scheduleService?.start(); }); });
 }

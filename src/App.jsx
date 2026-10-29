@@ -16,6 +16,7 @@ import { WORKFLOW_TEMPLATES } from '../core/templates.mjs';
 import CadWorkbench from './components/CadWorkbench.jsx';
 import WorkspaceOverview from './components/WorkspaceOverview.jsx';
 import ExtensionsHub from './components/ExtensionsHub.jsx';
+import ScheduleCenter from './components/ScheduleCenter.jsx';
 import NavigationSidebar, { NavGlyph } from './components/NavigationSidebar.jsx';
 import { visibleFileEntries } from './utils/file-tree.mjs';
 
@@ -104,6 +105,7 @@ export default function App() {
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [projects, setProjects] = useState([]);
   const [extensions, setExtensions] = useState([]);
+  const [schedules, setSchedules] = useState([]);
   const [files, setFiles] = useState([]);
   const [nodes, setNodes, onNodesChange] = useNodesState(toUiNodes(DEFAULT));
   const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT.edges);
@@ -123,7 +125,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.2.1', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.4.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -173,7 +175,16 @@ export default function App() {
     window.omni.info().then(setInfo).catch(e => setStatus(e.message));
     window.omni.listProjects().then(setProjects).catch(e => setStatus(`Catálogo indisponível: ${e.message}`));
     window.omni.listExtensions().then(setExtensions).catch(e=>setStatus('Extensões: '+e.message));
+    window.omni.listSchedules().then(setSchedules).catch(e=>setStatus('Agendamentos: '+e.message));
   }, []);
+
+  useEffect(()=>{
+    if(!window.omni?.onScheduleChanged)return;
+    return window.omni.onScheduleChanged(event=>{
+      window.omni.listSchedules().then(setSchedules)
+        .catch(()=>setStatus('Não foi possível atualizar o painel de agendamentos.'));
+    });
+  },[]);
 
   const notify = useCallback(message => setStatus(message), []);
   const execute = useCallback(async (action) => {
@@ -249,6 +260,47 @@ export default function App() {
     await window.omni.forgetCapability(projectId, id);
     setProjects(await window.omni.listProjects());
     notify('Capacidade removida do catálogo; projetos e arquivos intactos.');
+  });
+
+  const refreshSchedules=async()=>setSchedules(await window.omni.listSchedules());
+  const createScheduledTask=spec=>execute(async()=>{
+    const created=await window.omni.createSchedule(spec);
+    await refreshSchedules();
+    notify('Agendamento criado e PAUSADO. Ative-o para iniciar as execuções periódicas.');
+  });
+  const enableScheduledTask=(id,enabled)=>execute(async()=>{
+    const result=await window.omni.setScheduleEnabled(id,enabled);
+    await refreshSchedules();
+    notify(result?(enabled?'Agendamento ativado para as próximas execuções.':'Agendamento pausado.'):
+      'Operação cancelada; configuração preservada.');
+  });
+  // Do not hold the renderer-wide busy flag for a long scheduled run:
+  // its Cancel button must remain usable while the worker is active.
+  const executeScheduledTask=async id=>{
+    try {
+      const result=await window.omni.runScheduleNow(id);
+      if(result)notify(result.status==='completed'?
+        (result.outcome==='PASS'?'Agendamento executado e registrado.':'Agendamento falhou; consulte o histórico.'):
+        result.status==='blocked'?'Agendamento bloqueado; revise o fluxo salvo e as permissões.':
+        'O executor já está ocupado.');
+    } catch(error){notify('Erro ao executar agendamento: '+error.message);}
+    finally{refreshSchedules().catch(()=>{});}
+  };
+  const cancelScheduledTask=id=>
+    window.omni.cancelScheduleRun(id).then(result=>{
+      notify(result?'Cancelamento solicitado ao executor.':'Nenhuma execução ativa para este agendamento.');
+    }).catch(error=>notify('Erro ao cancelar: '+error.message));
+  const rebindScheduledTask=id=>execute(async()=>{
+    const result=await window.omni.rebindSchedule(id);
+    await refreshSchedules();
+    notify(result?'Nova revisão aprovada. Ative o agendamento quando desejar.':
+      'Revisão não alterada; operação cancelada.');
+  });
+  const removeScheduledTask=id=>execute(async()=>{
+    const result=await window.omni.removeSchedule(id);
+    await refreshSchedules();
+    notify(result?'Agendamento excluído. Fluxos e arquivos preservados.':
+      'Exclusão cancelada.');
   });
 
   const refreshExtensions=async()=>setExtensions(await window.omni.listExtensions());
@@ -377,6 +429,7 @@ export default function App() {
 
   const navigate = nextMode => {
     if(nextMode==='history'){openHistory();return;}
+    if(nextMode==='schedules')refreshSchedules().catch(err=>notify('Agendamentos: '+err.message));
     setMode(nextMode);
     if(nextMode==='code'){setSideMode('files');setUtilityOpen(true);}
     else if(nextMode==='canvas'){setSideMode('catalog');setUtilityOpen(true);}
@@ -586,6 +639,13 @@ export default function App() {
               </section>
             </>
           )}
+          {mode === 'schedules' && <ScheduleCenter
+            schedules={schedules} projects={projects} workspace={workspace}
+            activeProjectId={activeProjectId} flowDirty={flowDirty} busy={busy}
+            onCreate={createScheduledTask} onEnable={enableScheduledTask}
+            onRunNow={executeScheduledTask} onCancel={cancelScheduledTask}
+            onRebind={rebindScheduledTask} onRemove={removeScheduledTask}
+            onRefresh={()=>execute(async()=>{await refreshSchedules();notify('Agendamentos atualizados.');})}/>}
           {mode === 'extensions' && <ExtensionsHub
             extensions={extensions} workspace={workspace} busy={busy}
             onInstall={installExtension} onInstallExample={installExampleExtension}

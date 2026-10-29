@@ -18,6 +18,25 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   setExtensionEnabled: (id,enabled) => ipcRenderer.invoke('omni:setExtensionEnabled',id,enabled),
   setExtensionGrant: (id,permission,enabled) => ipcRenderer.invoke('omni:setExtensionGrant',id,permission,enabled),
   removeExtension: id => ipcRenderer.invoke('omni:removeExtension',id),
+  listSchedules: () => ipcRenderer.invoke('omni:listSchedules'),
+  createSchedule: spec => ipcRenderer.invoke('omni:createSchedule',spec),
+  setScheduleEnabled: (id,enabled) => ipcRenderer.invoke('omni:setScheduleEnabled',id,enabled),
+  rebindSchedule: id => ipcRenderer.invoke('omni:rebindSchedule',id),
+  removeSchedule: id => ipcRenderer.invoke('omni:removeSchedule',id),
+  runScheduleNow: id => ipcRenderer.invoke('omni:runScheduleNow',id),
+  cancelScheduleRun: id => ipcRenderer.invoke('omni:cancelScheduleRun',id),
+  onScheduleChanged: callback => {
+    if(typeof callback!=='function')throw new TypeError('Callback de agendamento inválido.');
+    const handler=(_event,details)=>callback(details);
+    ipcRenderer.on('omni:scheduleChanged',handler);
+    return ()=>ipcRenderer.removeListener('omni:scheduleChanged',handler);
+  },
+  onScheduleProgress: callback => {
+    if(typeof callback!=='function')throw new TypeError('Callback de progresso inválido.');
+    const handler=(_event,details)=>callback(details);
+    ipcRenderer.on('omni:scheduleProgress',handler);
+    return ()=>ipcRenderer.removeListener('omni:scheduleProgress',handler);
+  },
   listProjects: () => ipcRenderer.invoke('omni:listProjects'),
   registerProject: () => ipcRenderer.invoke('omni:registerProject'),
   openProject: id => ipcRenderer.invoke('omni:openProject', id),

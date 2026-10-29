@@ -23,3 +23,10 @@ export { listInstalledExtensions, extensionSnapshot, readExtensionFile, installE
   setExtensionEnabled, setExtensionGrant, removeExtension } from './extension-registry.mjs';
 
 export { EXAMPLE_EXTENSION } from './extension-example.mjs';
+
+// Local interval automation: single-instance, revision-pinned, no network or missed-run replay.
+export {assertScheduleSpec,listSchedules,getSchedule,createSchedule,setScheduleEnabled,
+  rebindSchedule,removeSchedule,listDueSchedules,claimSchedule,completeSchedule,
+  coalesceSchedules,blockSchedule} from './schedule-store.mjs';
+export {LocalScheduleEngine,assertOfflineScheduleFlow,
+  validateScheduledDocument} from './schedule-engine.mjs';

@@ -105,3 +105,16 @@
 - Testes Node reais de manifesto, execução, escrita, atomicidade, atualização, grants, symlink, adulteração e fluxo supervisionado.
 - Novo Playwright E2E Windows testa interface, pacote, permissão nativa, execução efetiva, revogação e preservação dos dados.
 - **Não é** execução de plugins não confiáveis nem suporte a extensões VS Code/Theia/VSIX; pré-release sujeita aos gates Windows.
+
+## [0.4.0] — Execuções automáticas locais e gerenciamento de agendas (candidata)
+
+- Nova Central de Agendamentos na sidebar e home do workspace, com criação desativada por padrão, busca, pausa, exclusão, próximo disparo, histórico e revalidação.
+- Agendas persistentes no perfil local do Electron, serialização atômica, máximo de 50 registros, travas por processo e validação de registros adulterados/symlink.
+- Fluxo de origem preso à revisão SHA-256 no disco; mudanças de versão, permissões revogadas, erros de validação e projeto indisponível bloqueiam a execução futura.
+- Motor em Node/Electron com polling de 5s, apenas uma execução de fluxo por vez, reutilizando worker supervisionado e registro de histórico com metadados.
+- Ao iniciar após crash, tarefas que estavam executando são pausadas; ao retornar de suspensão e desligamento, horários perdidos são coalescidos sem replay em massa.
+- A API de agendamento recusa HTTP e project.callLocalApi (estes exigem consentimento manual). Extensões somente com grants locais válidos.
+- Ativação, execução manual e atualização de revisão exigem confirmação nativa; nenhum arquivo de projeto é excluído ao remover agenda.
+- Node test fake clock + worker real; Electron E2E para criar, ativar, executar, pausar, reiniciar, detectar alteração externa, reaprovar e remover.
+- Windows dist gate testa Portable + NSIS e app.asar; release condicionada aos checks do commit final.
+- Ainda não implementa Windows Service, cron completo, multiusuário ou cluster/exactly-once.

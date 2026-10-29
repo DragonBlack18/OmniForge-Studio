@@ -10,6 +10,7 @@ const SHAPES = {
   templates: 'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   folder: 'M3 6a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
   plug: 'M8 3v5 M16 3v5 M6 8h12v5a6 6 0 0 1-12 0z M12 19v3',
+  calendar: 'M3 6h18v15H3z M3 10h18 M8 3v6 M16 3v6 M8 15h4 M14 15h3 M14 19h3',
   history: 'M4 7V3 M4 7h4 M4.4 7a9 9 0 1 1-1.1 9 M12 7v5l3.5 2',
   info: 'M12 17v-5 M12 8h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
   panel: 'M3 4h18v16H3z M10 4v16',
@@ -46,6 +47,7 @@ const GROUPS = [
     {mode:'integrations',label:'Integrações',aria:'Conectores de projetos',icon:'plug'}
   ]},
   {title:'Acompanhamento', items:[
+    {mode:'schedules',label:'Agendamentos',aria:'Central de agendamentos',icon:'calendar'},
     {mode:'history',label:'Histórico',aria:'Histórico de execuções',icon:'history'}
   ]}
 ];

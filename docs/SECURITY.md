@@ -59,3 +59,13 @@ A instalação de pacote `.ofx.json` exige seleção nativa e aprovação explí
 O motor recebe um snapshot de extensões obtido **somente** no processo principal, nunca passado pelo renderer. O grafo verifica a extensão, a ação, o estado e os grants antes de executar; o worker reutiliza a autorização e somente a função de saída JSON controlada. A execução possui timeout/cancelamento como os demais nós. Um hash SHA-256 detecta adulteração no registro local, mas não atesta autenticidade/autoria nem impede um usuário com acesso pleno ao SO de alterar código/registro conjuntamente.
 
 **Lacunas explícitas:** ausência de assinatura criptográfica de pacotes por editor confiável, sandbox de código arbitrário, limites de memória nativos, políticas empresariais de aprovação, autenticação multiusuário, atualizações automáticas, scanner de malware e serviço de suporte. Releases Windows continuam sem assinatura e sem declaração de certificação industrial.
+
+## Scheduler local v0.4.0 — autorização, integridade e falhas
+
+Agendas ficam em `app.getPath('userData')/local-schedules/schedules.json`, versão 1. O arquivo contém somente UUID de projeto cadastrado, frequência limitada, revisão SHA-256 do fluxo salvo, carimbos de tempo e estado mínimo; nunca o conteúdo do fluxo, resposta de API nem tokens. A pasta e o arquivo não podem ser links simbólicos. Alterações usam escrita atômica e mutex no processo principal.
+
+A ativação ou execução imediata exige diálogo nativo com Cancelar como padrão. Scheduler executa **somente** fluxos declarativos locais: nós HTTP e chamadas de APIs de outros projetos são explicitamente recusados. Extensões declarativas continuam exigindo grants por workspace. Um fluxo atualizado no disco deixa a revisão de coincidir e é bloqueado até a aprovação de outra versão.
+
+Existe um único executor supervisionado por instância Electron, compartilhado com a execução manual. Antes de iniciar qualquer efeito, o scheduler grava duravelmente uma claim com token; após crash interrompendo essa claim, a tarefa fica pausada na próxima abertura. Não há reexecução automática de horários perdidos. Mesmo assim, efeitos externos/arquivos já gravados antes de um crash podem permanecer e não são revertidos; por isso **não há garantia de exactly-once**. A agenda não opera com o aplicativo fechado, nem controla hardware/produção industrial.
+
+Limitações por revisar antes de considerar produção empresarial: coordenação multiinstância, Windows Service e reinício sem login, migração e backup do registro, auditoria de clock/DST, RBAC para usuários distintos, assinatura digital de binários, failover distribuído, rollback/idempotência de conectores e métricas exportáveis.

@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.3.0 (candidata de desenvolvimento, não publicada)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.4.0 (candidate in validation, NOT yet released)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -12,6 +12,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
+| Agendamentos locais | Intervalos de 1–1440 min, fluxo salvo preso por SHA-256, pausa/retomada, execução real supervisionada, replay de horários perdidos bloqueado, histórico e recuperação após crash | Só executa com a janela do OmniForge aberta; HTTP agendado não permitido |
 | Extensões | Hub local declarativo com importação JSON, verificação SHA-256, 10 operações sem código, grants por workspace, revogação e bloco executável de automação | Não instala nem executa VSIX/npm/JavaScript arbitrário |
 | Engenharia 2D | CAD Sketch 2D em mm, edição numérica, camadas, exportações DXF/SVG e importação DXF ASCII 2D validada | Não é CAD paramétrico 3D |
 | Desktop | Electron com isolamento de contexto, IPC restrito, limite de execução (120 s), eventos de progresso, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
@@ -43,6 +44,16 @@ O pacote real de exemplo implementa: (1) conversão de `massaKg` para `massaGram
 Limites: **40 extensões**, 16 ações por pacote, 24 etapas por ação, 128 KB por manifesto/valor, operações puras conhecidas e saída JSON apenas na pasta controlada. A concessão de `workspace.output.write` é por projeto, revogável, e não é concedida automaticamente por instalar ou atualizar. Atualizar um pacote revoga todos os grants anteriores. O hash SHA-256 valida integridade local, **não** autentica a identidade de um editor de extensões.
 
 O formato e suas limitações estão em [Contrato OFX v1](docs/EXTENSION_SDK_V1.md) e no [manifesto executável de exemplo](examples/engenharia.ofx.json). Para executar o E2E Windows: `npm run smoke:extensions`.
+
+## Agendamentos automáticos locais v0.4.0
+
+Na sidebar escolha **Agendamentos**, abra um projeto e salve um fluxo que não dependa de HTTP nem de APIs de outros projetos. Crie um agendamento com intervalo entre 1 e 1440 minutos; ele nasce **PAUSADO**, sem iniciar execução silenciosamente. Para ativar, confirme o diálogo nativo informando os efeitos locais possíveis. O botão **Executar agora** valida a revisão e grava artefatos reais; também é possível cancelar, pausar, aprovar uma nova revisão e excluir a agenda mantendo arquivos e histórico.
+
+O registro persistente fica em `userData/local-schedules/schedules.json`, fora do workspace. Os horários perdidos com o aplicativo fechado ou Windows suspenso são coalescidos, não reproduzidos. A tarefa vincula somente o ID de projeto registrado e a revisão SHA-256 do fluxo salvo: se esse arquivo mudar, o agendamento **é bloqueado e pausado** até aprovação explícita. O motor compartilha uma trava de execução com os comandos manuais, evitando execuções simultâneas.
+
+**Limitação operacional:** este não é um serviço Windows e não funciona com o aplicativo fechado. Não é um sistema de alta disponibilidade/exactly-once, nem oferece agenda cron, timezone arbitrário, HTTP agendado, workflows remotos ou execução de PLC/OT. Um processo pode cair após já ter gravado um arquivo; o OmniForge não consegue reverter efeitos locais anteriores. Veja [Política de recuperação e agendamento](docs/LOCAL_SCHEDULER_V040.md).
+
+Para testar o módulo no Electron Windows: `npm run smoke:schedules`.
 
 ## Instalação de desenvolvimento
 
@@ -87,6 +98,7 @@ docs/                   decisões, pesquisa open source, segurança e entregas
 
 ## Documentação
 
+- [Agendamento local — estado persistente, recuperação e limitações](docs/LOCAL_SCHEDULER_V040.md)
 - [Central de extensões OFX v1 — contratos, grants, limites e riscos](docs/EXTENSION_SDK_V1.md)
 - [CAD Sketch 2D — escopo, segurança e limites](docs/V0.2.0_CAD_SKETCH.md)
 - [Importação DXF ASCII 2D — unidades, limites e segurança](docs/V0.2.2_DXF_IMPORT.md)
