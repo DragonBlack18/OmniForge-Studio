@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.5.0 (Git Source Control candidate in validation, NOT yet released)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.6.0 — Workspace IDE** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -9,7 +9,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Módulo | Entrega atual | Observação |
 |---|---|---|
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
-| Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
+| Programação | Editor Monaco, arquivos e pastas novos, busca global literal com navegação para linha/coluna, proteção contra overwrite | Não é um host Theia/LSP nem terminal/depurador |
 | Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
@@ -26,7 +26,7 @@ Não estão implementados: plugins com código de terceiros, IA generativa nativ
 
 A barra principal agora agrupa Workspace, Recursos e Acompanhamento. A biblioteca de blocos e o explorador são contextuais e podem ser ocultados; o inspector aparece apenas no canvas de automações. Os controles mantêm seus nomes acessíveis, sem alterar os documentos salvos.
 
-Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. No CAD, **Ctrl+S também salva o desenho**. O atalho nunca abre a janela de salvar a página do navegador.
+Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos, **Ctrl+Shift+F** busca texto no workspace e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. No CAD, **Ctrl+S também salva o desenho**. O atalho nunca abre a janela de salvar a página do navegador.
 
 ## Importação DXF 2D (v0.2.2)
 
@@ -55,6 +55,16 @@ O registro persistente fica em `userData/local-schedules/schedules.json`, fora d
 **Limitação operacional:** este não é um serviço Windows e não funciona com o aplicativo fechado. Não é um sistema de alta disponibilidade/exactly-once, nem oferece agenda cron, timezone arbitrário, HTTP agendado, workflows remotos ou execução de PLC/OT. Um processo pode cair após já ter gravado um arquivo; o OmniForge não consegue reverter efeitos locais anteriores. Veja [Política de recuperação e agendamento](docs/LOCAL_SCHEDULER_V040.md).
 
 Para testar o módulo no Electron Windows: `npm run smoke:schedules`.
+
+## Workspace IDE v0.6.0
+
+O **Editor de código** permite criar arquivos e pastas reais no workspace pela barra lateral. Informe um caminho relativo (por exemplo, src/novo.js); os diretórios pais devem existir. Arquivos são criados exclusivamente, nunca sobrescritos. O salvamento verifica a revisão SHA-256 para proteger edições feitas por outro programa.
+
+Em **Buscar em arquivos**, informe um termo literal (2 a 120 caracteres), marque ou desmarque a distinção de maiúsculas e clique em pesquisar. Cada resultado indica caminho, linha e coluna; clicar abre o Monaco diretamente naquela posição. Pressione **Ctrl+Shift+F** para abrir a busca global.
+
+A busca usa somente arquivos de texto locais: não segue symlinks, ignora .git, .omniforge, dependências, arquivos binários e nomes comuns de segredos. Limites: 1.800 arquivos, 320 KB por arquivo, 12 MB totais, 160 ocorrências e 7 segundos. O resultado indica quando a varredura está incompleta; nenhuma indexação persistente é criada. Não há replace-all, exclusão ou terminal nesta fase.
+
+Teste Electron Windows: `npm run smoke:ide`. Especificação e análise de riscos: [Workspace IDE v0.6.0](docs/V0.6.0_WORKSPACE_IDE.md).
 
 ## Git local v0.5.0
 
@@ -105,6 +115,7 @@ docs/                   decisões, pesquisa open source, segurança e entregas
 
 ## Documentação
 
+- [Workspace IDE v0.6.0 — limites, segurança e validação](docs/V0.6.0_WORKSPACE_IDE.md)
 - [Agendamento local — estado persistente, recuperação e limitações](docs/LOCAL_SCHEDULER_V040.md)
 - [Central de extensões OFX v1 — contratos, grants, limites e riscos](docs/EXTENSION_SDK_V1.md)
 - [CAD Sketch 2D — escopo, segurança e limites](docs/V0.2.0_CAD_SKETCH.md)

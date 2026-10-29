@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
@@ -22,7 +22,8 @@
     "smoke:cad-import": "node scripts/smoke-cad-import.mjs",
     "smoke:extensions": "node scripts/smoke-extensions.mjs",
     "smoke:schedules": "node scripts/smoke-schedules.mjs",
-    "smoke:git": "node scripts/smoke-git.mjs"
+    "smoke:git": "node scripts/smoke-git.mjs",
+    "smoke:ide": "node scripts/smoke-ide.mjs"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",

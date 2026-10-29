@@ -14,6 +14,7 @@ let executionInProgress = false;
 let activeRunController = null;
 let exitAfterRun = false;
 let saveInProgress = false;
+let workspaceSearchInProgress = false;
 let registryMutationInProgress = false;
 let cadMutationInProgress = false;
 let activeProjectId = null;
@@ -411,13 +412,29 @@ async function initializeIpc() {
     if (answer.response !== 1) return null;
     return core.gitCommit(requireWorkspace(), message);
   }));
+  // File search is read-only, bounded and does not expose Node to the renderer.
+  register('searchWorkspaceText', async options => {
+    if (workspaceSearchInProgress) throw new Error('Outra busca já está em andamento.');
+    const selectedRoot = requireWorkspace();
+    workspaceSearchInProgress = true;
+    try { return await core.searchWorkspaceText(selectedRoot, options); }
+    finally { workspaceSearchInProgress = false; }
+  });
+  // File/folder creation is exclusive and shares the privileged operation mutex.
+  register('createWorkspaceFile', relative =>
+    serialRegistryAction(() => core.createWorkspaceFile(requireWorkspace(), relative)));
+  register('createWorkspaceFolder', relative =>
+    serialRegistryAction(() => core.createWorkspaceFolder(requireWorkspace(), relative)));
   register('listFiles', () => core.listProjectFiles(requireWorkspace()));
   register('listRunHistory', () => core.listRunHistory(requireWorkspace()));
   register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));
   register('readFile', relative => core.readProjectFile(requireWorkspace(), relative));
-  register('saveFile', (relative, content, expectedRevision) => {
-    if (executionInProgress || cadMutationInProgress || registryMutationInProgress) throw new Error('Conclua a execução antes de salvar arquivos.');
-    return core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision);
+  register('saveFile', async (relative, content, expectedRevision) => {
+    if (saveInProgress || executionInProgress || cadMutationInProgress || registryMutationInProgress)
+      throw new Error('Conclua a execução antes de salvar arquivos.');
+    saveInProgress = true;
+    try { return await core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision); }
+    finally { saveInProgress = false; }
   });
   register('saveFlow', async (flow, expectedRevision) => {
     if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
