@@ -12,8 +12,12 @@ const sandbox = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-git-e2e-'));
 const workspace = path.join(sandbox, 'workspace');
 const profile = path.join(sandbox, 'profile');
 await Promise.all([fs.mkdir(workspace), fs.mkdir(profile)]);
+// Mirror the application's Git isolation: the CI runner may inject GIT_*
+ // overrides that redirect the CLI toward an unrelated index or worktree.
+const localGitEnv = { ...process.env };
+for (const key of Object.keys(localGitEnv)) if (/^GIT_/i.test(key)) delete localGitEnv[key];
 const git = (...args) => execFileSync('git', args, {
-  cwd: workspace, windowsHide: true, encoding: 'utf8'
+  cwd: workspace, env: localGitEnv, windowsHide: true, encoding: 'utf8'
 }).trim();
 git('init', '-q');
 git('config', 'user.name', 'OmniForge E2E');
@@ -111,7 +115,15 @@ try {
   await page.getByTestId('git-commit').click();
   await page.waitForFunction(async () =>
     (await window.omni.gitStatus()).commits[0]?.subject === 'feat: commit Git de verdade');
-  assert.equal(git('log', '-1', '--format=%s'), 'feat: commit Git de verdade');
+  // Compare independent processes against the exact same isolated Git
+  // environment; account for brief Windows file/lock propagation delays.
+  let observed = git('log', '-1', '--format=%s');
+  for (let i = 0; i < 40 && observed !== 'feat: commit Git de verdade'; i++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    observed = git('log', '-1', '--format=%s');
+  }
+  assert.equal(observed, 'feat: commit Git de verdade',
+    'O Git local deve refletir o commit verificado pelo IPC.');
   const final = await page.evaluate(() => window.omni.gitStatus());
   assert.ok(final.files.some(file => file.path === 'tracked.txt' && file.unstaged));
   assert.ok(!final.files.some(file => file.path === 'nova.txt'));
