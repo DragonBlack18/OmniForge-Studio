@@ -18,6 +18,7 @@ import WorkspaceOverview from './components/WorkspaceOverview.jsx';
 import ExtensionsHub from './components/ExtensionsHub.jsx';
 import ScheduleCenter from './components/ScheduleCenter.jsx';
 import GitSourceControl from './components/GitSourceControl.jsx';
+import WorkspaceSearch from './components/WorkspaceSearch.jsx';
 import NavigationSidebar, { NavGlyph } from './components/NavigationSidebar.jsx';
 import { visibleFileEntries } from './utils/file-tree.mjs';
 
@@ -124,9 +125,13 @@ export default function App() {
   const [dirty, setDirty] = useState(false);
   const [cadDirty, setCadDirty] = useState(false);
   const [fileRevision, setFileRevision] = useState('');
+  const [createKind, setCreateKind] = useState(null);
+  const [createPath, setCreatePath] = useState('');
+  const [editorJump, setEditorJump] = useState(null);
+  const [editorPosition, setEditorPosition] = useState({line:1,column:1});
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.5.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.6.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -206,6 +211,8 @@ export default function App() {
     setFlowDirty(result.flowRevision === null);
     setSelectedId(result.flow.nodes[0]?.id || null);
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
+    setCreateKind(null); setCreatePath(''); setEditorJump(null);
+    setEditorPosition({line:1,column:1});
     setFileQuery(''); setCollapsedFolders(new Set()); setSideMode('catalog'); setUtilityOpen(true);
     setLastRun(null); setValidation(null);
     setHistory(await window.omni.listRunHistory());
@@ -418,8 +425,40 @@ export default function App() {
     if (dirty && !window.confirm('Descartar alterações não salvas do arquivo atual?')) return;
     const loaded = await window.omni.readFile(relative);
     setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision); setDirty(false);
+    setEditorJump(null); setEditorPosition({line:1,column:1});
     setMode('code');setSideMode('files');setUtilityOpen(true); notify(`Arquivo aberto: ${relative}`);
   });
+
+  const openSearchHit = hit => execute(async () => {
+    if (dirty && !window.confirm('Descartar as alterações não salvas antes de abrir este resultado?')) return;
+    const loaded = await window.omni.readFile(hit.path);
+    setFileName(hit.path); setFileContent(loaded.content); setFileRevision(loaded.revision);
+    setDirty(false); setEditorJump({path:hit.path,line:hit.line,column:hit.column});
+    setEditorPosition({line:hit.line,column:hit.column});
+    setMode('code'); setSideMode('files'); setUtilityOpen(true);
+    notify('Resultado aberto: ' + hit.path + ' · linha ' + hit.line);
+  });
+
+  const createProjectEntry = event => {
+    event.preventDefault();
+    execute(async () => {
+      if (!workspace || !createKind) throw new Error('Abra um projeto e selecione o que deseja criar.');
+      const relative = createPath.trim();
+      if (!relative) throw new Error('Informe o nome ou caminho relativo.');
+      if (createKind === 'file') {
+        await window.omni.createWorkspaceFile(relative);
+        const loaded = await window.omni.readFile(relative);
+        setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision);
+        setDirty(false); setEditorJump(null); setEditorPosition({line:1,column:1});
+        notify('Arquivo criado: ' + relative);
+      } else {
+        await window.omni.createWorkspaceFolder(relative);
+        notify('Pasta criada: ' + relative);
+      }
+      setFiles(await window.omni.listFiles());
+      setCreateKind(null); setCreatePath('');
+    });
+  };
 
   const saveFile = () => execute(async () => {
     if (!workspace || !fileName) throw new Error('Selecione um arquivo do projeto.');
@@ -444,6 +483,9 @@ export default function App() {
     const handleShortcut=event=>{
       if(!(event.ctrlKey||event.metaKey)||event.altKey)return;
       const key=event.key.toLowerCase();
+      if(event.shiftKey && key==='f'){
+        event.preventDefault();setMode('search');return;
+      }
       if(key==='b'){event.preventDefault();setNavigationCollapsed(value=>!value);}
       else if(key==='k'){
         event.preventDefault();
@@ -523,6 +565,22 @@ export default function App() {
           </div>:<div className="sidebar-content sidebar-content--files">
             <div className="sidebar-summary">Arquivos do workspace</div>
             {workspace?<>
+              <div className="workspace-file-actions">
+                <button type="button" disabled={busy} onClick={()=>{setCreateKind('file');setCreatePath('');}}>+ Novo arquivo</button>
+                <button type="button" disabled={busy} onClick={()=>{setCreateKind('folder');setCreatePath('');}}>+ Nova pasta</button>
+              </div>
+              {createKind && <form className="workspace-create-form" data-testid="workspace-create-form" onSubmit={createProjectEntry}>
+                <label>{createKind==='file'?'Criar arquivo':'Criar pasta'}
+                  <input aria-label="Caminho do novo item" value={createPath} maxLength={260}
+                    onChange={event=>setCreatePath(event.target.value)}
+                    placeholder={createKind==='file'?'src/novo-arquivo.js':'src/nova-pasta'}
+                    required autoFocus/>
+                </label>
+                <div className="workspace-create-form__actions">
+                  <button type="submit" disabled={busy||!createPath.trim()} data-testid="workspace-create-confirm">Criar</button>
+                  <button type="button" disabled={busy} onClick={()=>{setCreateKind(null);setCreatePath('');}}>Cancelar</button>
+                </div>
+              </form>}
               <div className="sidebar-search-wrap"><NavGlyph name="search" size={15}/>
                 <input className="catalog-search" aria-label="Buscar arquivo" placeholder="Buscar arquivos..."
                   value={fileQuery} onChange={e=>setFileQuery(e.target.value)}/>
@@ -551,6 +609,7 @@ export default function App() {
 
         <main className="main-panel">
           {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={navigate} onOpenProject={openWorkspace} flowDirty={flowDirty} cadDirty={cadDirty} lastRun={lastRun}/>}
+          {mode==='search' && <WorkspaceSearch workspace={workspace} busy={busy} onOpenResult={openSearchHit}/>}
           <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}/></div>
           {mode === 'canvas' && (
             <>
@@ -603,11 +662,25 @@ export default function App() {
                 <div className="toolbar-heading"><span className="eyebrow">EDITOR / ARQUIVOS LOCAIS</span><strong>{fileName || 'Nenhum arquivo selecionado'} {dirty ? '•' : ''}</strong></div>
                 <div className="toolbar-actions">
                   <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar explorador de arquivos':'Mostrar painel de ferramentas'} onClick={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}><NavGlyph name="panel" size={16}/> Explorador</button>
+                  {fileName && <span className="workspace-editor-position" data-testid="editor-position">Ln {editorPosition.line} · Col {editorPosition.column}</span>}
                   <button className="button button--solid" disabled={busy || !fileName || !dirty} onClick={saveFile}>Salvar arquivo</button>
                 </div>
               </div>
               {fileName ? (
-                <div className="editor-wrap"><Editor theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
+                <div className="editor-wrap"><Editor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
+                  onMount={editor => {
+                    editor.onDidChangeCursorPosition(event => setEditorPosition({
+                      line:event.position.lineNumber,column:event.position.column
+                    }));
+                    if (editorJump && editorJump.path === fileName) {
+                      const position = {lineNumber:editorJump.line,column:editorJump.column};
+                      editor.revealPositionInCenter(position);
+                      editor.setPosition(position);
+                      editor.focus();
+                      setEditorPosition({line:position.lineNumber,column:position.column});
+                      setEditorJump(null);
+                    }
+                  }}
                   onChange={v => {setFileContent(v ?? ''); setDirty(true);}}
                   options={{ automaticLayout: true, fontSize: 14, minimap: { enabled: true }, scrollBeyondLastLine: false, wordWrap: 'on' }} /></div>
               ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}

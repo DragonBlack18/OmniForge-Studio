@@ -39,7 +39,8 @@ const GROUPS = [
     {mode:'home',label:'Visão geral',aria:'Visão geral',icon:'home'},
     {mode:'canvas',label:'Automações',aria:'Arquitetura visual',icon:'workflow'},
     {mode:'cad',label:'CAD Sketch 2D',aria:'CAD Sketch 2D',icon:'cad'},
-    {mode:'code',label:'Editor de código',aria:'Editor de código',icon:'code'}
+    {mode:'code',label:'Editor de código',aria:'Editor de código',icon:'code'},
+    {mode:'search',label:'Buscar em arquivos',aria:'Buscar no projeto',icon:'search'}
   ]},
   {title:'Recursos', items:[
     {mode:'templates',label:'Modelos de fluxo',aria:'Modelos de fluxo',icon:'templates'},
