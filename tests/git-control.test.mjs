@@ -109,3 +109,21 @@ test('tracked rename is parsed and commit writes real Git history', async t => {
   assert.equal(git(root, 'log', '-1', '--format=%s'), 'rename tracked');
   assert.equal(await fs.readFile(path.join(root, 'after.txt'), 'utf8'), 'original');
 });
+
+test('commit fails closed when more than 400 working-tree entries are visible', async t => {
+  const root = await fixture(t);
+  await fs.writeFile(path.join(root, 'staged.txt'), 'prepared');
+  await gitStage(root, ['staged.txt']);
+  // Populate the repository with additional legitimate untracked files:
+  // the commit must not claim to display every staged/changed file when the
+  // renderer is actually limited to a subset.
+  await Promise.all(Array.from({ length: 401 }, (_, i) =>
+    fs.writeFile(path.join(root, 'extra-' + String(i).padStart(3, '0') + '.txt'), 'unchanged')));
+  const status = await gitWorkspaceStatus(root);
+  assert.equal(status.truncated, true);
+  assert.equal(status.files.length, 400);
+  await assert.rejects(gitCommit(root, 'avoid hidden changes'), /mais de 400/);
+  const index = git(root, 'diff', '--cached', '--name-only');
+  assert.match(index, /staged\.txt/);
+  assert.equal(await fs.readFile(path.join(root, 'staged.txt'), 'utf8'), 'prepared');
+});
