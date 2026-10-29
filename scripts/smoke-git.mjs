@@ -45,13 +45,8 @@ try {
   assert.equal(path.normalize(actualProfile).toLowerCase(), path.normalize(profile).toLowerCase());
   await client.evaluate(({ dialog }, folder) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [folder] });
-    globalThis.gitConfirmations = [];
-    dialog.showMessageBox = async (_window, options) => {
-      if (String(options?.title || '').includes('commit Git')) {
-        globalThis.gitConfirmations.push(options.detail);
-      }
-      return { response: 1 };
-    };
+    // Deny the first commit. The UI must honor an explicit native refusal.
+    dialog.showMessageBox = async () => ({ response: 0 });
   }, workspace);
   phase = 'open real Git workspace';
   await page.getByRole('button', { name: 'Abrir projeto' }).click();
@@ -96,12 +91,26 @@ try {
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="git-commit"]')?.textContent?.includes('Confirmar commit (1)'));
   await page.getByPlaceholder('feat: implementar novo recurso').fill('feat: commit Git de verdade');
+  phase = 'native cancel must preserve staged files';
+  await page.getByTestId('git-commit').click();
+  await page.getByText('Commit cancelado: nenhum arquivo alterado.', { exact: false }).waitFor();
+  assert.equal(git('log', '-1', '--format=%s'), 'base commit', 'Cancelar não pode criar commit.');
+  assert.ok((await page.evaluate(() => window.omni.gitStatus())).files
+    .some(file => file.path === 'nova.txt' && file.staged),
+  'Cancelar não pode descartar o índice.');
+  phase = 'explicit native Git approval and commit';
+  await client.evaluate(({ dialog }) => {
+    dialog.showMessageBox = async (_window, options) => {
+      if (options?.title !== 'Criar commit Git local' ||
+          !String(options?.detail || '').includes('nova.txt')) {
+        throw new Error('O commit exige um diálogo nativo com os arquivos preparados.');
+      }
+      return { response: 1 };
+    };
+  });
   await page.getByTestId('git-commit').click();
   await page.waitForFunction(async () =>
     (await window.omni.gitStatus()).commits[0]?.subject === 'feat: commit Git de verdade');
-  const confirmed = await client.evaluate(() => globalThis.gitConfirmations);
-  assert.equal(confirmed.length, 1, 'O commit precisa de aprovação nativa.');
-  assert.match(confirmed[0], /nova\.txt/);
   assert.equal(git('log', '-1', '--format=%s'), 'feat: commit Git de verdade');
   const final = await page.evaluate(() => window.omni.gitStatus());
   assert.ok(final.files.some(file => file.path === 'tracked.txt' && file.unstaged));
