@@ -96,7 +96,7 @@ try {
   phase='real interval trigger (not a simulated clock)';
   // Verify an actual timer-triggered SECOND run without clicking Execute again.
   // The Node tests additionally validate clock jumps without a 60s sleep.
-  await waitForSchedule(job=>job?.lastOutcome==='PASS' && job?.runs===2,
+  await waitForSchedule(job=>job?.state==='idle' && job?.lastOutcome==='PASS' && job?.runs===2,
     {timeoutMs:92_000,intervalMs:350});
   assert.equal((await page.evaluate(()=>window.omni.listRunHistory())).length,2);
   assert.equal(JSON.parse(await fs.readFile(outputPath,'utf8')).id,1001);
@@ -119,7 +119,7 @@ try {
   await page.getByText('O fluxo salvo foi alterado.',{exact:false}).waitFor();
   assert.equal((await page.evaluate(()=>window.omni.listSchedules()))[0].enabled,false);
   await page.getByRole('button',{name:'Aprovar revisão'}).click();
-  await page.getByText('Nova revisão aprovada.',{exact:false}).waitFor();
+  await waitForSchedule(job=>job?.flowRevision!==revision && job?.enabled===false);
   const afterApproval=(await page.evaluate(()=>window.omni.listSchedules()))[0];
   assert.notEqual(afterApproval.flowRevision,revision);
   assert.equal(afterApproval.enabled,false);
