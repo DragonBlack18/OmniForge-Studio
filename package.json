@@ -1,8 +1,8 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.3.0",
-  "description": "Local engineering workbench with supervised automation, DXF CAD and declarative Extension Hub",
+  "version": "0.4.0",
+  "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
   "author": "Davi Brand",
@@ -20,7 +20,8 @@
     "dist:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "demo:core": "node scripts/demo-core.mjs",
     "smoke:cad-import": "node scripts/smoke-cad-import.mjs",
-    "smoke:extensions": "node scripts/smoke-extensions.mjs"
+    "smoke:extensions": "node scripts/smoke-extensions.mjs",
+    "smoke:schedules": "node scripts/smoke-schedules.mjs"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",

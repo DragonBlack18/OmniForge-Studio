@@ -42,6 +42,9 @@ jobs:
       - name: Gate real de instalação e permissão de extensões
         run: npm run smoke:extensions
         timeout-minutes: 5
+      - name: Gate real de agendamentos locais no Electron
+        run: npm run smoke:schedules
+        timeout-minutes: 5
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Teste real Portable + NSIS no Windows
