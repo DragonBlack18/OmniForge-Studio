@@ -71,7 +71,14 @@ try {
   await page.getByRole('button',{name:'Ativar',exact:true}).click();
   await waitForSchedule(job=>job?.enabled===true);
   await page.getByRole('button',{name:'Executar agora'}).click();
-  await waitForSchedule(job=>job?.lastOutcome==='PASS' && job?.runs===1);
+  // Detect a rejected IPC or unavailable worker immediately instead of
+  // interpreting an unclaimed schedule as a successful execution.
+  try {await waitForSchedule(job=>job?.runs>=1,{timeoutMs:8500});}
+  catch(error) {
+    console.error('[SCHEDULE E2E] run-now status:',await page.locator('.statusbar-left').textContent());
+    throw error;
+  }
+  await waitForSchedule(job=>job?.state==='idle' && job?.lastOutcome==='PASS' && job?.runs===1);
   const projects=await page.evaluate(()=>window.omni.listProjects());
   const schedules=await page.evaluate(()=>window.omni.listSchedules());
   const historyInfo=await page.evaluate(async()=>{
