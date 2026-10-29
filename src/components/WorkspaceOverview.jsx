@@ -16,6 +16,8 @@ const MODULES=[
    description:'Conecte serviços em loopback usando contratos explícitos e autorização.',action:'Ver conexões'},
   {mode:'extensions',icon:'layers',category:'PLATAFORMA',title:'Extensões locais',
    description:'Instale ações reais, autorize por workspace e execute no motor supervisionado.',action:'Gerenciar extensões'},
+  {mode:'schedules',icon:'calendar',category:'OPERAÇÃO',title:'Agendamentos',
+   description:'Programe fluxos locais salvos, pause, revalide e acompanhe execuções sem duplicar disparos.',action:'Gerenciar agendas'},
   {mode:'history',icon:'history',category:'DIAGNÓSTICO',title:'Execuções',
    description:'Inspecione duração, etapas, falhas e artefatos registrados.',action:'Ver histórico'}
 ];
