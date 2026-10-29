@@ -66,8 +66,25 @@ try {
     const jobs=await window.omni.listSchedules();
     return jobs[0]?.lastOutcome==='PASS' && jobs[0]?.runs===1;
   },{timeout:30000});
-  const output=JSON.parse(await fs.readFile(
-    path.join(workspace,'.omniforge/output/venda.json'),'utf8'));
+  const projects=await page.evaluate(()=>window.omni.listProjects());
+  const schedules=await page.evaluate(()=>window.omni.listSchedules());
+  const historyInfo=await page.evaluate(async()=>{
+    const rows=await window.omni.listRunHistory();
+    return Promise.all(rows.map(async item=>window.omni.readRunHistory(item.id)));
+  });
+  console.log('[SCHEDULE TRACE] project paths=',JSON.stringify(projects.map(x=>({id:x.id,path:x.path}))));
+  console.log('[SCHEDULE TRACE] persisted state=',JSON.stringify(schedules.map(x=>({
+    id:x.id,projectId:x.projectId,runs:x.runs,outcome:x.lastOutcome,lastHistoryId:x.lastHistoryId
+  }))));
+  console.log('[SCHEDULE TRACE] history artifacts=',JSON.stringify(historyInfo.map(x=>({
+    ok:x.ok,stage:x.stage,artifacts:x.artifacts,steps:x.steps?.map(s=>({id:s.nodeId,status:s.status,type:s.type}))
+  }))));
+  const outputPath=path.join(workspace,'.omniforge/output/venda.json');
+  console.log('[SCHEDULE TRACE] expected=',outputPath,
+    'exists=',await fs.stat(outputPath).then(()=>true,()=>false),
+    'workspace contents=',JSON.stringify(await fs.readdir(path.join(workspace,'.omniforge','output'))
+      .catch(error=>({error:error.code}))));
+  const output=JSON.parse(await fs.readFile(outputPath,'utf8'));
   assert.equal(output.id,1001);
   assert.equal((await page.evaluate(()=>window.omni.listRunHistory())).length,1);
   phase='pause and restart';
