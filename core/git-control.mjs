@@ -176,6 +176,7 @@ export async function gitCommit(root, message) {
     throw new Error('Escreva uma mensagem de commit de 4 a 120 caracteres em uma linha.');
   const cwd = await requireGitRoot(root);
   const current = await scan(cwd);
+  if (current.truncated) throw new Error('Há mais de 400 alterações. Revise o índice com Git antes de criar um commit.');
   if (!current.files.some(item => item.staged)) throw new Error('Nenhum arquivo preparado para commit.');
   // Always disable repository-defined hooks for this app-initiated commit;
   // executable hooks must never run silently from the UI.

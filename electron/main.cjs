@@ -395,6 +395,7 @@ async function initializeIpc() {
   register('gitCommit', message => serialRegistryAction(async () => {
     const current = await core.gitWorkspaceStatus(requireWorkspace());
     if (!current.available) throw new Error(current.reason);
+    if (current.truncated) throw new Error('Mais de 400 alterações no repositório. Revise o índice antes do commit.');
     const staged = current.files.filter(item => item.staged);
     if (!staged.length) throw new Error('Nenhuma alteração preparada para commit.');
     const detail = 'Branch: ' + current.branch + '\nArquivos preparados: ' + staged.length +

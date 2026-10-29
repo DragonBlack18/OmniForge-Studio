@@ -69,16 +69,32 @@ try {
   await page.getByTestId('git-stage').click();
   await page.waitForFunction(async () =>
     (await window.omni.gitStatus()).files.some(file => file.path === 'nova.txt' && file.staged));
+  // A completed Git index write can be observed before React has committed
+  // the refreshed list and reset its previous selection. Wait for the real UI.
+  await page.waitForFunction(() => {
+    const box = document.querySelector('input[aria-label="Selecionar nova.txt"]');
+    return box && !box.checked && !box.disabled &&
+      document.querySelector('[data-testid="git-stage"]')?.textContent?.includes('Preparar (0)');
+  });
   await page.getByRole('checkbox', { name: 'Selecionar nova.txt' }).check();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="git-unstage"]')?.textContent?.includes('Despreparar (1)'));
   await page.getByTestId('git-unstage').click();
   await page.waitForFunction(async () =>
     (await window.omni.gitStatus()).files.some(file => file.path === 'nova.txt' && file.untracked));
+  await page.waitForFunction(() => {
+    const box = document.querySelector('input[aria-label="Selecionar nova.txt"]');
+    return box && !box.checked && !box.disabled &&
+      document.querySelector('[data-testid="git-unstage"]')?.textContent?.includes('Despreparar (0)');
+  });
   assert.equal(await fs.readFile(path.join(workspace, 'nova.txt'), 'utf8'), 'conteúdo real\n');
   phase = 'explicit native Git commit';
   await page.getByRole('checkbox', { name: 'Selecionar nova.txt' }).check();
   await page.getByTestId('git-stage').click();
   await page.waitForFunction(async () =>
     (await window.omni.gitStatus()).files.some(file => file.path === 'nova.txt' && file.staged));
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="git-commit"]')?.textContent?.includes('Confirmar commit (1)'));
   await page.getByPlaceholder('feat: implementar novo recurso').fill('feat: commit Git de verdade');
   await page.getByTestId('git-commit').click();
   await page.waitForFunction(async () =>
