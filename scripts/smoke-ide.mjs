@@ -32,6 +32,9 @@ try {
   });
   const page = await client.firstWindow({ timeout: 45000 });
   page.setDefaultTimeout(20000);
+  const actualProfile = await client.evaluate(({ app }) => app.getPath('userData'));
+  assert.equal(path.normalize(actualProfile).toLowerCase(),
+    path.normalize(profile).toLowerCase(), 'O teste precisa de um perfil isolado.');
   page.on('pageerror', error => console.error('[IDE renderer]', error.message));
   await client.evaluate(({ dialog }, dir) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [dir] });
@@ -84,7 +87,18 @@ try {
   await page.getByRole('button', { name: 'Salvar arquivo' }).click();
   await page.waitForFunction(async () =>
     (await window.omni.readFile('novo-modulo/exemplo.py')).content.includes('IDE OK'));
-  assert.match(await fs.readFile(path.join(workspace, 'novo-modulo', 'exemplo.py'), 'utf8'), /IDE OK/);
+  // The Electron renderer and the independent Node process must both observe
+  // the committed file, not just the editor's in-memory value. Windows can
+  // briefly retain a stale handle after an atomic rename.
+  const savedPath = path.join(workspace, 'novo-modulo', 'exemplo.py');
+  let persisted = '';
+  for (let attempt = 0; attempt < 45; attempt++) {
+    persisted = await fs.readFile(savedPath, 'utf8');
+    if (persisted.includes('IDE OK')) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.match(persisted, /IDE OK/,
+    'O novo arquivo deve estar realmente persistido e visível fora do Electron.');
   phase = 'reject overwrite and traversal';
   const errors = await page.evaluate(async () => {
     const captures = [];
