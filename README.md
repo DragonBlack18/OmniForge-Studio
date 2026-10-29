@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.4.0 (candidate in validation, NOT yet released)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.4.1 (Windows persistence hotfix candidate, NOT yet released)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 

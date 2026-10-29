@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
