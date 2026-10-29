@@ -1,3 +1,11 @@
+## [0.6.0] — Workspace IDE (2026-10-29)
+
+- Busca literal global nos arquivos do workspace, retorno real de linha/coluna e navegação direta no Monaco.
+- Novo arquivo e nova pasta na sidebar com caminhos validados, exclusive-create e sem overwrite; edição segue revisão SHA-256.
+- Cotas para arquivos, volume, ocorrências, profundidade e tempo; diretórios internos, symlinks, segredos e binários excluídos.
+- IPC autorizado, trava de pesquisa e criação serializada; lock explícito de gravações do editor.
+- Regressões de Node Linux/Windows, E2E Electron real, CAD/automação/extensão/scheduler/Git e distribuição Setup/Portable.
+
 ## [0.5.0] — Controle Git local (candidate)
 
 - Git local verdadeiro, sem shell de comandos no renderer: status -z, renomeações, diffs, últimas 12 revisões.

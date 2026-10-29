@@ -1,6 +1,6 @@
 # Plano de implementação incremental — versões e gates
 
-A versão v0.2.2 introduz importação DXF ASCII 2D; plugin SDK foi reprogramado para v0.2.3. Ambas dependem de gates separados. A ordem protege o núcleo funcional contra regressões. O tamanho das versões é deliberadamente pequeno; nada entra no produto como botão ativo sem executor real.
+A tabela histórica abaixo foi redigida na fundação do projeto; seus números de marcos representam propostas iniciais, não versões efetivamente publicadas. O estado real evoluiu para v0.5.0 (Git local) e v0.6.0 (Workspace IDE). A ordem protege o núcleo funcional contra regressões; nada entra como botão ativo sem operação real e testes.
 
 | Marco | Escopo verificável | Gate de aceite |
 |---|---|---|
@@ -19,6 +19,19 @@ A versão v0.2.2 introduz importação DXF ASCII 2D; plugin SDK foi reprogramado
 | **1.1 Arquitetura semântica** | Grafo de serviços, dependências, impactos, links com testes e código | Mudança de contrato aponta testes afetados; não promete ausência de bugs |
 | **1.2 CAD visual** | Modelagem 3D, dimensões, formatos neutros e integração kernel | Abrir/salvar modelo e exportar geometria reproduzível |
 | **1.3 Robótica e gêmeo digital** | Componentes parametrizados, cinemática e simulação física básica | Modelo testado em simulador externo e tolerâncias reportadas |
+
+## Estado atual e próximas integrações
+
+| Versão efetiva | Entrega real | Próximo gate |
+|---|---|---|
+| v0.5.0 | Git local, stage, diff e commit com aprovação | Publicada e integrada |
+| v0.6.0 | Busca global literal no workspace e criação de arquivos/pastas com Monaco | Linux/Windows, E2E e distribuição |
+| Proposta v0.7.x | Gerenciamento seguro de tarefas de desenvolvimento e terminal isolado | Quotas, consentimento, cancelamento, processo filho, ameaças |
+| Proposta v0.8.x | Integração Theia/LSP/depuração via adaptador | Isolamento, licenças, end-to-end |
+| Proposta v0.9.x | Gatilhos de eventos mais amplos, retenção e monitoramento de fluxos | Idempotência, replay, side effects, recovering |
+| Proposta futura | IA, CAD 3D e conectores industriais read-only | Contratos, integração real e segurança dedicados |
+
+Não afirmar completude ou produção industrial antes dos gates específicos de cada domínio.
 
 ## Ordem de prioridade
 
