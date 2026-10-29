@@ -289,6 +289,12 @@ export async function completeSchedule(userData,id,token,{
       if(job.failures>=3 && outcome!=='BLOCKED')
         job.lastMessage='Três falhas consecutivas: agendamento pausado automaticamente.';
     }
+    if(job.enabled && Date.parse(job.nextRunAt)<=now) {
+      // A long execution or system suspension must not immediately produce
+      // another run: coalesce already-passed interval ticks.
+      job.nextRunAt=scheduleNext(now,job.intervalMinutes);
+      job.misses+=1;
+    }
     job.updatedAt=date(now);
     return {...job};
   });
