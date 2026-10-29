@@ -297,17 +297,18 @@ export async function completeSchedule(userData,id,token,{
  * Never replay missed intervals on startup, resume from suspend, clock shift,
  * or recovery from a crashed in-flight run.
  */
-export async function coalesceSchedules(userData,{now=Date.now()}={}) {
+export async function coalesceSchedules(userData,{now=Date.now(),recoverRunning=true}={}) {
   checkNow(now);
+  if(typeof recoverRunning!=='boolean')throw new Error('Modo de recuperação inválido.');
   return transaction(userData,db=>{
     let skipped=0,interrupted=0;
     for(const job of db.schedules) {
-      if(job.state==='running') {
+      if(job.state==='running' && recoverRunning) {
         job.enabled=false;job.state='paused';job.nextRunAt=null;job.runToken=null;
         job.lastOutcome='INTERRUPTED';job.lastFinishedAt=date(now);
         job.lastMessage='Execução anterior interrompida: verifique os efeitos realizados antes de reativar.';
         job.failures+=1;interrupted++;job.updatedAt=date(now);
-      } else if(job.enabled && Date.parse(job.nextRunAt)<=now) {
+      } else if(job.state!=='running' && job.enabled && Date.parse(job.nextRunAt)<=now) {
         // No catch-up storms: coalesce any number of missed cycles into one.
         job.nextRunAt=scheduleNext(now,job.intervalMinutes);
         job.lastOutcome='MISSED';
