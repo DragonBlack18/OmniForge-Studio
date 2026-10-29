@@ -17,6 +17,7 @@ import CadWorkbench from './components/CadWorkbench.jsx';
 import WorkspaceOverview from './components/WorkspaceOverview.jsx';
 import ExtensionsHub from './components/ExtensionsHub.jsx';
 import ScheduleCenter from './components/ScheduleCenter.jsx';
+import GitSourceControl from './components/GitSourceControl.jsx';
 import NavigationSidebar, { NavGlyph } from './components/NavigationSidebar.jsx';
 import { visibleFileEntries } from './utils/file-tree.mjs';
 
@@ -125,7 +126,7 @@ export default function App() {
   const [fileRevision, setFileRevision] = useState('');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.4.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.5.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -639,6 +640,7 @@ export default function App() {
               </section>
             </>
           )}
+          {mode === 'git' && <GitSourceControl workspace={workspace} busy={busy} onNotice={notify}/>}
           {mode === 'schedules' && <ScheduleCenter
             schedules={schedules} projects={projects} workspace={workspace}
             activeProjectId={activeProjectId} flowDirty={flowDirty} busy={busy}

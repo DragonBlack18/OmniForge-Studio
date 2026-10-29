@@ -53,6 +53,7 @@ jobs:
       - run: npm run smoke:extensions
         timeout-minutes: 5
       - run: npm run smoke:schedules
+      - run: npm run smoke:git
         timeout-minutes: 5
       - uses: actions/upload-artifact@v4
         if: failure()

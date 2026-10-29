@@ -386,6 +386,31 @@ async function initializeIpc() {
     const project = await core.registerProject(catalogDataRoot, selected.filePaths[0]);
     return activateProject(project);
   }));
+  // All Git writes are deliberate and serialized with other privileged operations.
+  // The renderer never receives a shell, child_process handle or arbitrary Git command.
+  register('gitStatus', () => core.gitWorkspaceStatus(requireWorkspace()));
+  register('gitDiff', (relative, staged) => core.gitDiff(requireWorkspace(), relative, staged));
+  register('gitStage', paths => serialRegistryAction(() => core.gitStage(requireWorkspace(), paths)));
+  register('gitUnstage', paths => serialRegistryAction(() => core.gitUnstage(requireWorkspace(), paths)));
+  register('gitCommit', message => serialRegistryAction(async () => {
+    const current = await core.gitWorkspaceStatus(requireWorkspace());
+    if (!current.available) throw new Error(current.reason);
+    if (current.truncated) throw new Error('Mais de 400 alterações no repositório. Revise o índice antes do commit.');
+    const staged = current.files.filter(item => item.staged);
+    if (!staged.length) throw new Error('Nenhuma alteração preparada para commit.');
+    const detail = 'Branch: ' + current.branch + '\nArquivos preparados: ' + staged.length +
+      '\n\n' + staged.slice(0, 10).map(item => '• ' + item.path).join('\n') +
+      (staged.length > 10 ? '\n... e outros arquivos' : '') +
+      '\n\nTodos os arquivos no índice serão incluídos, mesmo os preparados por outros programas. Nenhum push será executado.';
+    const answer = await dialog.showMessageBox(mainWindow, {
+      type: 'warning', title: 'Criar commit Git local',
+      message: 'Confirma este commit no repositório local?',
+      detail, buttons: ['Cancelar', 'Criar commit'], defaultId: 0,
+      cancelId: 0, noLink: true
+    });
+    if (answer.response !== 1) return null;
+    return core.gitCommit(requireWorkspace(), message);
+  }));
   register('listFiles', () => core.listProjectFiles(requireWorkspace()));
   register('listRunHistory', () => core.listRunHistory(requireWorkspace()));
   register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));

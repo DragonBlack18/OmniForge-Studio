@@ -1,4 +1,5 @@
 export { NODE_CATALOG, createNode, exampleFlow } from './catalog.mjs';
+export { parseGitStatusZ, gitWorkspaceStatus, gitDiff, gitStage, gitUnstage, gitCommit } from './git-control.mjs';
 export { loadCadDocument, saveCadDocument, exportCadSketch } from './cad-store.mjs';
 export { parseCadDxf } from './cad-import.mjs';
 export { readCadDxfFile } from './cad-import-file.mjs';

@@ -1,3 +1,11 @@
+## [0.5.0] — Controle Git local (candidate)
+
+- Git local verdadeiro, sem shell de comandos no renderer: status -z, renomeações, diffs, últimas 12 revisões.
+- Stage/unstage explícitos para arquivos escolhidos, com validação contra travessia de caminhos e índice atualizado; sem reset destrutivo.
+- Commit somente depois de confirmação Electron nativa com a lista de arquivos preparados, hooks desabilitados e sem push remoto.
+- Painel dedicado integrado à navegação, visão geral, testes reais com repositórios efêmeros e smoke Electron Windows.
+- Dependência externa: Git CLI instalado; repositórios Git não confiáveis e filtros externos precisam de avaliação.
+
 ## [0.4.1] — Windows atomic persistence hotfix (candidate)
 
 - Prevent intermittent Windows EPERM/EACCES/EBUSY failures while replacing local schedule metadata, flow snapshots and CAD documents.

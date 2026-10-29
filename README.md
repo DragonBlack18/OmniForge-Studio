@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.4.1 (Windows persistence hotfix candidate, NOT yet released)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.5.0 (Git Source Control candidate in validation, NOT yet released)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -10,6 +10,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 |---|---|---|
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
 | Programação | Editor Monaco para arquivos existentes, destaque por extensão, proteção contra overwrite | Não é um host de extensões do VS Code |
+| Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
 | Agendamentos locais | Intervalos de 1–1440 min, fluxo salvo preso por SHA-256, pausa/retomada, execução real supervisionada, replay de horários perdidos bloqueado, histórico e recuperação após crash | Só executa com a janela do OmniForge aberta; HTTP agendado não permitido |
@@ -54,6 +55,12 @@ O registro persistente fica em `userData/local-schedules/schedules.json`, fora d
 **Limitação operacional:** este não é um serviço Windows e não funciona com o aplicativo fechado. Não é um sistema de alta disponibilidade/exactly-once, nem oferece agenda cron, timezone arbitrário, HTTP agendado, workflows remotos ou execução de PLC/OT. Um processo pode cair após já ter gravado um arquivo; o OmniForge não consegue reverter efeitos locais anteriores. Veja [Política de recuperação e agendamento](docs/LOCAL_SCHEDULER_V040.md).
 
 Para testar o módulo no Electron Windows: `npm run smoke:schedules`.
+
+## Git local v0.5.0
+
+Abra um projeto cuja pasta seja a **raiz de um repositório Git existente** e selecione **Controle Git** na sidebar. O painel mostra alterações reais, commits recentes, branch e diffs locais/preparados. Selecione arquivos e use **Preparar** ou **Despreparar**; a segunda operação nunca descarta as alterações no disco. Após preencher a mensagem, **Confirmar commit** abre um diálogo nativo mostrando todos os arquivos já preparados, inclusive por outras ferramentas.
+
+Não executa `git init`, `push`, `pull`, `reset`, `clean`, `checkout`, `merge` ou comandos arbitrários. Os commits locais usam a identidade Git configurada. O processo evita hooks de commit disparados pela interface; filtros de atributos Git existentes devem ser tratados como código confiável antes de preparar arquivos. Nenhum arquivo é adicionado automaticamente. Diferenças são lidas sob demanda e não são persistidas pelo OmniForge; máximo de 400 arquivos no painel, 40 por operação e 120 KB por diff. O commit bloqueia se a contagem ultrapassar 400 alterações, para evitar confirmação com lista incompleta. Teste Electron Windows: `npm run smoke:git`.
 
 ## Instalação de desenvolvimento
 

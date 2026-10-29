@@ -10,6 +10,8 @@ const MODULES=[
    description:'Desenho em milímetros com camadas, snap e exportação DXF ou SVG.',action:'Abrir CAD'},
   {mode:'code',icon:'code',category:'DESENVOLVIMENTO',title:'Editor de código',
    description:'Abra e edite arquivos existentes sem sair do workspace local.',action:'Abrir editor'},
+  {mode:'git',icon:'git',category:'DESENVOLVIMENTO',title:'Controle Git',
+   description:'Compare alterações, prepare arquivos e crie commits locais com aprovação.',action:'Abrir Git'},
   {mode:'projects',icon:'folder',category:'ORGANIZAÇÃO',title:'Meus projetos',
    description:'Gerencie pastas cadastradas sem duplicar nem alterar sua origem.',action:'Ver projetos'},
   {mode:'integrations',icon:'plug',category:'INTEGRAÇÕES',title:'APIs de projetos',
