@@ -39,3 +39,9 @@
 .primary-nav button:focus-visible{outline:2px solid #8cd8d5;outline-offset:-2px}
 @media(max-width:1180px){.primary-nav:not(.primary-nav--collapsed){width:201px;flex-basis:201px}}
 @media(prefers-reduced-motion:reduce){.primary-nav{transition:none}}
+
+.primary-nav__group-toggle{width:100%;min-height:29px;display:flex;justify-content:space-between;align-items:center;gap:8px;border:0;background:transparent;border-radius:6px;color:#819eaf;text-align:left;padding:5px 10px 7px;font-size:9px;font-weight:770;letter-spacing:.15em;cursor:pointer}
+.primary-nav__group-toggle:hover{background:#1b2d36;color:#c8e4e2}
+.primary-nav__group-toggle svg{transition:transform .15s;color:#6d97a4}
+.primary-nav__group-toggle[aria-expanded="false"] svg{transform:rotate(-90deg)}
+.primary-nav--collapsed .primary-nav__group-toggle{display:none}

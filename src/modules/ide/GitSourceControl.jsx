@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavGlyph } from './NavigationSidebar.jsx';
+import { NavGlyph } from '../../shared/NavGlyph.jsx';
 import './GitSourceControl.css';
 
 export default function GitSourceControl({ workspace, busy = false, onNotice = () => {} }) {

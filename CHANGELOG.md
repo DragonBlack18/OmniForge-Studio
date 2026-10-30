@@ -1,3 +1,13 @@
+## [0.6.1] — Modular Workbench & Performance (candidate)
+
+- Seven canonical backend domains and small legacy import facades, preserving saved data and existing APIs.
+- Separate CAD, automation, IDE, extensions and workbench React directories, shared icons and centralized navigation registry.
+- Lazy Monaco, language workers, CAD and automation canvas, with CAD remaining mounted after first use to protect unsaved edits.
+- Electron capacity host dynamically loads CAD, Git and IDE on demand; native IPC allowlist unchanged.
+- Collapsible domain-aware sidebar, persistent group preferences and technical breadcrumb.
+- Build-manifest-based initial bundle byte budget and automated module-boundary regression tests.
+- Windows CI/release still requires all real E2E tests, Setup/Portable install/uninstall and SHA256.
+
 ## [0.6.0] — Workspace IDE (2026-10-29)
 
 - Busca literal global nos arquivos do workspace, retorno real de linha/coluna e navegação direta no Monaco.

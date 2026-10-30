@@ -36,6 +36,8 @@ jobs:
         run: npm test
       - name: Build da interface
         run: npm run build
+      - name: Verificar bundle inicial e divisão de módulos
+        run: npm run budget:bundle
       - name: Teste E2E real no Electron
         run: npm run smoke:electron
         timeout-minutes: 5

@@ -174,3 +174,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .toolbar-actions{flex-wrap:wrap;justify-content:flex-end;gap:5px}
   .toolbar-heading strong{font-size:15px}
 }
+
+/* Domain-aware breadcrumb in the shell; independent of module implementation. */
+.topbar-current{display:flex;flex-direction:column;min-width:120px;max-width:180px;gap:4px;padding-left:15px;border-left:1px solid #31434e}
+.topbar-current small{font-size:9px;letter-spacing:.13em;font-weight:750;color:#6e9aab}
+.topbar-current strong{font-size:11px;font-weight:700;color:#c5e3e1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.module-loading{flex:1;min-height:100px;display:flex;align-items:center;justify-content:center;background:#0d1a22;color:#80aeb9;font:650 12px ui-monospace,Consolas,monospace;letter-spacing:.045em}
+@media(max-width:1250px){.topbar-current{display:none}}
+@media(prefers-reduced-motion:reduce){.primary-nav__group-toggle svg{transition:none}}

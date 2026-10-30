@@ -1,6 +1,6 @@
 import React from 'react';
 import { NODE_CATALOG } from '../../core/catalog.mjs';
-import { NavGlyph } from './NavigationSidebar.jsx';
+import { NavGlyph } from '../shared/NavGlyph.jsx';
 import './WorkspaceOverview.css';
 
 const MODULES=[
