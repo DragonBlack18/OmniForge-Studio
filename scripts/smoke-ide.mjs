@@ -68,15 +68,27 @@ try {
   await page.getByRole('button', { name: /Nova pasta/ }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo');
   await page.getByTestId('workspace-create-confirm').click();
-  await page.waitForFunction(async () =>
-    (await window.omni.listFiles()).some(file => file.path === 'novo-modulo' && file.kind === 'directory'));
+  // Observe the authoritative filesystem from the Node test process.
+  // Async browser predicates may resolve after Playwright's polling deadline
+  // under Windows runner load, yielding a false timeout.
+  const waitForEntry = async (relative, kind, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    let last = [];
+    while (Date.now() < deadline) {
+      last = await page.evaluate(() => window.omni.listFiles());
+      if (last.some(file => file.path === relative && file.kind === kind)) return;
+      await new Promise(resolve => setTimeout(resolve, 140));
+    }
+    throw new Error('Entrada não apareceu no workspace: ' +
+      JSON.stringify({ relative, kind, entries: last.length }));
+  };
+  await waitForEntry('novo-modulo', 'directory');
   assert.ok((await fs.stat(path.join(workspace, 'novo-modulo'))).isDirectory());
   phase = 'create new file from UI and save in Monaco';
   await page.getByRole('button', { name: /Novo arquivo/ }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo/exemplo.py');
   await page.getByTestId('workspace-create-confirm').click();
-  await page.waitForFunction(async () =>
-    (await window.omni.listFiles()).some(file => file.path === 'novo-modulo/exemplo.py' && file.kind === 'file'));
+  await waitForEntry('novo-modulo/exemplo.py', 'file');
   await page.getByText('novo-modulo/exemplo.py', { exact: false }).first().waitFor();
   assert.equal(await fs.readFile(path.join(workspace, 'novo-modulo', 'exemplo.py'), 'utf8'), '');
   const before = await page.evaluate(() => window.omni.readFile('novo-modulo/exemplo.py'));
@@ -85,8 +97,14 @@ try {
   await page.locator('.monaco-editor').first().click();
   await page.keyboard.insertText('print("IDE OK")');
   await page.getByRole('button', { name: 'Salvar arquivo' }).click();
-  await page.waitForFunction(async () =>
-    (await window.omni.readFile('novo-modulo/exemplo.py')).content.includes('IDE OK'));
+  const saveDeadline = Date.now() + 20000;
+  let saved = false;
+  while (Date.now() < saveDeadline) {
+    const file = await page.evaluate(() => window.omni.readFile('novo-modulo/exemplo.py'));
+    if (file.content.includes('IDE OK')) { saved = true; break; }
+    await new Promise(resolve => setTimeout(resolve, 140));
+  }
+  assert.ok(saved, 'Editor deve salvar conteúdo real antes do prazo.');
   // The Electron renderer and the independent Node process must both observe
   // the committed file, not just the editor's in-memory value. Windows can
   // briefly retain a stale handle after an atomic rename.
