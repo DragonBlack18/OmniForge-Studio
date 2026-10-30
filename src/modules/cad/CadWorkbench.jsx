@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addCadEntity, addCadLayer, cadBounds, cadEntityMetrics, cadStats, deleteCadEntity, initialCadSketch, makeCadEntity, removeCadLayer, replaceCadEntity, snapCadPoint } from '../../../core/modules/cad/cad2d.mjs';
-import { NavGlyph } from '../../workbench/NavigationSidebar.jsx';
+import { NavGlyph } from '../../shared/NavGlyph.jsx';
 import './CadWorkbench.css';
 
 const TOOLS = [

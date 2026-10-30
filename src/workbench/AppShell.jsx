@@ -11,7 +11,9 @@ const ExtensionsHub = React.lazy(() => import('../modules/extensions/ExtensionsH
 const ScheduleCenter = React.lazy(() => import('../modules/automation/ScheduleCenter.jsx'));
 const GitSourceControl = React.lazy(() => import('../modules/ide/GitSourceControl.jsx'));
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
-import NavigationSidebar, { NavGlyph } from './NavigationSidebar.jsx';
+import NavigationSidebar from './NavigationSidebar.jsx';
+import { NavGlyph } from '../shared/NavGlyph.jsx';
+import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
 
 
@@ -42,7 +44,7 @@ function getLanguage(filename) {
   return EXT_TO_LANGUAGE[filename?.split('.').pop()?.toLowerCase()] || 'plaintext';
 }
 
-const ModuleLoading = ({label='ferramenta'}) => <div className="module-loading" role="status">Carregando ${label}...</div>;
+const ModuleLoading = ({label='ferramenta'}) => <div className="module-loading" role="status">Carregando {label}...</div>;
 
 function readUiPreference(key, fallback) {
   try { const saved=window.localStorage.getItem(key);return saved===null?fallback:saved==='1'; }
@@ -50,6 +52,7 @@ function readUiPreference(key, fallback) {
 }
 export default function AppShell() {
   const [mode, setMode] = useState('home');
+  const currentModule = findWorkbenchModule(mode);
   const [cadEverOpened,setCadEverOpened] = useState(false);
   const [sideMode, setSideMode] = useState('catalog');
   useEffect(() => { if(mode==='cad') setCadEverOpened(true); }, [mode]);
@@ -473,6 +476,9 @@ export default function AppShell() {
         <div className="topbar-workspace" title={workspace}>
           <small>WORKSPACE</small>
           <strong>{workspace ? workspace.split(/[\\/]/).pop() : 'Nenhum projeto aberto'}{dirty||flowDirty||cadDirty ? <i aria-label="Alterações não salvas" title="Alterações não salvas" className="topbar-unsaved"/> : null}</strong>
+        </div>
+        <div className="topbar-current" aria-label="Módulo ativo">
+          <small>{currentModule.group}</small><strong>{currentModule.label}</strong>
         </div>
         <div className="topbar-spacer"/>
         <span className="environment" title="O OmniForge opera localmente"><span className="environment__dot"/> {info.mode} · LOCAL</span>

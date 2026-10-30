@@ -2,7 +2,7 @@ import React from 'react';
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { NODE_CATALOG } from '../../../core/modules/automation/catalog.mjs';
-import { NavGlyph } from '../../workbench/NavigationSidebar.jsx';
+import { NavGlyph } from '../../shared/NavGlyph.jsx';
 
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
 const CATEGORY_NAV_ICONS = { Gatilhos:'workflow', Lógica:'workflow', Dados:'code', Texto:'code', Matemática:'code', Codificação:'code', Datas:'history', Arquivos:'folder', Integrações:'plug', Projetos:'folder', Engenharia:'cad' };
