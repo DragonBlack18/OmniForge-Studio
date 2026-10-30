@@ -127,7 +127,8 @@ function safeEnvironment() {
 function terminateTree(child, platform, reason) {
   if (!child || !Number.isInteger(child.pid)) return;
   if (platform === 'win32') {
-    const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+    const systemRoot = process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
+    const killer = spawn(path.join(systemRoot, 'System32', 'taskkill.exe'), ['/PID', String(child.pid), '/T', '/F'], {
       windowsHide:true, shell:false, stdio:'ignore'
     });
     killer.on('error', () => { try { child.kill('SIGKILL'); } catch {} });
@@ -217,7 +218,7 @@ export class LocalProjectTaskRunner {
           state.status === 'timeout' ? 'Tempo limite de 120 segundos excedido.' :
           state.status === 'output-limit' ? 'Saída maior que 96 KB; tarefa interrompida.' :
           state.status === 'cancelled' ? 'Cancelamento solicitado pelo usuário.' :
-          'O script terminou com erro ou sinal: ' + String(signal || state.exitCode ?? 'desconhecido');
+          'O script terminou com erro ou sinal: ' + String(signal ?? state.exitCode ?? 'desconhecido');
         this.child = null;
         emit('finished');
       });
