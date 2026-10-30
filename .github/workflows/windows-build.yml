@@ -30,6 +30,7 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run build
+      - run: npm run budget:bundle
       - run: npm run smoke:electron
         timeout-minutes: 5
       - run: npm run smoke:extensions

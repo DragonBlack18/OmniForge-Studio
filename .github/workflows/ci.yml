@@ -38,6 +38,7 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run build
+      - run: npm run budget:bundle
   desktop-windows-smoke:
     name: Windows production Electron smoke
     runs-on: windows-latest
@@ -48,6 +49,7 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm run build
+      - run: npm run budget:bundle
       - run: npm run smoke:electron
         timeout-minutes: 5
       - run: npm run smoke:extensions
