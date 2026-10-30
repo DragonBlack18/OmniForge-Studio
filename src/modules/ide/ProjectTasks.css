@@ -47,3 +47,17 @@
 .task-center__footer p{margin:0;font-size:10px;line-height:1.7}
 @media(max-width:1240px){.task-center{padding:17px}.task-center__layout{grid-template-columns:1fr}.task-center__metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.task-center__hero{flex-direction:column}.task-center__console-actions{flex-wrap:wrap}.task-center__metrics{grid-template-columns:1fr 1fr}}
+.task-center__history{margin-top:16px;border:1px solid #304956;border-radius:10px;background:#101e27;overflow:hidden}
+.task-center__history .task-center__section-title button{font-size:10px}
+.task-center__history-list{max-height:350px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:#426068 transparent}
+.task-center__history-item{display:grid;grid-template-columns:minmax(180px,1.8fr) minmax(90px,.8fr) 75px 90px;gap:14px;align-items:center;padding:11px 18px;border-top:1px solid #273e48;font-size:11px}
+.task-center__history-name{display:flex;flex-direction:column;gap:6px;min-width:0}
+.task-center__history-name strong{color:#c7e4e3;font:650 11px ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.task-center__history-name small{font-size:10px;color:#86a4b1}
+.task-center__history-item>.task-center__state{justify-self:start}
+.task-center__history-duration{font:11px ui-monospace,Consolas,monospace;color:#a1bfcd}
+.task-center__history-item>code{font:10px ui-monospace,Consolas,monospace;color:#a1bfcd}
+.task-center__history-empty{margin:0;padding:22px 18px;font-size:11px;color:#88a8b2}
+.task-center__history-error{margin:12px 18px;color:#efc3bc;font-size:11px}
+.task-center__history-note{margin:0;padding:12px 18px;border-top:1px solid #273e48;color:#789ba9;font-size:10px;line-height:1.65}
+@media(max-width:720px){.task-center__history-item{grid-template-columns:minmax(145px,1fr) auto;gap:9px}.task-center__history-duration,.task-center__history-item>code{padding-left:1px}}
