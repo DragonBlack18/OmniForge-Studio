@@ -162,6 +162,8 @@ try {
   assert.ok(!body.includes('node verify.cjs'));
   assert.ok(!body.includes('NEVER_EXPOSE'));
   await page.reload();
+  await page.getByRole('button',{name:'Abrir projeto'}).click();
+  await page.getByText('Projeto aberto:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Central de Tarefas'}).click();
   await page.getByTestId('project-task-history').getByText('npm run hold').waitFor();
 
