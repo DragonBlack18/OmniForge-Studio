@@ -86,6 +86,11 @@ try {
     return current?.name==='verify' && current?.status==='completed';
   },null,{timeout:30000});
   const final=await page.evaluate(()=>window.omni.projectTaskState());
+  console.log('[TASK E2E] completed snapshot: '+JSON.stringify({
+    name:final.name,status:final.status,exitCode:final.exitCode,
+    finishedAt:final.finishedAt,message:final.message,
+    outputLength:final.output?.length,hasOutput:final.output?.includes('TASK_REAL_PASS')
+  }));
   assert.equal(final.exitCode,0);
   assert.match(final.output,/TASK_REAL_PASS/);
   assert.equal(await fs.readFile(path.join(workspace,'task-result.txt'),'utf8'),'REAL_SUCCESS');
