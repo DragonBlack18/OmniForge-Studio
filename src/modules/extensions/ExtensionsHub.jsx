@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { NavGlyph } from './NavigationSidebar.jsx';
+import { NavGlyph } from '../../workbench/NavigationSidebar.jsx';
 import './ExtensionsHub.css';
 
 const PERMISSION_LABELS = {

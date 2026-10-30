@@ -13,13 +13,13 @@ import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { NODE_CATALOG, exampleFlow, createNode } from '../core/catalog.mjs';
 import { validateFlow } from '../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../core/templates.mjs';
-import CadWorkbench from './components/CadWorkbench.jsx';
-import WorkspaceOverview from './components/WorkspaceOverview.jsx';
-import ExtensionsHub from './components/ExtensionsHub.jsx';
-import ScheduleCenter from './components/ScheduleCenter.jsx';
-import GitSourceControl from './components/GitSourceControl.jsx';
-import WorkspaceSearch from './components/WorkspaceSearch.jsx';
-import NavigationSidebar, { NavGlyph } from './components/NavigationSidebar.jsx';
+import CadWorkbench from './modules/cad/CadWorkbench.jsx';
+import WorkspaceOverview from './workbench/WorkspaceOverview.jsx';
+import ExtensionsHub from './modules/extensions/ExtensionsHub.jsx';
+import ScheduleCenter from './modules/automation/ScheduleCenter.jsx';
+import GitSourceControl from './modules/ide/GitSourceControl.jsx';
+import WorkspaceSearch from './modules/ide/WorkspaceSearch.jsx';
+import NavigationSidebar, { NavGlyph } from './workbench/NavigationSidebar.jsx';
 import { visibleFileEntries } from './utils/file-tree.mjs';
 
 self.MonacoEnvironment = {

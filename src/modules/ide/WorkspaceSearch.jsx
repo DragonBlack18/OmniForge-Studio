@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { NavGlyph } from './NavigationSidebar.jsx';
+import { NavGlyph } from '../../workbench/NavigationSidebar.jsx';
 import './WorkspaceSearch.css';
 
 export default function WorkspaceSearch({ workspace, busy = false, onOpenResult }) {
