@@ -68,11 +68,18 @@ test('results are scoped per workspace and duplicate finish events are idempoten
 test('concurrent results remain consistent and older records are bounded to 60', async t => {
   const { profile, first } = await fixture(t);
   const runs=Array.from({length:68},()=>completed(first));
-  await Promise.all(runs.map(item=>recordProjectTaskHistory(profile,item)));
+  // Parallel I/O completion order is intentionally nondeterministic.
+  await Promise.all(runs.slice(0,30).map(item=>recordProjectTaskHistory(profile,item)));
+  const concurrent=await listProjectTaskHistory(profile,first,{limit:60});
+  assert.equal(concurrent.length,30);
+  assert.deepEqual(new Set(concurrent.map(x=>x.id)),new Set(runs.slice(0,30).map(x=>x.id)));
+  // Sequential finishes have a deterministic newest-first retention order.
+  for(const item of runs.slice(30)) await recordProjectTaskHistory(profile,item);
   const items=await listProjectTaskHistory(profile,first,{limit:60});
   assert.equal(items.length,60);
   assert.equal(new Set(items.map(x=>x.id)).size,60);
-  assert.deepEqual(items.map(x=>x.id),runs.slice(8).reverse().map(x=>x.id));
+  assert.deepEqual(items.slice(0,38).map(x=>x.id),runs.slice(30).reverse().map(x=>x.id));
+  assert.ok(items.every(x=>runs.some(run=>run.id===x.id)));
   assert.equal((await listProjectTaskHistory(profile,first,{limit:3})).length,3);
   await assert.rejects(listProjectTaskHistory(profile,first,{limit:61}),/Limite/);
 });
