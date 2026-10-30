@@ -6,17 +6,25 @@
  * and the renderer; only three static IPC commands are exposed to the UI.
  */
 function installProjectTaskIpc({ register, dialog, core, getWorkspace,
-  getWindow, isHostBusy, onFinished }) {
+  getUserData, getWindow, isHostBusy, onFinished }) {
   let runner = null;
   let pending = false;
   const isActive = () => pending || Boolean(runner?.isRunning);
   const snapshot = () => runner?.snapshot() || null;
-  function notify(event) {
+  function sendEvent(event) {
     const target = getWindow();
     if (target && !target.isDestroyed() && !target.webContents.isDestroyed()) {
       target.webContents.send('omni:projectTaskEvent', event);
     }
-    if (event.type === 'finished') onFinished?.(event.task);
+  }
+  function notify(event) {
+    if (event.type !== 'finished') return sendEvent(event);
+    // Persist ONLY final metadata before broadcasting completion or exiting.
+    // A write failure never changes the real task result; the UI is informed.
+    void core.recordProjectTaskHistory(getUserData(), event.task)
+      .then(() => sendEvent({ ...event, historySaved:true }))
+      .catch(() => sendEvent({ ...event, historySaved:false }))
+      .finally(() => onFinished?.(event.task));
   }
 
   register('listProjectTasks', async () => {
@@ -29,6 +37,8 @@ function installProjectTaskIpc({ register, dialog, core, getWorkspace,
     return { ...tasks, toolchain };
   });
   register('projectTaskState', () => snapshot());
+  register('listProjectTaskHistory', () =>
+    core.listProjectTaskHistory(getUserData(), getWorkspace()));
   register('cancelProjectTask', id => {
     if (typeof id !== 'string' || snapshot()?.id !== id) return false;
     return runner.cancel('cancelled');

@@ -24,6 +24,7 @@ const loaders = Object.freeze({
   git: () => import('./modules/ide/git-control.mjs'),
   ide: () => import('./modules/ide/workspace-ide.mjs'),
   projectTasks: () => import('./modules/ide/project-tasks.mjs'),
+  taskHistory: () => import('./modules/ide/project-task-history.mjs'),
   supervisor: () => import('./supervisor.mjs')
 });
 
@@ -72,3 +73,5 @@ export const runSupervisedFlow = (...args) => loaders.supervisor().then(module =
 export const listProjectTasks = (...args) => loaders.projectTasks().then(module => module.listProjectTasks(...args));
 export const assertTaskSelection = (...args) => loaders.projectTasks().then(module => module.assertTaskSelection(...args));
 export const findNpmToolchain = (...args) => loaders.projectTasks().then(module => module.findNpmToolchain(...args));
+export const listProjectTaskHistory = (...args) => loaders.taskHistory().then(module => module.listProjectTaskHistory(...args));
+export const recordProjectTaskHistory = (...args) => loaders.taskHistory().then(module => module.recordProjectTaskHistory(...args));

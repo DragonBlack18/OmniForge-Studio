@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   registerCapability: (projectId, definition) => ipcRenderer.invoke('omni:registerCapability', projectId, definition),
   forgetCapability: (projectId, capabilityId) => ipcRenderer.invoke('omni:forgetCapability', projectId, capabilityId),
   listProjectTasks: () => ipcRenderer.invoke('omni:listProjectTasks'),
+  listProjectTaskHistory: () => ipcRenderer.invoke('omni:listProjectTaskHistory'),
   projectTaskState: () => ipcRenderer.invoke('omni:projectTaskState'),
   runProjectTask: (id, revision) => ipcRenderer.invoke('omni:runProjectTask', id, revision),
   cancelProjectTask: id => ipcRenderer.invoke('omni:cancelProjectTask', id),

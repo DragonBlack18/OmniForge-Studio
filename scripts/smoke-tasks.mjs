@@ -59,6 +59,16 @@ try {
     throw new Error('Estado da tarefa não atingido: ' +
       JSON.stringify({ name, last }));
   };
+  const waitForHistory = async (minimum, timeoutMs = 15000) => {
+    const deadline = Date.now() + timeoutMs;
+    let last = [];
+    while (Date.now() < deadline) {
+      last = await page.evaluate(() => window.omni.listProjectTaskHistory());
+      if (last.length >= minimum) return last;
+      await new Promise(resolve => setTimeout(resolve, 140));
+    }
+    throw new Error('Histórico de tarefas não registrado: '+JSON.stringify(last));
+  };
   const actualProfile=await client.evaluate(({app})=>app.getPath('userData'));
   assert.equal(path.normalize(actualProfile).toLowerCase(),path.normalize(profile).toLowerCase());
   await client.evaluate(({dialog},dir)=>{
@@ -108,6 +118,14 @@ try {
   assert.equal(await fs.readFile(path.join(workspace,'env-result.txt'),'utf8'),'SAFE');
   await assert.rejects(fs.stat(path.join(workspace,'unsafe-hook.txt')),{code:'ENOENT'});
   assert.match(await page.getByTestId('project-task-output').textContent(),/TASK_REAL_PASS/);
+  stage='persist successful task metadata, without recording stdout or secrets';
+  const firstHistory=await waitForHistory(1);
+  assert.equal(firstHistory[0].name,'verify');
+  assert.equal(firstHistory[0].status,'completed');
+  assert.equal(firstHistory[0].exitCode,0);
+  assert.equal(typeof firstHistory[0].durationMs,'number');
+  assert.equal('output' in firstHistory[0],false);
+  await page.getByTestId('project-task-history').getByText('npm run verify').waitFor();
 
   stage='cancel running script and release execution slot';
   await page.getByRole('button',{name:'Selecionar tarefa hold'}).click();
@@ -130,11 +148,30 @@ try {
   assert.equal(stopped.status,'cancelled');
   assert.ok(stopped.finishedAt);
 
+  stage='cancelled task history and actual on-disk metadata survive renderer reload';
+  const fullHistory=await waitForHistory(2);
+  assert.equal(fullHistory[0].name,'hold');
+  assert.equal(fullHistory[0].status,'cancelled');
+  assert.equal(fullHistory[1].name,'verify');
+  const directory=path.join(profile,'project-task-history');
+  const files=await fs.readdir(directory);
+  assert.equal(files.length,1);
+  const body=await fs.readFile(path.join(directory,files[0]),'utf8');
+  assert.ok(!body.includes('TASK_REAL_PASS'));
+  assert.ok(!body.includes('TASK_HOLD_READY'));
+  assert.ok(!body.includes('node verify.cjs'));
+  assert.ok(!body.includes('NEVER_EXPOSE'));
+  await page.reload();
+  await page.getByRole('button',{name:'Abrir projeto'}).click();
+  await page.getByText('Projeto aberto:',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'Central de Tarefas'}).click();
+  await page.getByTestId('project-task-history').getByText('npm run hold').waitFor();
+
   stage='no workspace corruption after cancellation';
   const contents=JSON.parse(await fs.readFile(path.join(workspace,'package.json'),'utf8'));
   assert.equal(contents.scripts.verify,'node verify.cjs');
   assert.equal((await fs.readFile(path.join(workspace,'task-result.txt'),'utf8')),'REAL_SUCCESS');
-  console.log('PASS Project Tasks Electron E2E: native deny/allow, real npm script, stdout, env filtering, lifecycle skip and process-tree cancellation.');
+  console.log('PASS Project Tasks Electron E2E: native deny/allow, real npm, stdout, secret filtering, cancellation and persistent metadata after renderer reload.');
 } catch(error) {
   console.error('[TASK E2E] stage='+stage,error);
   process.exitCode=1;

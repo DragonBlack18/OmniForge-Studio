@@ -9,6 +9,9 @@ export default function ProjectTasks({ workspace, busy = false, onNotice = () =>
   const [catalog, setCatalog] = useState(null);
   const [selected, setSelected] = useState('');
   const [task, setTask] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [historyError, setHistoryError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState('');
@@ -18,6 +21,7 @@ export default function ProjectTasks({ workspace, busy = false, onNotice = () =>
   useEffect(() => {
     const token = ++generation.current;
     setCatalog(null); setSelected(''); setTask(null); setError('');
+    setHistory([]); setHistoryError('');
     if (!workspace || !window.omni) return;
     setLoading(true);
     window.omni.listProjectTasks().then(data => {
@@ -29,6 +33,11 @@ export default function ProjectTasks({ workspace, busy = false, onNotice = () =>
     window.omni.projectTaskState().then(data=>{
       if(generation.current===token && data?.workspace===workspace) setTask(data);
     }).catch(()=>{});
+    window.omni.listProjectTaskHistory().then(data=>{
+      if(generation.current===token) setHistory(data);
+    }).catch(err=>{
+      if(generation.current===token) setHistoryError(err.message);
+    });
     const dispose=window.omni.onProjectTaskEvent(event=>{
       if (generation.current !== token || !event?.task || event.task.workspace !== workspace) return;
       setTask(previous=>{
@@ -38,10 +47,20 @@ export default function ProjectTasks({ workspace, busy = false, onNotice = () =>
         };
         return {...event.task,output:event.task.output ?? (previous?.id===event.id?previous.output:'')};
       });
-      if(event.type==='finished')onNotice(
-        event.task.status==='completed'
+      if(event.type==='finished') {
+        onNotice(event.task.status==='completed'
           ?'Tarefa concluída: '+event.task.name
           :'Tarefa encerrada: '+event.task.status);
+        if(event.historySaved===false) {
+          setHistoryError('A tarefa terminou, mas o histórico não pôde ser salvo. O resultado do console continua válido.');
+        } else {
+          window.omni.listProjectTaskHistory().then(data=>{
+            if(generation.current===token) { setHistory(data); setHistoryError(''); }
+          }).catch(err=>{
+            if(generation.current===token) setHistoryError(err.message);
+          });
+        }
+      }
     });
     return ()=>{ generation.current++; dispose?.(); };
   },[workspace,onNotice]);
@@ -64,6 +83,13 @@ export default function ProjectTasks({ workspace, busy = false, onNotice = () =>
       if(!data.scripts.some(script=>script.id===selected)) setSelected(data.scripts[0]?.id||'');
     }catch(err){setError(err.message);}
     finally{setLoading(false);}
+  }
+  async function refreshHistory() {
+    if (!workspace || historyLoading) return;
+    setHistoryLoading(true); setHistoryError('');
+    try { setHistory(await window.omni.listProjectTaskHistory()); }
+    catch (err) { setHistoryError(err.message); }
+    finally { setHistoryLoading(false); }
   }
   async function launch() {
     if(disabled || running || !selectedScript)return;
@@ -162,11 +188,39 @@ export default function ProjectTasks({ workspace, busy = false, onNotice = () =>
             </div>
           </section>
         </div>
+        <section className="task-center__history" data-testid="project-task-history">
+          <div className="task-center__section-title">
+            <h3>Histórico de execuções</h3>
+            <button type="button" className="button button--subtle"
+              disabled={historyLoading} onClick={refreshHistory}>
+              {historyLoading?'Atualizando...':'Atualizar histórico'}
+            </button>
+          </div>
+          {historyError && <p className="task-center__history-error" role="alert">{historyError}</p>}
+          {!history.length ?
+            <p className="task-center__history-empty">Nenhuma execução anterior registrada neste projeto.</p> :
+            <div role="list" className="task-center__history-list">
+              {history.map(entry=><div role="listitem" className="task-center__history-item" key={entry.id}>
+                <div className="task-center__history-name">
+                  <strong>npm run {entry.name}</strong>
+                  <small>{new Date(entry.startedAt).toLocaleString('pt-BR')}</small>
+                </div>
+                <span className={'task-center__state task-center__state--'+entry.status}>
+                  {entry.status.toUpperCase()}
+                </span>
+                <span className="task-center__history-duration">
+                  {entry.durationMs>=1000?(entry.durationMs/1000).toFixed(1)+' s':entry.durationMs+' ms'}
+                </span>
+                <code>{entry.exitCode===null?'SEM EXIT':'EXIT '+entry.exitCode}</code>
+              </div>)}
+            </div>}
+          <p className="task-center__history-note">Até 60 execuções por workspace (30 exibidas). Somente metadados são armazenados: sem saída do console, comandos ou variáveis de ambiente.</p>
+        </section>
       </>}
     </>}
     <footer className="task-center__footer">
       <NavGlyph name="info" size={16}/>
-      <p>Somente scripts previamente definidos no package.json, sem argumentos livres. Tempo máximo: 120 s. Limite de saída: 96 KB. Apenas uma tarefa por vez; scripts de projetos desconhecidos são potencialmente perigosos. Não há sandbox, PTY, execução em segundo plano ou persistência de logs desta ferramenta.</p>
+      <p>Somente scripts previamente definidos no package.json, sem argumentos livres. Tempo máximo: 120 s. Limite de saída: 96 KB. Apenas uma tarefa por vez; scripts de projetos desconhecidos são potencialmente perigosos. Não há sandbox, PTY, execução em segundo plano ou persistência de logs completos. O histórico mantém somente metadados locais.</p>
     </footer>
   </div>;
 }
