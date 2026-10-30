@@ -24,6 +24,8 @@ let userApprovedExit = false;
 let scheduleService = null;
 let scheduleReady = false;
 let schedulePromptOpen = false;
+let projectTaskController = null;
+let exitAfterTask = false;
 const projectRoot = path.resolve(__dirname, '..');
 const isDevelopment = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
 
@@ -73,6 +75,21 @@ function requireWorkspace() {
 
 async function initializeIpc() {
   const core = await import('../core/host.mjs');
+  const { installProjectTaskIpc } = require('./modules/task-ipc.cjs');
+  projectTaskController = installProjectTaskIpc({
+    register, dialog, core,
+    getWorkspace:requireWorkspace,
+    getWindow:() => mainWindow,
+    isHostBusy:() => Boolean(executionInProgress || saveInProgress ||
+      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen),
+    onFinished:() => {
+      if (exitAfterTask) {
+        exitAfterTask = false;
+        userApprovedExit = true;
+        setImmediate(() => app.quit());
+      }
+    }
+  });
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
   register('setUnsavedChanges', dirty => {
     if (typeof dirty !== 'boolean') throw new Error('Estado de edição inválido.');
@@ -132,7 +149,7 @@ async function initializeIpc() {
   });
   const catalogDataRoot = app.getPath('userData');
   const ensureIdle = () => {
-    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
+    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive()) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
   };
   async function serialRegistryAction(action) {
     ensureIdle();
@@ -225,7 +242,7 @@ async function initializeIpc() {
     userData:catalogDataRoot,
     acquireSlot:()=>{
       if(executionInProgress||saveInProgress||cadMutationInProgress||
-         registryMutationInProgress||schedulePromptOpen)return null;
+         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive())return null;
       executionInProgress=true;
       activeRunController=new AbortController();
       return activeRunController;
@@ -430,14 +447,14 @@ async function initializeIpc() {
   register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));
   register('readFile', relative => core.readProjectFile(requireWorkspace(), relative));
   register('saveFile', async (relative, content, expectedRevision) => {
-    if (saveInProgress || executionInProgress || cadMutationInProgress || registryMutationInProgress)
-      throw new Error('Conclua a execução antes de salvar arquivos.');
+    if (saveInProgress || executionInProgress || cadMutationInProgress || registryMutationInProgress || projectTaskController?.isActive())
+      throw new Error('Conclua a tarefa/execução antes de salvar arquivos.');
     saveInProgress = true;
     try { return await core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision); }
     finally { saveInProgress = false; }
   });
   register('saveFlow', async (flow, expectedRevision) => {
-    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
+    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive()) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
     saveInProgress = true;
     const root = requireWorkspace();
     try { return await core.saveFlow(root, flow, expectedRevision); }
@@ -454,7 +471,7 @@ async function initializeIpc() {
   });
   register('executeFlow', async (flow, dryRun) => {
     if (typeof dryRun !== 'boolean') throw new Error('Modo de execução inválido.');
-    if (executionInProgress) throw new Error('Já existe um fluxo em execução.');
+    if (executionInProgress || projectTaskController?.isActive()) throw new Error('Conclua a tarefa atual antes de executar um fluxo.');
     executionInProgress = true;
     activeRunController = new AbortController();
     try {
@@ -536,11 +553,11 @@ async function createWindow() {
   // Handle close natively, once, including the system X button and Alt+F4.
   mainWindow.on('close', event => {
     if (userApprovedExit || mainWindow.isDestroyed()) return;
-    if (!(hasUnsavedChanges || executionInProgress || saveInProgress || cadMutationInProgress)) return;
+    if (!(hasUnsavedChanges || executionInProgress || saveInProgress || cadMutationInProgress || projectTaskController?.isActive())) return;
     event.preventDefault();
     if (exitPromptOpen) return;
     exitPromptOpen = true;
-    const isExecuting = executionInProgress || saveInProgress || cadMutationInProgress;
+    const isExecuting = executionInProgress || saveInProgress || cadMutationInProgress || projectTaskController?.isActive();
     dialog.showMessageBox(mainWindow, {
       type: 'warning',
       title: 'Fechar OmniForge Studio',
@@ -551,16 +568,23 @@ async function createWindow() {
     }).then(answer => {
       if (answer.response !== 1 || !mainWindow || mainWindow.isDestroyed()) return;
       if (executionInProgress && activeRunController) {
-        // The cancellation result is persisted in execution history before exit.
+        // Workflow cancellation is recorded before closing.
         exitAfterRun = true;
         activeRunController.abort();
+      } else if (projectTaskController?.isActive()) {
+        exitAfterTask = true;
+        if (!projectTaskController.cancel()) {
+          exitAfterTask = false;
+          userApprovedExit = true;
+          app.quit();
+        }
       } else {
         userApprovedExit = true;
         app.quit();
       }
     }).catch(() => {}).finally(() => { exitPromptOpen = false; });
   });
-  mainWindow.on('closed', () => { scheduleService?.stop(); mainWindow = null; hasUnsavedChanges = false; });
+  mainWindow.on('closed', () => { scheduleService?.stop(); projectTaskController?.cancel(); mainWindow = null; hasUnsavedChanges = false; });
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
@@ -595,6 +619,7 @@ app.whenReady().then(async () => {
   dialog.showErrorBox('Erro ao iniciar OmniForge', String(error.message));
   app.quit();
 });
+app.on('before-quit', () => { projectTaskController?.cancel(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().then(()=>{ if(scheduleReady) scheduleService?.start(); }); });
 }

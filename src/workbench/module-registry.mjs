@@ -7,7 +7,8 @@ export const NAV_GROUPS = [
   { title: 'DESENVOLVIMENTO', items: [
     { mode:'code', label:'Editor de código', aria:'Editor de código', icon:'code' },
     { mode:'search', label:'Buscar em arquivos', aria:'Buscar no projeto', icon:'search' },
-    { mode:'git', label:'Controle Git', aria:'Controle de versão Git', icon:'git' }
+    { mode:'git', label:'Controle Git', aria:'Controle de versão Git', icon:'git' },
+    { mode:'tasks', label:'Central de Tarefas', aria:'Central de Tarefas', icon:'terminal' }
   ]},
   { title: 'AUTOMAÇÃO', items: [
     { mode:'canvas', label:'Automações', aria:'Arquitetura visual', icon:'workflow' },

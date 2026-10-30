@@ -1,3 +1,13 @@
+## [0.7.0] — Central de Tarefas (candidata)
+
+- Descoberta real de scripts do package.json, com limite de tamanho, nomes autorizados e revisão SHA-256 do manifesto.
+- Execução explícita via Node/npm CLI, sem argumentos arbitrários ou shell do renderer, com confirmação nativa da definição real do script.
+- Logs stdout/stderr ao vivo, status e código de saída; timeout de 120 s, limite de 96 KB e cancelamento da árvore de subprocessos.
+- Scripts lifecycle pre/post implícitos desabilitados; variáveis de ambiente filtradas, sem persistência de logs contendo dados de projeto.
+- Controle global de operações impedindo troca de workspace e execução de fluxos concorrentes durante tarefas.
+- Testes reais Node Linux/Windows e E2E Electron para aprovação, recusa, scripts executáveis, cancelamento e preservação de dados.
+- Módulo isolado em core/modules/ide, src/modules/ide e electron/modules. A execução de código de terceiros NÃO é sandbox.
+
 ## [0.6.1] — Modular Workbench & Performance (candidate)
 
 - Seven canonical backend domains and small legacy import facades, preserving saved data and existing APIs.

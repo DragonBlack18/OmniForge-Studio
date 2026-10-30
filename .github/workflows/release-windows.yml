@@ -44,6 +44,9 @@ jobs:
       - name: Gate real de instalação e permissão de extensões
         run: npm run smoke:extensions
         timeout-minutes: 5
+      - name: Gate de tarefas npm reais no Electron
+        run: npm run smoke:tasks
+        timeout-minutes: 5
       - name: Gate real de agendamentos locais no Electron
         run: npm run smoke:schedules
         timeout-minutes: 5
