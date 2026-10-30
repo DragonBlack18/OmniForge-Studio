@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.6.0 — Workspace IDE** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.6.1 — Workbench modular e desempenho (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -21,6 +21,16 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
 Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+
+## Arquitetura modular v0.6.1
+
+O OmniForge separa o domínio de **automação** (fluxos semelhantes em finalidade às ferramentas de n8n), **IDE** (editor Monaco, busca e Git), **CAD 2D**, **extensões**, **agendamentos**, **integrações** e **workspace** em diretórios de implementação independentes. O shell coordena tudo via contratos, sem que um módulo visual dependa de componentes internos de outro.
+
+Monaco e seus Web Workers, o CAD, o canvas de automações e os painéis especializados são **carregados somente quando necessários**. O CAD permanece montado depois da primeira visita para preservar undo e alterações não salvas. O Electron carrega os serviços Git, CAD e IDE conforme uso. A navegação tem agrupamentos técnicos recolhíveis e mostra a ferramenta ativa no cabeçalho.
+
+Os imports antigos do core são fachadas de reexportação para manter testes, fluxos e integrações existentes. Nenhuma migração, limpeza ou alteração das pastas de dados dos workspaces foi introduzida. O build Vite produz um manifesto com orçamento de bytes para impedir crescimento involuntário do carregamento inicial: `npm run build && npm run budget:bundle`.
+
+**Bytes de bundle não são medições de RAM ou FPS.** Testes de funcionamento e de distribuição continuam indispensáveis. A análise de arquitetura, as dependências autorizadas e o baseline são descritos em [Workbench modular v0.6.1](docs/MODULAR_WORKBENCH_V061.md).
 
 ## Interface de trabalho
 
@@ -103,10 +113,14 @@ A integração contínua precisa aprovar testes Node Linux/Windows, build Vite, 
 ## Estrutura do código
 
 ```text
-core/                    modelo de grafos, execução, arquivos, CAD 2D, APIs e projetos
+core/modules/            automação, CAD, IDE, extensões, agenda, integrações e workspace
+core/host.mjs            serviços nativos carregados conforme o uso
+core/*.mjs               fachadas de compatibilidade e supervisor
 electron/                janela, ciclo de vida, IPC autorizado, preload
-src/App.jsx             orquestra workspaces, automações e navegação
-src/components/         overview e módulo CAD isolados
+src/App.jsx             pequena entrada estável
+src/workbench/           shell, navegação técnica e visão geral
+src/shared/              primitivos de UI
+src/modules/             automação, IDE, CAD e extensão por domínio
 scripts/                demonstração do núcleo e smoke Windows
 .github/workflows/      CI, distribuição e publicação dos executáveis
 tests/                  testes independentes do renderer
@@ -115,6 +129,7 @@ docs/                   decisões, pesquisa open source, segurança e entregas
 
 ## Documentação
 
+- [Arquitetura modular e desempenho v0.6.1](docs/MODULAR_WORKBENCH_V061.md)
 - [Workspace IDE v0.6.0 — limites, segurança e validação](docs/V0.6.0_WORKSPACE_IDE.md)
 - [Agendamento local — estado persistente, recuperação e limitações](docs/LOCAL_SCHEDULER_V040.md)
 - [Central de extensões OFX v1 — contratos, grants, limites e riscos](docs/EXTENSION_SDK_V1.md)

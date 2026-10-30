@@ -25,7 +25,8 @@ A tabela histórica abaixo foi redigida na fundação do projeto; seus números 
 | Versão efetiva | Entrega real | Próximo gate |
 |---|---|---|
 | v0.5.0 | Git local, stage, diff e commit com aprovação | Publicada e integrada |
-| v0.6.0 | Busca global literal no workspace e criação de arquivos/pastas com Monaco | Linux/Windows, E2E e distribuição |
+| v0.6.0 | Busca global literal no workspace e criação de arquivos/pastas com Monaco | Validada e publicada |
+| v0.6.1 | Separação física dos domínios, lazy-load de Monaco/CAD/Canvas e limite de bundle | CI Linux/Windows, smoke e distribuição Windows |
 | Proposta v0.7.x | Gerenciamento seguro de tarefas de desenvolvimento e terminal isolado | Quotas, consentimento, cancelamento, processo filho, ameaças |
 | Proposta v0.8.x | Integração Theia/LSP/depuração via adaptador | Isolamento, licenças, end-to-end |
 | Proposta v0.9.x | Gatilhos de eventos mais amplos, retenção e monitoramento de fluxos | Idempotência, replay, side effects, recovering |
