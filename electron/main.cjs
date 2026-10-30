@@ -79,6 +79,7 @@ async function initializeIpc() {
   projectTaskController = installProjectTaskIpc({
     register, dialog, core,
     getWorkspace:requireWorkspace,
+    getUserData:() => app.getPath('userData'),
     getWindow:() => mainWindow,
     isHostBusy:() => Boolean(executionInProgress || saveInProgress ||
       registryMutationInProgress || cadMutationInProgress || schedulePromptOpen),
