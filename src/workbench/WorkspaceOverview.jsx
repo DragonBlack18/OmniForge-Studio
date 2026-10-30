@@ -14,6 +14,8 @@ const MODULES=[
    description:'Localize trechos em todo o projeto e abra diretamente a linha no editor.',action:'Buscar código'},
   {mode:'git',icon:'git',category:'DESENVOLVIMENTO',title:'Controle Git',
    description:'Compare alterações, prepare arquivos e crie commits locais com aprovação.',action:'Abrir Git'},
+  {mode:'tasks',icon:'terminal',category:'DESENVOLVIMENTO',title:'Central de Tarefas',
+   description:'Execute scripts reais de projetos Node com saída ao vivo, limites e cancelamento.',action:'Ver tarefas'},
   {mode:'projects',icon:'folder',category:'ORGANIZAÇÃO',title:'Meus projetos',
    description:'Gerencie pastas cadastradas sem duplicar nem alterar sua origem.',action:'Ver projetos'},
   {mode:'integrations',icon:'plug',category:'INTEGRAÇÕES',title:'APIs de projetos',

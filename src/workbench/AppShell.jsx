@@ -10,6 +10,7 @@ import WorkspaceOverview from './WorkspaceOverview.jsx';
 const ExtensionsHub = React.lazy(() => import('../modules/extensions/ExtensionsHub.jsx'));
 const ScheduleCenter = React.lazy(() => import('../modules/automation/ScheduleCenter.jsx'));
 const GitSourceControl = React.lazy(() => import('../modules/ide/GitSourceControl.jsx'));
+const ProjectTasks = React.lazy(() => import('../modules/ide/ProjectTasks.jsx'));
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
 import NavigationSidebar from './NavigationSidebar.jsx';
 import { NavGlyph } from '../shared/NavGlyph.jsx';
@@ -92,7 +93,7 @@ export default function AppShell() {
   const [editorPosition, setEditorPosition] = useState({line:1,column:1});
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
-  const [info, setInfo] = useState({ version: '0.6.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.7.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -668,6 +669,7 @@ export default function AppShell() {
             </>
           )}
           {mode === 'git' && <React.Suspense fallback={<ModuleLoading label="Git"/>}><GitSourceControl workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense>}
+          {mode === 'tasks' && <React.Suspense fallback={<ModuleLoading label="tarefas"/>}><ProjectTasks workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense>}
           {mode === 'schedules' && <React.Suspense fallback={<ModuleLoading label="agendamentos"/>}><ScheduleCenter
             schedules={schedules} projects={projects} workspace={workspace}
             activeProjectId={activeProjectId} flowDirty={flowDirty} busy={busy}

@@ -23,6 +23,7 @@ const loaders = Object.freeze({
   scheduleStore: () => import('./modules/scheduling/schedule-store.mjs'),
   git: () => import('./modules/ide/git-control.mjs'),
   ide: () => import('./modules/ide/workspace-ide.mjs'),
+  projectTasks: () => import('./modules/ide/project-tasks.mjs'),
   supervisor: () => import('./supervisor.mjs')
 });
 
@@ -67,3 +68,7 @@ export const searchWorkspaceText = (...args) => loaders.ide().then(module => mod
 export const createWorkspaceFile = (...args) => loaders.ide().then(module => module.createWorkspaceFile(...args));
 export const createWorkspaceFolder = (...args) => loaders.ide().then(module => module.createWorkspaceFolder(...args));
 export const runSupervisedFlow = (...args) => loaders.supervisor().then(module => module.runSupervisedFlow(...args));
+
+export const listProjectTasks = (...args) => loaders.projectTasks().then(module => module.listProjectTasks(...args));
+export const assertTaskSelection = (...args) => loaders.projectTasks().then(module => module.assertTaskSelection(...args));
+export const findNpmToolchain = (...args) => loaders.projectTasks().then(module => module.findNpmToolchain(...args));

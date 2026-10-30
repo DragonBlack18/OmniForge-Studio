@@ -43,6 +43,16 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   forgetProject: id => ipcRenderer.invoke('omni:forgetProject', id),
   registerCapability: (projectId, definition) => ipcRenderer.invoke('omni:registerCapability', projectId, definition),
   forgetCapability: (projectId, capabilityId) => ipcRenderer.invoke('omni:forgetCapability', projectId, capabilityId),
+  listProjectTasks: () => ipcRenderer.invoke('omni:listProjectTasks'),
+  projectTaskState: () => ipcRenderer.invoke('omni:projectTaskState'),
+  runProjectTask: (id, revision) => ipcRenderer.invoke('omni:runProjectTask', id, revision),
+  cancelProjectTask: id => ipcRenderer.invoke('omni:cancelProjectTask', id),
+  onProjectTaskEvent: callback => {
+    if (typeof callback !== 'function') throw new TypeError('Callback de tarefa inválido.');
+    const handler = (_event, details) => callback(details);
+    ipcRenderer.on('omni:projectTaskEvent', handler);
+    return () => ipcRenderer.removeListener('omni:projectTaskEvent', handler);
+  },
   gitStatus: () => ipcRenderer.invoke('omni:gitStatus'),
   gitDiff: (file, staged) => ipcRenderer.invoke('omni:gitDiff', file, staged),
   gitStage: files => ipcRenderer.invoke('omni:gitStage', files),
