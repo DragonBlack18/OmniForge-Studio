@@ -72,7 +72,7 @@ function requireWorkspace() {
 }
 
 async function initializeIpc() {
-  const core = await import('../core/index.mjs');
+  const core = await import('../core/host.mjs');
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
   register('setUnsavedChanges', dirty => {
     if (typeof dirty !== 'boolean') throw new Error('Estado de edição inválido.');
