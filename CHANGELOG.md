@@ -1,3 +1,11 @@
+## [0.7.1] — Histórico persistente de tarefas (candidata)
+
+- Resultados de tarefas npm persistidos por workspace, no perfil do Electron, fora das pastas de projeto.
+- Somente metadados: nome de script, estado final, duração, código de saída e datas; não persistem comandos, logs, ambiente ou caminhos reais.
+- Escrita atômica, validação de estrutura e links simbólicos, serialização de gravações e limite circular de 60 registros por projeto.
+- Interface com histórico legível, atualização, erro explícito e preservação entre recargas do renderer.
+- Testes Node para persistência, isolamento, concorrência, rejeição de corrupção e retenção; Electron E2E verifica resultados reais no disco e confidencialidade.
+
 ## [0.7.0] — Central de Tarefas (candidata)
 
 - Descoberta real de scripts do package.json, com limite de tamanho, nomes autorizados e revisão SHA-256 do manifesto.
