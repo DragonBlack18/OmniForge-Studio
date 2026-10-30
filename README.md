@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.6.1 — Workbench modular e desempenho (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.7.0 — Central de Tarefas locais (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -11,6 +11,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
 | Programação | Editor Monaco, arquivos e pastas novos, busca global literal com navegação para linha/coluna, proteção contra overwrite | Não é um host Theia/LSP nem terminal/depurador |
 | Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
+| Central de Tarefas | Executa scripts reais do package.json com logs ao vivo, cancelamento da árvore de processos e limite de 120 s | Node.js/npm instalados; scripts confiáveis somente, sem terminal arbitrário |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
 | Agendamentos locais | Intervalos de 1–1440 min, fluxo salvo preso por SHA-256, pausa/retomada, execução real supervisionada, replay de horários perdidos bloqueado, histórico e recuperação após crash | Só executa com a janela do OmniForge aberta; HTTP agendado não permitido |
@@ -20,7 +21,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
-Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
 
 ## Arquitetura modular v0.6.1
 
@@ -76,6 +77,16 @@ A busca usa somente arquivos de texto locais: não segue symlinks, ignora .git, 
 
 Teste Electron Windows: `npm run smoke:ide`. Especificação e análise de riscos: [Workspace IDE v0.6.0](docs/V0.6.0_WORKSPACE_IDE.md).
 
+## Central de Tarefas v0.7.0
+
+Acesse **Desenvolvimento → Central de Tarefas** e abra um workspace que contenha um package.json válido na raiz. Com Node.js e npm instalados e disponíveis no PATH, o OmniForge identifica scripts reais (por exemplo test, build ou lint) e mostra a definição exata antes de executar. Nenhum comando livre pode ser enviado pela interface.
+
+Ao clicar em **Executar selecionado**, uma confirmação nativa apresenta o script e alerta para efeitos colaterais. Após aprovação, ele é executado em processo externo, sem bloquear o renderer. A tela mostra stdout/stderr reais, estado, código de saída e botão **Interromper tarefa**. O cancelamento e o timeout tentam interromper a árvore de processos; o limite de execução é 120 segundos e a saída processada está limitada a 96 KB. Os logs desta central ficam apenas em memória durante a sessão.
+
+A execução usa o npm-cli.js do Node instalado, sem lançar npm.cmd por shell arbitrário, e ignora scripts pre/post implícitos do npm. O arquivo package.json é verificado por SHA-256 antes e depois da confirmação para impedir execução de uma revisão diferente da exibida. Variáveis sensíveis herdadas são filtradas por allowlist, mas **scripts confiáveis ainda podem ler arquivos do usuário, alterar o workspace, instalar dependências ou acessar a internet**. Esta ferramenta não é sandbox, terminal genérico, serviço contínuo ou executor seguro de projetos desconhecidos. O aplicativo impede trocar projetos ou iniciar fluxos enquanto uma tarefa está em execução.
+
+Gate Windows: `npm run smoke:tasks`. Especificação e limites: [Tarefas de projeto v0.7.0](docs/PROJECT_TASKS_V070.md).
+
 ## Git local v0.5.0
 
 Abra um projeto cuja pasta seja a **raiz de um repositório Git existente** e selecione **Controle Git** na sidebar. O painel mostra alterações reais, commits recentes, branch e diffs locais/preparados. Selecione arquivos e use **Preparar** ou **Despreparar**; a segunda operação nunca descarta as alterações no disco. Após preencher a mensagem, **Confirmar commit** abre um diálogo nativo mostrando todos os arquivos já preparados, inclusive por outras ferramentas.
@@ -129,6 +140,7 @@ docs/                   decisões, pesquisa open source, segurança e entregas
 
 ## Documentação
 
+- [Tarefas supervisionadas de projeto v0.7.0](docs/PROJECT_TASKS_V070.md)
 - [Arquitetura modular e desempenho v0.6.1](docs/MODULAR_WORKBENCH_V061.md)
 - [Workspace IDE v0.6.0 — limites, segurança e validação](docs/V0.6.0_WORKSPACE_IDE.md)
 - [Agendamento local — estado persistente, recuperação e limitações](docs/LOCAL_SCHEDULER_V040.md)

@@ -53,6 +53,9 @@ jobs:
       - name: Gate Workspace IDE no Electron
         run: npm run smoke:ide
         timeout-minutes: 5
+      - name: Gate de tarefas npm reais no Electron
+        run: npm run smoke:tasks
+        timeout-minutes: 5
       - name: Gate importação CAD DXF no Electron
         run: npm run smoke:cad-import
         timeout-minutes: 5

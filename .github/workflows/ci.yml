@@ -59,6 +59,8 @@ jobs:
         timeout-minutes: 5
       - run: npm run smoke:ide
         timeout-minutes: 5
+      - run: npm run smoke:tasks
+        timeout-minutes: 5
       - run: npm run smoke:cad-import
         timeout-minutes: 5
       - uses: actions/upload-artifact@v4
