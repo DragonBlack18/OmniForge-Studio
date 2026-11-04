@@ -47,6 +47,9 @@ jobs:
       - name: Smoke IDE - segunda execução isolada
         run: npm run smoke:ide
         timeout-minutes: 5
+      - name: Smoke de recuperação de código após reload
+        run: npm run smoke:recovery
+        timeout-minutes: 5
       - run: npm run smoke:cad-import
         timeout-minutes: 5
       - run: npm run dist:win
