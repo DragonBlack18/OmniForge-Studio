@@ -95,3 +95,16 @@ test('workbench entry remains minimal and domain modules are routed centrally',a
   assert.match(electron,/import\('\.\.\/core\/host\.mjs'\)/);
   assert.doesNotMatch(electron,/import\('\.\.\/core\/index\.mjs'\)/);
 });
+test('heavy modules have isolated render-error fallbacks without automatic reload', async()=>{
+  const shell=await fs.readFile(sourcePath('src','workbench','AppShell.jsx'),'utf8');
+  const boundary=await fs.readFile(sourcePath('src','workbench','ModuleErrorBoundary.jsx'),'utf8');
+  for(const label of ['Busca no projeto','CAD 2D','Automação visual','Editor de código',
+    'Controle Git','Central de Tarefas','Agendamentos','Extensões']) {
+    assert.ok(shell.includes('<ModuleErrorBoundary') &&
+      shell.includes('label="'+label+'"'), 'missing failure boundary: '+label);
+  }
+  assert.match(boundary,/getDerivedStateFromError/);
+  assert.match(boundary,/componentDidCatch/);
+  assert.match(boundary,/Tentar reabrir ferramenta/);
+  assert.doesNotMatch(boundary,/window\.location\.reload|localStorage\.clear/);
+});
