@@ -33,7 +33,8 @@ src/workbench/AppShell.jsx
 
 1. **Home fria:** `AppShell` mantém estado leve, não importa
    `@xyflow/react`; importação Vite de `FlowCanvas` é exclusivamente
-   dinâmica. E2E verifica ausência do chunk enquanto a Home é aberta.
+   dinâmica. O manifesto Vite atesta que o chunk é dinâmico e o E2E
+   verifica que a Home não monta o canvas antes de abrir automações.
 2. **Ativação:** ao entrar em Automações, React.lazy importa o canvas,
    que injeta as funções oficiais de atualização React Flow no
    `useFlowSession` (sem reproduzir parcialmente as regras do framework).
@@ -86,7 +87,9 @@ e https://reactflow.dev/api-reference/utils/apply-edge-changes
 - Logs E2E e screenshots reais ficam como artifacts de CI.
 - **Atenção:** tempo de cold start, consumo de heap e renderização
   dependem do runner/hardware. A v0.7.5 não tinha benchmark idêntico
-  de inicialização; **não** comparar ms de máquinas diferentes ou
+  de inicialização; o protocolo local `omni://` pode não aparecer no
+  Resource Timing do Chromium (ausência é registrada como indisponível,
+  não como prova de que o script não carregou). **Não** comparar ms de máquinas diferentes ou
   anunciar melhoria de FPS/RAM sem prova pareada.
 
 Referência oficial de profiling:
