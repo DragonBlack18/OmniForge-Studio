@@ -18,7 +18,7 @@ await fs.writeFile(path.join(workspace, 'src', 'entry.js'), source);
 await fs.writeFile(path.join(workspace, '.env.local'), 'IDE-SECRET-998=do-not-display');
 await fs.mkdir(path.join(workspace, '.omniforge'));
 await fs.writeFile(path.join(workspace, '.omniforge', 'hidden.txt'), 'IDE-SECRET-998');
-let client, phase = 'boot';
+let client, page, phase = 'boot';
 const watchdog = setTimeout(() => {
   console.error('[IDE E2E] Global timeout phase=' + phase);
   process.exit(1);
@@ -30,7 +30,7 @@ try {
     env: { ...process.env, OMNIFORGE_E2E: '1',
       OMNIFORGE_E2E_USER_DATA: profile, ELECTRON_RENDERER_URL: '' }
   });
-  const page = await client.firstWindow({ timeout: 45000 });
+  page = await client.firstWindow({ timeout: 45000 });
   page.setDefaultTimeout(20000);
   const actualProfile = await client.evaluate(({ app }) => app.getPath('userData'));
   assert.equal(path.normalize(actualProfile).toLowerCase(),
@@ -73,21 +73,31 @@ try {
   // under Windows runner load, yielding a false timeout.
   const waitForEntry = async (relative, kind, timeoutMs = 20000) => {
     const deadline = Date.now() + timeoutMs;
-    let last = [];
+    const target = path.join(workspace, ...relative.split('/'));
+    let foundOnDisk = false, foundInRenderer = false;
     while (Date.now() < deadline) {
-      last = await page.evaluate(() => window.omni.listFiles());
-      if (last.some(file => file.path === relative && file.kind === kind)) return;
+      try {
+        const stat = await fs.lstat(target);
+        foundOnDisk = kind === 'directory' ? stat.isDirectory() : stat.isFile();
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (foundOnDisk) {
+        const rows = await page.evaluate(() => window.omni.listFiles());
+        foundInRenderer = rows.some(item => item.path === relative && item.kind === kind);
+        if (foundInRenderer) return;
+      }
       await new Promise(resolve => setTimeout(resolve, 140));
     }
-    throw new Error('Entrada não apareceu no workspace: ' +
-      JSON.stringify({ relative, kind, entries: last.length }));
+    throw new Error('Resultado não confirmado no disco e na interface: ' +
+      JSON.stringify({ relative, kind, foundOnDisk, foundInRenderer }));
   };
+  await page.getByText('Pasta criada: novo-modulo', { exact: false }).waitFor();
   await waitForEntry('novo-modulo', 'directory');
   assert.ok((await fs.stat(path.join(workspace, 'novo-modulo'))).isDirectory());
   phase = 'create new file from UI and save in Monaco';
   await page.getByRole('button', { name: /Novo arquivo/ }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo/exemplo.py');
   await page.getByTestId('workspace-create-confirm').click();
+  await page.getByText('Arquivo criado: novo-modulo/exemplo.py', { exact: false }).waitFor();
   await waitForEntry('novo-modulo/exemplo.py', 'file');
   await page.getByText('novo-modulo/exemplo.py', { exact: false }).first().waitFor();
   assert.equal(await fs.readFile(path.join(workspace, 'novo-modulo', 'exemplo.py'), 'utf8'), '');
@@ -97,6 +107,7 @@ try {
   await page.locator('.monaco-editor').first().click();
   await page.keyboard.insertText('print("IDE OK")');
   await page.getByRole('button', { name: 'Salvar arquivo' }).click();
+  await page.getByText('Arquivo atualizado: novo-modulo/exemplo.py', { exact: false }).waitFor();
   const saveDeadline = Date.now() + 20000;
   let saved = false;
   while (Date.now() < saveDeadline) {
@@ -132,6 +143,18 @@ try {
   phase = 'pass';
 } catch (error) {
   console.error('[IDE E2E] phase=' + phase, error);
+  // Only synthetic, isolated E2E fixtures are used. Do not capture user data,
+  // npm environment, workspace paths or exception stack in published artifacts.
+  const diagnostics = path.join(root, 'smoke-artifacts');
+  await fs.mkdir(diagnostics, { recursive: true }).catch(() => {});
+  await fs.writeFile(path.join(diagnostics, 'ide-failure.json'), JSON.stringify({
+    schemaVersion: 1, suite: 'workspace-ide', phase,
+    errorName: String(error?.name || 'Error').slice(0, 50)
+  }, null, 2) + '\n').catch(() => {});
+  if (page && !page.isClosed()) {
+    await page.screenshot({ path: path.join(diagnostics, 'ide-failure.png'), timeout: 3000 })
+      .catch(() => {});
+  }
   process.exitCode = 1;
 } finally {
   if (client) {
