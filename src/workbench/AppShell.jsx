@@ -13,6 +13,8 @@ const GitSourceControl = React.lazy(() => import('../modules/ide/GitSourceContro
 const ProjectTasks = React.lazy(() => import('../modules/ide/ProjectTasks.jsx'));
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
 import NavigationSidebar from './NavigationSidebar.jsx';
+const CommandPalette = React.lazy(() => import('./CommandPalette.jsx'));
+import { buildWorkbenchCommands } from './command-registry.mjs';
 import ModuleErrorBoundary from './ModuleErrorBoundary.jsx';
 import { NavGlyph } from '../shared/NavGlyph.jsx';
 import { findWorkbenchModule } from './module-registry.mjs';
@@ -61,6 +63,7 @@ export default function AppShell() {
   const [sideMode, setSideMode] = useState('catalog');
   useEffect(() => { if(mode==='cad') setCadEverOpened(true); }, [mode]);
   const [navigationCollapsed, setNavigationCollapsed] = useState(()=>readUiPreference('of.navCollapsed',false));
+  const [paletteScope,setPaletteScope] = useState(null);
   const [utilityOpen, setUtilityOpen] = useState(()=>readUiPreference('of.utilityOpen',true));
   const [inspectorOpen, setInspectorOpen] = useState(()=>readUiPreference('of.inspectorOpen',true));
   const [fileQuery, setFileQuery] = useState('');
@@ -113,6 +116,7 @@ export default function AppShell() {
   }, [catalogQuery, catalogCategory]);
   const visibleCatalogCount = Object.values(catalogGroups).reduce((sum, items)=>sum+items.length,0);
   const visibleFiles=useMemo(()=>visibleFileEntries(files,{query:fileQuery,collapsedPaths:collapsedFolders}),[files,fileQuery,collapsedFolders]);
+  const workbenchCommands=useMemo(()=>buildWorkbenchCommands(files,workspace),[files,workspace]);
   useEffect(()=>{
     try {
       window.localStorage.setItem('of.navCollapsed',navigationCollapsed?'1':'0');
@@ -483,6 +487,18 @@ export default function AppShell() {
     if(nextMode==='code'){setSideMode('files');setUtilityOpen(true);}
     else if(nextMode==='canvas'){setSideMode('catalog');setUtilityOpen(true);}
   };
+  const executePaletteCommand = command => {
+    if (command.kind === 'navigate') navigate(command.mode);
+    else if (command.kind === 'file' && workspace) openFile(command.path);
+    else if (command.kind === 'action') {
+      if (command.action === 'open-project') openWorkspace();
+      else if (command.action === 'toggle-nav') setNavigationCollapsed(value=>!value);
+      else if (command.action === 'toggle-context' && (mode==='code'||mode==='canvas'))
+        setUtilityOpen(value=>!value);
+      else if (command.action === 'toggle-inspector' && mode==='canvas')
+        setInspectorOpen(value=>!value);
+    }
+  };
   const toggleFolder = folder => setCollapsedFolders(previous=>{
     const next=new Set(previous);
     if(next.has(folder))next.delete(folder);else next.add(folder);
@@ -490,8 +506,14 @@ export default function AppShell() {
   });
   useEffect(()=>{
     const handleShortcut=event=>{
+      if(event.key==='F1' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault();setPaletteScope('all');return;
+      }
       if(!(event.ctrlKey||event.metaKey)||event.altKey)return;
       const key=event.key.toLowerCase();
+      if(key==='p'){
+        event.preventDefault();setPaletteScope(event.shiftKey?'all':'files');return;
+      }
       if(event.shiftKey && key==='f'){
         event.preventDefault();setMode('search');return;
       }
@@ -529,6 +551,11 @@ export default function AppShell() {
           <small>{currentModule.group}</small><strong>{currentModule.label}</strong>
         </div>
         <div className="topbar-spacer"/>
+        <button type="button" className="button button--outline topbar-commands"
+          aria-label="Abrir paleta de comandos" title="Paleta de comandos · Ctrl+Shift+P"
+          data-testid="command-palette-open" onClick={()=>setPaletteScope('all')}>
+          <NavGlyph name="terminal" size={15}/><span>Comandos</span><kbd>Ctrl⇧P</kbd>
+        </button>
         <span className="environment" title="O OmniForge opera localmente"><span className="environment__dot"/> {info.mode} · LOCAL</span>
         <button type="button" className="button button--outline topbar-exit" title="Fechar OmniForge" aria-label="Sair" onClick={()=>window.omni?.requestExit()}><NavGlyph name="close" size={14}/><span>Sair</span></button>
         <button disabled={busy} type="button" onClick={openWorkspace} className="button button--outline topbar-open"><NavGlyph name="folder" size={16}/> Abrir projeto</button>
@@ -904,6 +931,10 @@ export default function AppShell() {
           </div>
         </aside>}
       </div>
+      {paletteScope && <React.Suspense fallback={null}><CommandPalette open
+        scope={paletteScope} commands={workbenchCommands} mode={mode}
+        hasWorkspace={Boolean(workspace)} onClose={()=>setPaletteScope(null)}
+        onExecute={executePaletteCommand}/></React.Suspense>}
       <footer className="statusbar"><span className="statusbar-left"><span className={`indicator-dot ${lastRun&&!lastRun.ok?'indicator-dot--error':''}`}/> {status}</span><span>OmniForge {info.version} <span className="statusbar-separator">·</span> Local</span></footer>
     </div>
   );
