@@ -1,3 +1,12 @@
+## [0.7.6] — Lazy React Flow + benchmarks reais (candidata)
+
+- Elimina a importação estática de `@xyflow/react` no shell; nó, aresta, edição e revisão migram para hook React leve independente.
+- Atualizadores oficiais de mudanças e adição de conexões permanecem no `FlowCanvas` carregado por demanda.
+- Protege `flowDirty` se houver edição concorrente ao salvamento; manutenção de dados e revisões na troca de módulos.
+- Novo gate de JS inicial (<=375 KB), baseline medida da v0.7.5, instrumentação cold start com 3 sessões reais e memória via CDP quando disponível.
+- Teste E2E Windows com arquivo de fluxo real, visitas ao CAD/Home/IDE, retorno e salvamento explícito. Mantém todos os outros smokes e distribuição Windows.
+- Candidata: publicar apenas após testes Linux/Windows, bundle e Setup/Portable com SHA-256 aprovados.
+
 ## [0.7.5] — Workbench técnico modular e preparação para integrações (candidata)
 
 - Activity rail por domínios com árvore de ferramentas, preservando o acesso a todos os módulos existentes.
