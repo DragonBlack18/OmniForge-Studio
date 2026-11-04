@@ -3,13 +3,26 @@ import './NavigationSidebar.css';
 
 import { NavGlyph } from '../shared/NavGlyph.jsx';
 export { NavGlyph } from '../shared/NavGlyph.jsx';
-import { NAV_GROUPS } from './module-registry.mjs';
+import { NAV_GROUPS, NAV_DOMAINS, getModuleDomain } from './module-registry.mjs';
 
 export default function NavigationSidebar({
   mode, collapsed, onCollapse, onNavigate, onOpenProject,
   workspace, projectsCount = 0, busy = false
 }) {
   const shortName = workspace?.split(/[\\/]/).pop();
+  const [selectedDomain,setSelectedDomain] = useState('all');
+  const currentDomain = getModuleDomain(mode);
+  useEffect(() => {
+    if (selectedDomain !== 'all' && selectedDomain !== currentDomain) {
+      setSelectedDomain('all');
+    }
+  },[selectedDomain,currentDomain]);
+  const activateDomain = domain => {
+    setSelectedDomain(domain.id);
+    if (domain.id === 'all') return;
+    const group = NAV_GROUPS.find(item => item.id === domain.id);
+    if (group && !group.items.some(item => item.mode === mode)) onNavigate(group.items[0].mode);
+  };
   const [folded,setFolded] = useState(() => {
     try {
       const saved = JSON.parse(window.localStorage.getItem('of.nav.folded') || '[]');
@@ -25,24 +38,35 @@ export default function NavigationSidebar({
     if(next.has(title))next.delete(title);else next.add(title);
     return next;
   });
-  return <nav className={`primary-nav ${collapsed?'primary-nav--collapsed':''}`}
+  return <div className="workbench-navigation" data-testid="workbench-navigation">
+    <nav className="activity-rail" aria-label="Áreas de trabalho" data-testid="activity-rail">
+      <span className="activity-rail__brand" title="OmniForge Studio">OF</span>
+      {NAV_DOMAINS.map(domain=><button type="button" key={domain.id}
+        aria-label={'Área: '+domain.title} title={domain.description}
+        aria-pressed={selectedDomain===domain.id}
+        data-testid={'activity-'+domain.id}
+        className={`activity-rail__button ${selectedDomain===domain.id?'is-selected':''} ${currentDomain===domain.id?'is-current':''}`}
+        onClick={()=>activateDomain(domain)}><NavGlyph name={domain.icon} size={19}/></button>)}
+      <span className="activity-rail__bottom" title="Ambiente local">LOCAL</span>
+    </nav>
+    <nav className={`primary-nav ${collapsed?'primary-nav--collapsed':''}`}
     aria-label="Navegação principal" data-testid="primary-sidebar">
     <div className="primary-nav__heading">
-      <span className="primary-nav__heading-text">NAVEGAÇÃO</span>
+      <span className="primary-nav__heading-text">{selectedDomain==='all'?'FERRAMENTAS':NAV_DOMAINS.find(x=>x.id===selectedDomain)?.title}</span>
       <button type="button" className="primary-nav__collapse"
         aria-label={collapsed?'Expandir menu lateral':'Recolher menu lateral'}
         title={collapsed?'Expandir menu lateral':'Recolher menu lateral'}
         onClick={onCollapse}><NavGlyph name={collapsed?'expand':'collapse'} size={17}/></button>
     </div>
     <div className="primary-nav__groups">
-      {NAV_GROUPS.map(group=><section key={group.title} className="primary-nav__group" aria-label={group.title}>
+      {NAV_GROUPS.filter(group=>selectedDomain==='all'||group.id===selectedDomain).map(group=><section key={group.title} className="primary-nav__group" aria-label={group.title}>
         <button type="button" className="primary-nav__group-toggle"
           aria-label={(folded.has(group.title)?'Expandir':'Recolher')+' grupo '+group.title}
-          aria-expanded={collapsed || !folded.has(group.title)}
+          aria-expanded={collapsed || selectedDomain!=='all' || !folded.has(group.title)}
           onClick={()=>toggleGroup(group.title)}>
           <span>{group.title}</span><NavGlyph name="chevron" size={13}/>
         </button>
-        {(collapsed || !folded.has(group.title)) && group.items.map(item=>{
+        {(collapsed || selectedDomain!=='all' || !folded.has(group.title)) && group.items.map(item=>{
           const active=mode===item.mode;
           return <button key={item.mode} type="button"
             className={`primary-nav__item ${active?'primary-nav__item--active':''}`}
@@ -72,5 +96,5 @@ export default function NavigationSidebar({
         <NavGlyph name="info"/><span className="primary-nav__item-label">Sobre o OmniForge</span>
       </button>
     </div>
-  </nav>;
+  </nav></div>;
 }

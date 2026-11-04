@@ -45,3 +45,26 @@
 .primary-nav__group-toggle svg{transition:transform .15s;color:#6d97a4}
 .primary-nav__group-toggle[aria-expanded="false"] svg{transform:rotate(-90deg)}
 .primary-nav--collapsed .primary-nav__group-toggle{display:none}
+
+
+/* v0.7.5 — technical workbench hierarchy: activity rail > tool tree > editor. */
+.workbench-navigation{display:flex;flex:none;min-height:0;max-height:100%;background:#0e151b;border-right:1px solid #2c4049}
+.workbench-navigation .primary-nav{width:201px;flex:0 0 201px;border-right:0;transition:width .16s ease,flex-basis .16s ease}
+.workbench-navigation .primary-nav--collapsed{width:58px;flex-basis:58px}
+.activity-rail{display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 51px;width:51px;padding:10px 4px 7px;background:#0a1118;border-right:1px solid #29404b;min-height:0}
+.activity-rail__brand{width:36px;height:33px;display:grid;place-items:center;color:#b6dedb;border-bottom:1px solid #304650;margin-bottom:12px;font:750 11px Consolas,monospace;letter-spacing:.04em}
+.activity-rail__button{width:40px;height:39px;display:grid;place-items:center;color:#809ba9;background:none;border:1px solid transparent;border-radius:8px;position:relative}
+.activity-rail__button:hover{background:#1a3039;color:#d6eeec;border-color:#375863}
+.activity-rail__button.is-selected{background:#1b3a42;color:#a9e1db;border-color:#3c7477}
+.activity-rail__button.is-selected:before{content:'';position:absolute;left:-5px;top:7px;bottom:7px;width:2px;border-radius:3px;background:#80d1c9}
+.activity-rail__button.is-current:not(.is-selected):after{content:'';position:absolute;right:1px;top:17px;width:4px;height:4px;border-radius:100%;background:#73a9aa}
+.activity-rail__bottom{margin-top:auto;font:8px Consolas,monospace;letter-spacing:.15em;writing-mode:vertical-rl;color:#587782;padding:6px 0}
+.activity-rail button:focus-visible{outline:2px solid #a1e5e1;outline-offset:1px}
+.workbench-navigation .primary-nav__groups{padding:11px 8px}
+.workbench-navigation .primary-nav__group{margin-bottom:11px}
+.workbench-navigation .primary-nav__group-toggle{min-height:24px;color:#82a1ae;font-weight:800}
+.workbench-navigation .primary-nav__item{min-height:36px;font-size:11px;gap:10px}
+.workbench-navigation .primary-nav__item--active{background:#19353b!important;border-color:#32626b!important}
+.workbench-navigation .primary-nav__heading{height:54px}
+@media(max-width:1200px){.workbench-navigation .primary-nav:not(.primary-nav--collapsed){width:183px;flex-basis:183px}}
+@media(prefers-reduced-motion:reduce){.workbench-navigation .primary-nav{transition:none}}

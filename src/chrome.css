@@ -198,3 +198,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .editor-recovery__saved{flex:none;margin:0;padding:7px 19px;background:#19322c;border-bottom:1px solid #376457;color:#a7ddc8;font-size:10px}
 .editor-recovery__error{flex:none;margin:0;padding:9px 18px;background:#3c2528;border-bottom:1px solid #885058;color:#ebc0c4;font-size:11px}
 @media(max-width:1100px){.editor-recovery{align-items:flex-start;flex-direction:column}}
+
+
+/* v0.7.5 — desktop command surface; action stays available at narrow widths. */
+.topbar--refined .topbar-commands{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#1a3039;color:#b6d4da;border:1px solid #365963;border-radius:7px;font-size:11px}
+.topbar--refined .topbar-commands:hover{color:#e2f9f6;border-color:#6caaa6;background:#25444a}
+.topbar--refined .topbar-commands kbd{font:9px Consolas,monospace;border:1px solid #486875;background:#11232c;color:#8eafba;padding:3px 5px;border-radius:4px;white-space:nowrap}
+@media(max-width:1520px){.topbar--refined .topbar-commands kbd{display:none}}
+@media(max-width:1270px){.topbar--refined .topbar-commands span{display:none}.topbar--refined .topbar-commands{padding:8px}}

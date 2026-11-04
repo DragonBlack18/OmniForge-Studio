@@ -1,6 +1,8 @@
 # OmniForge Studio
 
-**v0.7.4 — Recuperação não destrutiva de desenhos CAD (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.7.5 — Workbench técnico modular e desempenho (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+
+**v0.7.5:** Barra de atividades por domínio, tela inicial operacional (sem dashboard), paleta de comandos Ctrl+Shift+P/F1, quick-open Ctrl+P de arquivos reais do workspace, ícones SVG leves e Monaco adaptativo para arquivos grandes. Nenhuma engine externa foi misturada ao código. [Especificação técnica e plano de integração](docs/TECHNICAL_WORKBENCH_V075.md).
 
 **v0.7.4:** CAD 2D com checkpoint isolado no perfil local, restauração explícita, inspeção JSON de conflitos e proteção por revisão SHA-256. A recuperação **não sobrescreve** o desenho original e requer salvar manualmente. Detalhes: [docs/CAD_RECOVERY_V074.md](docs/CAD_RECOVERY_V074.md).
 
@@ -11,7 +13,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Módulo | Entrega atual | Observação |
 |---|---|---|
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
-| Programação | Editor Monaco, arquivos e pastas, busca global, revisão SHA-256 e recuperação local de edições não salvas com confirmação | Não inclui LSP, depurador, backup versionado ou recuperação de CAD nesta etapa |
+| Programação | Editor Monaco, arquivos e pastas, busca global, revisão SHA-256 e recuperação local de edições não salvas com confirmação | Não inclui LSP ou depurador; recuperação do CAD tem módulo próprio, sem backup criptografado |
 | Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
 | Central de Tarefas | Executa scripts reais do package.json com logs ao vivo, cancelamento e histórico local de até 60 resultados por projeto | Node.js/npm instalados; scripts confiáveis somente, sem terminal arbitrário |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
