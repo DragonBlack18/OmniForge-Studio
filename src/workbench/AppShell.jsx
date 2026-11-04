@@ -18,6 +18,7 @@ import { NavGlyph } from '../shared/NavGlyph.jsx';
 import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
 import { createOperationGate } from '../utils/operation-gate.mjs';
+import { useEditorRecovery } from '../modules/ide/useEditorRecovery.mjs';
 
 
 
@@ -89,6 +90,8 @@ export default function AppShell() {
   const [dirty, setDirty] = useState(false);
   const [cadDirty, setCadDirty] = useState(false);
   const [fileRevision, setFileRevision] = useState('');
+  const fileContentRef = useRef('');
+  const recovery = useEditorRecovery({ workspace, fileName, fileContent, fileRevision, dirty });
   const [createKind, setCreateKind] = useState(null);
   const [createPath, setCreatePath] = useState('');
   const [editorJump, setEditorJump] = useState(null);
@@ -181,6 +184,7 @@ export default function AppShell() {
     setFlowRevision(result.flowRevision);
     setFlowDirty(result.flowRevision === null);
     setSelectedId(result.flow.nodes[0]?.id || null);
+    recovery.reset(); fileContentRef.current = '';
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
     setCreateKind(null); setCreatePath(''); setEditorJump(null);
     setEditorPosition({line:1,column:1});
@@ -395,6 +399,8 @@ export default function AppShell() {
   const openFile = relative => execute(async () => {
     if (dirty && !window.confirm('Descartar alterações não salvas do arquivo atual?')) return;
     const loaded = await window.omni.readFile(relative);
+    await recovery.open(workspace,relative);
+    fileContentRef.current = loaded.content;
     setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision); setDirty(false);
     setEditorJump(null); setEditorPosition({line:1,column:1});
     setMode('code');setSideMode('files');setUtilityOpen(true); notify(`Arquivo aberto: ${relative}`);
@@ -403,6 +409,8 @@ export default function AppShell() {
   const openSearchHit = hit => execute(async () => {
     if (dirty && !window.confirm('Descartar as alterações não salvas antes de abrir este resultado?')) return;
     const loaded = await window.omni.readFile(hit.path);
+    await recovery.open(workspace,hit.path);
+    fileContentRef.current = loaded.content;
     setFileName(hit.path); setFileContent(loaded.content); setFileRevision(loaded.revision);
     setDirty(false); setEditorJump({path:hit.path,line:hit.line,column:hit.column});
     setEditorPosition({line:hit.line,column:hit.column});
@@ -419,6 +427,8 @@ export default function AppShell() {
       if (createKind === 'file') {
         await window.omni.createWorkspaceFile(relative);
         const loaded = await window.omni.readFile(relative);
+        await recovery.open(workspace,relative);
+        fileContentRef.current = loaded.content;
         setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision);
         setDirty(false); setEditorJump(null); setEditorPosition({line:1,column:1});
         notify('Arquivo criado: ' + relative);
@@ -433,10 +443,38 @@ export default function AppShell() {
 
   const saveFile = () => execute(async () => {
     if (!workspace || !fileName) throw new Error('Selecione um arquivo do projeto.');
-    const saved = await window.omni.saveFile(fileName, fileContent, fileRevision);
-    setFileRevision(saved.revision); setDirty(false);
-    notify(`Arquivo atualizado: ${fileName}`);
+    if (recovery.recoveryDraft) throw new Error('Resolva o rascunho recuperável antes de salvar.');
+    const writtenContent = fileContent;
+    const saved = await window.omni.saveFile(fileName, writtenContent, fileRevision);
+    const unchangedInEditor = fileContentRef.current === writtenContent;
+    setFileRevision(saved.revision);
+    setDirty(!unchangedInEditor);
+    await recovery.onSaved(workspace, fileName, unchangedInEditor);
+    notify(unchangedInEditor ? `Arquivo atualizado: ${fileName}` :
+      'Arquivo salvo; edições mais recentes ainda precisam ser gravadas.');
   });
+  const restoreEditorDraft = () => {
+    const content = recovery.restore(fileRevision);
+    if (content === null) return notify('O arquivo original mudou. Copie o rascunho para comparar manualmente.');
+    fileContentRef.current = content;
+    setFileContent(content);
+    setDirty(true);
+    notify('Rascunho restaurado somente no editor. Use Salvar arquivo para gravar no projeto.');
+  };
+  const discardEditorDraft = () => execute(async () => {
+    if (!recovery.recoveryDraft || !window.confirm(
+      'Descartar definitivamente a cópia de recuperação? O arquivo original permanecerá intacto.'
+    )) return;
+    await recovery.discard(workspace, fileName);
+    notify('Cópia de recuperação descartada; arquivo original preservado.');
+  });
+  const copyEditorDraft = async () => {
+    if (!recovery.recoveryDraft) return;
+    try {
+      await navigator.clipboard.writeText(recovery.recoveryDraft.content);
+      notify('Texto do rascunho copiado. Revise as diferenças antes de salvar.');
+    } catch (error) { notify('Não foi possível copiar o rascunho: '+error.message); }
+  };
 
   const navigate = nextMode => {
     if(nextMode==='history'){openHistory();return;}
@@ -627,9 +665,29 @@ export default function AppShell() {
                 <div className="toolbar-actions">
                   <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar explorador de arquivos':'Mostrar painel de ferramentas'} onClick={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}><NavGlyph name="panel" size={16}/> Explorador</button>
                   {fileName && <span className="workspace-editor-position" data-testid="editor-position">Ln {editorPosition.line} · Col {editorPosition.column}</span>}
-                  <button className="button button--solid" disabled={busy || !fileName || !dirty} onClick={saveFile}>Salvar arquivo</button>
+                  <button className="button button--solid" disabled={busy || !fileName || !dirty || Boolean(recovery.recoveryDraft)} onClick={saveFile}>Salvar arquivo</button>
                 </div>
               </div>
+              {fileName && recovery.recoveryDraft && <section className="editor-recovery" role="status" data-testid="editor-recovery">
+                <div>
+                  <strong>{recovery.recoveryDraft.baseRevision === fileRevision ?
+                    'Rascunho de recuperação disponível' : 'Conflito: arquivo alterado externamente'}</strong>
+                  <p>{recovery.recoveryDraft.baseRevision === fileRevision ?
+                    'Existe uma edição não salva de uma sessão anterior. A restauração altera somente o editor.' :
+                    'O documento em disco mudou desde a criação do rascunho. Copie o conteúdo para comparar; a restauração automática está bloqueada.'}</p>
+                </div>
+                <div className="editor-recovery__actions">
+                  {recovery.recoveryDraft.baseRevision === fileRevision &&
+                    <button className="button button--solid" type="button" onClick={restoreEditorDraft}>
+                      Restaurar no editor
+                    </button>}
+                  <button className="button button--outline" type="button" onClick={copyEditorDraft}>Copiar rascunho</button>
+                  <button className="button button--subtle" disabled={busy} type="button" onClick={discardEditorDraft}>Descartar rascunho</button>
+                </div>
+              </section>}
+              {fileName && recovery.recoveryError && <p className="editor-recovery__error" role="alert">{recovery.recoveryError}</p>}
+              {fileName && dirty && recovery.protectionStatus==='saved' && !recovery.recoveryDraft &&
+                <p className="editor-recovery__saved" data-testid="editor-draft-saved">Rascunho protegido localmente. Salve o arquivo para confirmar as alterações.</p>}
               {fileName ? (
                 <div className="editor-wrap"><ModuleErrorBoundary key={fileName} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}><CodeEditor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
                   onMount={editor => {
@@ -645,7 +703,7 @@ export default function AppShell() {
                       setEditorJump(null);
                     }
                   }}
-                  onChange={v => {setFileContent(v ?? ''); setDirty(true);}}
+                  onChange={v => {fileContentRef.current = v ?? ''; setFileContent(v ?? ''); setDirty(true);}}
                   options={{ automaticLayout: true, fontSize: 14, minimap: { enabled: true }, scrollBeyondLastLine: false, wordWrap: 'on' }} /></React.Suspense></ModuleErrorBoundary></div>
               ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}
             </>
