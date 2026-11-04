@@ -58,6 +58,12 @@ jobs:
       - name: Gate workbench tecnico v0.7.5
         run: npm run smoke:workbench
         timeout-minutes: 5
+      - name: Gate grafico React Flow isolado da inicializacao
+        run: npm run smoke:lazy-flow
+        timeout-minutes: 5
+      - name: Benchmark Electron real em perfis locais isolados
+        run: npm run benchmark:startup
+        timeout-minutes: 5
       - run: npm run dist:win
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh
@@ -88,3 +94,12 @@ jobs:
           name: OmniForge-Workbench-Preview
           path: smoke-artifacts/workbench-v075.png
           if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: OmniForge-Flow-Performance-V076
+          path: |
+            smoke-artifacts/lazy-flow-v076.png
+            smoke-artifacts/startup-benchmark-v076.json
+          if-no-files-found: error

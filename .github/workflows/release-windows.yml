@@ -68,6 +68,12 @@ jobs:
       - name: Gate workbench tecnico v0.7.5
         run: npm run smoke:workbench
         timeout-minutes: 5
+      - name: Gate grafico React Flow isolado da inicializacao
+        run: npm run smoke:lazy-flow
+        timeout-minutes: 5
+      - name: Benchmark Electron real em perfis locais isolados
+        run: npm run benchmark:startup
+        timeout-minutes: 5
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Teste real Portable + NSIS no Windows
@@ -116,6 +122,15 @@ jobs:
           $notes | Set-Content -Path release/RELEASE_NOTES.md -Encoding utf8
           & gh release create $tag $setup $portable release/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "OmniForge Studio $tag (Windows)" --notes-file release/RELEASE_NOTES.md --prerelease
           if ($LASTEXITCODE -ne 0) { throw "Falha ao publicar os executaveis no GitHub Releases" }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Flow-Performance-${{ github.sha }}
+          path: |
+            smoke-artifacts/lazy-flow-v076.png
+            smoke-artifacts/startup-benchmark-v076.json
+          if-no-files-found: warn
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()
         with:

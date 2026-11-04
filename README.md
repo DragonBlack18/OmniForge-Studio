@@ -1,6 +1,8 @@
 # OmniForge Studio
 
-**v0.7.5 — Workbench técnico modular e desempenho (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.7.6 — Isolamento do runtime React Flow e benchmark de startup (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+
+**v0.7.6:** estado leve de automação preservado ao alternar CAD/IDE, runtime React Flow carregado apenas ao abrir o canvas, proteção de edição concorrente ao salvar, orçamento menor de JS inicial e benchmarks reais do Electron no Windows. Sem modificar dados originais. [Detalhes técnicos](docs/LAZY_FLOW_PERFORMANCE_V076.md).
 
 **v0.7.5:** Barra de atividades por domínio, tela inicial operacional (sem dashboard), paleta de comandos Ctrl+Shift+P/F1, quick-open Ctrl+P de arquivos reais do workspace, ícones SVG leves e Monaco adaptativo para arquivos grandes. Nenhuma engine externa foi misturada ao código. [Especificação técnica e plano de integração](docs/TECHNICAL_WORKBENCH_V075.md).
 

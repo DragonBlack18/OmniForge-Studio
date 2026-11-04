@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { addEdge, useNodesState, useEdgesState } from '@xyflow/react';
+import { useFlowSession, toUiNodes } from '../modules/automation/useFlowSession.mjs';
 import { NODE_CATALOG, exampleFlow, createNode } from '../../core/catalog.mjs';
 import { validateFlow } from '../../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../../core/templates.mjs';
@@ -29,17 +29,6 @@ const CATEGORY_NAV_ICONS = {Gatilhos:'workflow',Lógica:'workflow',Dados:'code',
   Matemática:'code',Codificação:'code',Datas:'history',Arquivos:'folder',
   Integrações:'plug',Projetos:'folder',Engenharia:'cad'};
 const DEFAULT = exampleFlow();
-const toUiNodes = flow => flow.nodes.map(node => ({
-  id: node.id, type: 'block', position: node.position,
-  data: { kind: node.type, config: node.config }
-}));
-const toFlow = (nodes, edges) => ({
-  schemaVersion: 1,
-  name: 'Fluxo principal',
-  nodes: nodes.map(node => ({ id: node.id, type: node.data.kind, position: node.position, config: node.data.config })),
-  edges: edges.map(edge => ({ id: edge.id, source: edge.source, target: edge.target, sourceHandle: edge.sourceHandle, targetHandle: edge.targetHandle }))
-});
-
 const EXT_TO_LANGUAGE = {
   js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript', ts: 'typescript', tsx: 'typescript',
   py: 'python', java: 'java', go: 'go', rs: 'rust', c: 'c', cpp: 'cpp', h: 'cpp', cs: 'csharp',
@@ -78,9 +67,11 @@ export default function AppShell() {
   const [extensions, setExtensions] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [files, setFiles] = useState([]);
-  const [nodes, setNodes, onNodesChange] = useNodesState(toUiNodes(DEFAULT));
-  const [edges, setEdges, onEdgesChange] = useEdgesState(DEFAULT.edges);
-  const [selectedId, setSelectedId] = useState('inicio');
+  const {
+    nodes, setNodes, edges, setEdges, graph, selectedId, setSelectedId,
+    flowRevision, flowDirty, handleNodesChange, handleEdgesChange,
+    markEdited, captureSaveToken, markSaved, replaceDocument
+  } = useFlowSession(DEFAULT);
   const [validation, setValidation] = useState(null);
   const [lastRun, setLastRun] = useState(null);
   const [history, setHistory] = useState([]);
@@ -100,13 +91,10 @@ export default function AppShell() {
   const [createPath, setCreatePath] = useState('');
   const [editorJump, setEditorJump] = useState(null);
   const [editorPosition, setEditorPosition] = useState({line:1,column:1});
-  const [flowRevision, setFlowRevision] = useState(null);
-  const [flowDirty, setFlowDirty] = useState(false);
   const [info, setInfo] = useState({ version: '0.7.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
-  const graph = useMemo(() => toFlow(nodes, edges), [nodes, edges]);
   const catalogCategories = useMemo(() => ['Todas',...new Set(Object.values(NODE_CATALOG).map(meta=>meta.category))], []);
   const catalogGroups = useMemo(() => {
     const query=catalogQuery.trim().toLocaleLowerCase('pt-BR');
@@ -126,16 +114,6 @@ export default function AppShell() {
     } catch { /* renderer storage may be unavailable */ }
   },[navigationCollapsed,utilityOpen,inspectorOpen]);
 
-  // React Flow emits change notifications after dragging, moving or deleting nodes.
-  // Mark only user changes as dirty, not the initial graph or a loaded workspace.
-  const handleNodesChange = useCallback(changes => {
-    if (changes.some(change => change.type !== 'select' && change.type !== 'dimensions')) setFlowDirty(true);
-    onNodesChange(changes);
-  }, [onNodesChange]);
-  const handleEdgesChange = useCallback(changes => {
-    if (changes.some(change => change.type !== 'select')) setFlowDirty(true);
-    onEdgesChange(changes);
-  }, [onEdgesChange]);
   // The native Electron close handler owns the prompt. Never prevent beforeunload
   // from a renderer: Electron can silently cancel every attempt to close.
   useEffect(() => {
@@ -184,11 +162,7 @@ export default function AppShell() {
     setWorkspace(result.workspace);
     setActiveProjectId(result.projectId);
     setFiles(result.files);
-    setNodes(toUiNodes(result.flow));
-    setEdges(result.flow.edges);
-    setFlowRevision(result.flowRevision);
-    setFlowDirty(result.flowRevision === null);
-    setSelectedId(result.flow.nodes[0]?.id || null);
+    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null);
     recovery.reset(); fileContentRef.current = '';
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
     setCreateKind(null); setCreatePath(''); setEditorJump(null);
@@ -321,8 +295,7 @@ export default function AppShell() {
   const applyTemplate = template => {
     if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
     const copy=structuredClone(template.flow);
-    setNodes(toUiNodes(copy));setEdges(copy.edges);setSelectedId(copy.nodes[0]?.id||null);
-    setFlowDirty(true);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
+    replaceDocument(copy, flowRevision, true);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
     notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
   };
 
@@ -331,25 +304,27 @@ export default function AppShell() {
     const next = createNode(type, id, { x: 160 + nodes.length * 60, y: 110 + nodes.length * 50 });
     next.config={...next.config,...extraConfig};
     setNodes(previous => [...previous, toUiNodes({ nodes: [next] })[0]]);
-    setFlowDirty(true);
+    markEdited();
     setSelectedId(id);
     setMode('canvas');setSideMode('catalog');setUtilityOpen(true);setInspectorOpen(true);
     notify('Bloco adicionado. Conecte as portas antes de executar.');
   };
 
-  const onConnect = useCallback(connection => {
+  const onConnect = useCallback((connection, addEdge) => {
     if (connection.source === connection.target) return notify('Não é permitido conectar um bloco a ele mesmo.');
+    // React Flow's validated addEdge is supplied by the lazy FlowCanvas.
+    if (typeof addEdge !== 'function') throw new TypeError('Conector do grafo indisponível.');
     setEdges(old => addEdge({ ...connection, id: `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, old));
     setValidation(null);
-    setFlowDirty(true);
-  }, [setEdges, notify]);
+    markEdited();
+  }, [setEdges, markEdited, notify]);
 
   const changeConfig = (key, value) => {
     setNodes(all => all.map(node => node.id === selectedId
       ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value, ...(key === 'projectId' ? { capabilityId: '' } : {}), ...(key === 'extensionId' ? { actionId: '' } : {}) } } }
       : node));
     setValidation(null);
-    setFlowDirty(true);
+    markEdited();
   };
 
   const validate = () => execute(async () => {
@@ -361,10 +336,11 @@ export default function AppShell() {
 
   const save = () => execute(async () => {
     if (!workspace) throw new Error('Abra uma pasta para salvar o fluxo.');
+    const snapshot = captureSaveToken();
     const result = await window.omni.saveFlow(graph, flowRevision);
-    setFlowRevision(result.revision);
-    setFlowDirty(false);
-    notify(`Fluxo gravado em ${result.path}`);
+    const unchanged = markSaved(snapshot, result.revision);
+    notify(unchanged ? `Fluxo gravado em ${result.path}` :
+      'Fluxo salvo, mas alterações mais recentes ainda precisam ser gravadas.');
   });
 
   const run = dryRun => execute(async () => {

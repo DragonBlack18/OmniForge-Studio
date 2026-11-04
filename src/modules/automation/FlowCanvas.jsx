@@ -1,12 +1,12 @@
 import React from 'react';
-import { ReactFlow, Background, Controls, MiniMap, Handle, Position } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { NODE_CATALOG } from '../../../core/modules/automation/catalog.mjs';
 import { NavGlyph } from '../../shared/NavGlyph.jsx';
 
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
 const CATEGORY_NAV_ICONS = { Gatilhos:'workflow', Lógica:'workflow', Dados:'code', Texto:'code', Matemática:'code', Codificação:'code', Datas:'history', Arquivos:'folder', Integrações:'plug', Projetos:'folder', Engenharia:'cad' };
-function BlockNode({ data, selected }) {
+const BlockNode = React.memo(function BlockNode({ data, selected }) {
   const meta = NODE_CATALOG[data.kind];
   const icon = CATEGORY_NAV_ICONS[meta.category] || 'workflow';
   const category = LABELS[data.kind] || meta.category.toUpperCase();
@@ -30,17 +30,27 @@ function BlockNode({ data, selected }) {
       ))}
     </div>
   );
-}
+});
 
 const NODE_TYPES = { block: BlockNode };
+const FIT_VIEW_OPTIONS = Object.freeze({ padding: 0.24 });
+const PRO_OPTIONS = Object.freeze({ hideAttribution: false });
 
 export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick }) {
+  // The apply/add helpers and React Flow remain inside this dynamic module.
+  // The parent owns the document; leaving canvas never drops unsaved edits.
+  const handleNodes = React.useCallback(changes =>
+    onNodesChange(changes, applyNodeChanges), [onNodesChange]);
+  const handleEdges = React.useCallback(changes =>
+    onEdgesChange(changes, applyEdgeChanges), [onEdgesChange]);
+  const handleConnect = React.useCallback(connection =>
+    onConnect(connection, addEdge), [onConnect]);
   return <div className="canvas-wrap">
     <ReactFlow nodes={nodes} edges={edges} nodeTypes={NODE_TYPES}
-      onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-      onConnect={onConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
-      fitView fitViewOptions={{ padding: 0.24 }}
-      proOptions={{ hideAttribution: false }}
+      onNodesChange={handleNodes} onEdgesChange={handleEdges}
+      onConnect={handleConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
+      fitView fitViewOptions={FIT_VIEW_OPTIONS}
+      proOptions={PRO_OPTIONS}
       colorMode="dark" nodesConnectable elementsSelectable>
       <Background color="#253347" gap={24} size={1}/>
       <Controls position="bottom-left" showInteractive={false}/>
