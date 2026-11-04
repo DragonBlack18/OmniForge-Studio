@@ -16,6 +16,7 @@ import NavigationSidebar from './NavigationSidebar.jsx';
 import { NavGlyph } from '../shared/NavGlyph.jsx';
 import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
+import { createOperationGate } from '../utils/operation-gate.mjs';
 
 
 
@@ -155,12 +156,19 @@ export default function AppShell() {
   },[]);
 
   const notify = useCallback(message => setStatus(message), []);
+  // A React state update is asynchronous. Use a real single-flight gate so
+  // double clicks cannot race privileged IPC operations or workspace swaps.
+  const operationGate = useRef(null);
+  if (!operationGate.current) operationGate.current = createOperationGate();
   const execute = useCallback(async (action) => {
     if (!window.omni) return notify('Integração desktop indisponível.');
-    setBusy(true);
-    try { await action(); }
-    catch (err) { notify(`Erro: ${err.message}`); }
-    finally { setBusy(false); }
+    const attempt = await operationGate.current.run(async () => {
+      setBusy(true);
+      try { await action(); }
+      catch (err) { notify(`Erro: ${err?.message || 'Falha inesperada.'}`); }
+      finally { setBusy(false); }
+    });
+    if (!attempt.accepted) notify('Conclua a operação atual antes de iniciar outra.');
   }, [notify]);
 
   const applyProject = async result => {
