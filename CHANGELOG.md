@@ -1,3 +1,13 @@
+## [0.7.5] — Workbench técnico modular e preparação para integrações (candidata)
+
+- Activity rail por domínios com árvore de ferramentas, preservando o acesso a todos os módulos existentes.
+- Tela inicial operacional no lugar de cartões de dashboard; contexto do projeto real e comandos para ferramentas existentes.
+- Paleta de comandos Ctrl+Shift+P/F1 e abertura rápida de arquivos Ctrl+P, busca limitada e índice seguro do workspace, sem execução arbitrária.
+- Perf: comando carregado sob demanda, ícones SVG locais memorizados, opções Monaco estáveis com minimap/wrap reduzidos em arquivos grandes. Sem dependências novas.
+- Documento estratégico de integração: Code-OSS, Theia, FreeCAD, Lucide e impedimentos legais de incorporar n8n em produto distribuído.
+- Testes Node de comandos/índice e gate real Electron Windows de navegação, arquivo, preferências e integridade, mais testes anteriores de CAD/IDE/automações.
+- Candidata: merge e Release somente após CI Windows/Linux, orçamento de bundle, Setup/Portable e hashes PASS.
+
 ## [0.7.4] — Recuperação CAD não destrutiva (candidata em validação)
 
 - Checkpoints locais de desenhos 2D não salvos após 900 ms, em userData, sem escrita automática no arquivo original.
