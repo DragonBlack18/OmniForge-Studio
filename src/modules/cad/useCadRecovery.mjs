@@ -12,8 +12,10 @@ export function useCadRecovery({ workspace, sketch, revision, dirty }) {
   const currentRef = useRef(null);
   const tokenRef = useRef(null);
   const queueRef = useRef(Promise.resolve());
+  const epochRef = useRef(0);
 
   const reset = useCallback(() => {
+    epochRef.current += 1;
     currentRef.current = null;
     tokenRef.current = null;
     setDraft(null);
@@ -23,6 +25,7 @@ export function useCadRecovery({ workspace, sketch, revision, dirty }) {
   }, []);
 
   const open = useCallback(async root => {
+    epochRef.current += 1;
     currentRef.current = root;
     tokenRef.current = null;
     setDraft(null);
@@ -49,20 +52,22 @@ export function useCadRecovery({ workspace, sketch, revision, dirty }) {
     const root = workspace;
     const snapshot = sketch;
     const baseRevision = revision;
+    const epoch = epochRef.current;
     setStatus('pending');
     const timer = setTimeout(() => {
+      if (epochRef.current !== epoch) return;
       queueRef.current = queueRef.current.catch(() => {}).then(async () => {
-        if (currentRef.current !== root) return;
+        if (currentRef.current !== root || epochRef.current !== epoch) return;
         const saved = await window.omni.writeCadDraft(
           root, snapshot, baseRevision, tokenRef.current
         );
-        if (currentRef.current === root) {
+        if (currentRef.current === root && epochRef.current === epoch) {
           tokenRef.current = saved.draftRevision;
           setStatus('saved');
           setError('');
         }
       }).catch(cause => {
-        if (currentRef.current === root) {
+        if (currentRef.current === root && epochRef.current === epoch) {
           setStatus('failed');
           setError('Falha ao proteger desenho CAD: ' + (cause?.message || 'erro local'));
         }
@@ -92,6 +97,12 @@ export function useCadRecovery({ workspace, sketch, revision, dirty }) {
     return removed;
   }, [draft]);
 
+  const beforeSave = useCallback(async root => {
+    if (currentRef.current !== root) throw new Error('Workspace CAD alterado.');
+    epochRef.current += 1; // Cancel pending debounce from the pre-save snapshot.
+    await queueRef.current.catch(() => {});
+  }, []);
+
   const onSaved = useCallback(async root => {
     await queueRef.current.catch(() => {});
     if (currentRef.current !== root) return;
@@ -116,5 +127,5 @@ export function useCadRecovery({ workspace, sketch, revision, dirty }) {
     }
   }, []);
 
-  return { draft, error, status, reset, open, restore, discard, onSaved };
+  return { draft, error, status, reset, open, restore, discard, beforeSave, onSaved };
 }
