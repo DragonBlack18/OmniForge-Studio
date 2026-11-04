@@ -25,7 +25,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test
+      - name: Instalar dependências em ambiente reproduzível
+        run: npm install --no-audit --no-fund
+        timeout-minutes: 8
+      - name: Testes Node com limite de duração
+        run: npm test
+        timeout-minutes: 6
       - run: node --check electron/main.cjs
       - run: node --check scripts/smoke-electron.mjs
   renderer-build:
