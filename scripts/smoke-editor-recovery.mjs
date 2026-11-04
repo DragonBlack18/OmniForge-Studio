@@ -96,7 +96,13 @@ try {
   assert.equal(await fs.readFile(file,'utf8'),'// EXTERNAL_CHANGE_DO_NOT_OVERWRITE\n');
 
   phase='explicit discard only touches local recovery copy';
-  page.once('dialog', dialog => dialog.accept());
+  // Playwright's CDP dialog.accept is unreliable for Electron window.confirm
+  // on Windows runners. Control only the confirmation response; the UI button
+  // and privileged IPC deletion remain real and are checked on disk.
+  await page.evaluate(() => { window.confirm = () => false; });
+  await page.getByRole('button',{name:'Descartar rascunho'}).click();
+  assert.notEqual(await readDraft(),null,'Recusa não pode excluir rascunho');
+  await page.evaluate(() => { window.confirm = () => true; });
   await page.getByRole('button',{name:'Descartar rascunho'}).click();
   await page.getByText('Cópia de recuperação descartada',{exact:false}).waitFor();
   assert.equal(await readDraft(),null);
