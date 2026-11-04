@@ -48,9 +48,15 @@ try {
   await page.getByRole('button',{name:'Abrir projeto'}).click();
   await page.getByText('Projeto aberto:',{exact:false}).waitFor();
   await page.locator('.react-flow__node').first().waitFor();
-  const lazyCanvasLoaded = await page.evaluate(()=>performance.getEntriesByType('resource')
-    .some(item=>/FlowCanvas-[^/]+\.js/i.test(item.name)));
-  assert.equal(lazyCanvasLoaded,true,'React Flow não foi importado sob demanda ao abrir automações.');
+  // omni:// resources need not appear in Chromium Resource Timing. Inspect
+  // the emitted production manifest instead of claiming an HTTP request was
+  // observed; the real rendered nodes above prove the lazy module runs.
+  const manifest=JSON.parse(await fs.readFile(path.join(root,'dist','.vite','manifest.json'),'utf8'));
+  const flowChunk=Object.entries(manifest).find(([key])=>key.endsWith('src/modules/automation/FlowCanvas.jsx'));
+  assert.ok(flowChunk && flowChunk[1]?.file?.endsWith('.js'),
+    'O manifesto do build deve conter o chunk React Flow.');
+  assert.ok(Object.values(manifest).some(item=>(item.dynamicImports||[]).includes(flowChunk[0])),
+    'React Flow precisa ser carregado somente por importação dinâmica.');
   const initialCount=await snapshot();
   assert.ok(initialCount>=3,'Dados reais do fluxo inicial devem aparecer no canvas.');
   await page.getByRole('button',{name:'Salvar fluxo'}).click();
