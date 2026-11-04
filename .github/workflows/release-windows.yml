@@ -65,6 +65,9 @@ jobs:
       - name: Gate de recuperacao CAD nao destrutiva
         run: npm run smoke:cad-recovery
         timeout-minutes: 5
+      - name: Gate workbench tecnico v0.7.5
+        run: npm run smoke:workbench
+        timeout-minutes: 5
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Teste real Portable + NSIS no Windows
