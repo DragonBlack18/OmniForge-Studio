@@ -23,7 +23,7 @@ const ACTIONS = Object.freeze([
     detail:'APARÊNCIA · EDITOR / AUTOMAÇÃO', icon:'layers', searchText:'ferramentas painel lateral arquivos blocos',
     modes:['code','canvas']},
   {id:'action:toggle-inspector', kind:'action', action:'toggle-inspector', title:'Alternar inspetor de automações',
-    detail:'APARÊNCIA · AUTOMAÇÃO', icon:'panel', searchText:'inspetor automacao configuracao bloco',
+    detail:'APARÊNCIA · AUTOMAÇÃO', icon:'panel', searchText:'inspector inspetor automacao configuracao bloco',
     modes:['canvas']}
 ].map(item => Object.freeze(item)));
 
