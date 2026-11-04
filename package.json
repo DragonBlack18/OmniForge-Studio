@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
@@ -26,6 +26,7 @@
     "smoke:ide": "node scripts/smoke-ide.mjs",
     "smoke:recovery": "node scripts/smoke-editor-recovery.mjs",
     "smoke:cad-recovery": "node scripts/smoke-cad-recovery.mjs",
+    "smoke:workbench": "node scripts/smoke-workbench.mjs",
     "smoke:tasks": "node scripts/smoke-tasks.mjs",
     "budget:bundle": "node scripts/check-bundle-budget.mjs"
   },
