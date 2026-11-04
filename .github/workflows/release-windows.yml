@@ -62,6 +62,9 @@ jobs:
       - name: Gate importação CAD DXF no Electron
         run: npm run smoke:cad-import
         timeout-minutes: 5
+      - name: Gate de recuperacao CAD nao destrutiva
+        run: npm run smoke:cad-recovery
+        timeout-minutes: 5
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
       - name: Teste real Portable + NSIS no Windows
