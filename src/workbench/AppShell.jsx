@@ -21,6 +21,7 @@ import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
 import { createOperationGate } from '../utils/operation-gate.mjs';
 import { useEditorRecovery } from '../modules/ide/useEditorRecovery.mjs';
+import { editorOptionsForSize } from '../modules/ide/editor-performance.mjs';
 
 
 
@@ -731,7 +732,7 @@ export default function AppShell() {
                     }
                   }}
                   onChange={v => {fileContentRef.current = v ?? ''; setFileContent(v ?? ''); setDirty(true);}}
-                  options={{ automaticLayout: true, fontSize: 14, minimap: { enabled: true }, scrollBeyondLastLine: false, wordWrap: 'on' }} /></React.Suspense></ModuleErrorBoundary></div>
+                  options={editorOptionsForSize(fileContent.length)} /></React.Suspense></ModuleErrorBoundary></div>
               ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}
             </>
           )}
