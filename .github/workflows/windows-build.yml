@@ -55,6 +55,9 @@ jobs:
       - name: Gate de recuperacao CAD nao destrutiva
         run: npm run smoke:cad-recovery
         timeout-minutes: 5
+      - name: Gate workbench tecnico v0.7.5
+        run: npm run smoke:workbench
+        timeout-minutes: 5
       - run: npm run dist:win
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh
@@ -78,3 +81,10 @@ jobs:
             release/*.exe
             release/SHA256SUMS.txt
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: OmniForge-Workbench-Preview
+          path: smoke-artifacts/workbench-v075.png
+          if-no-files-found: warn
