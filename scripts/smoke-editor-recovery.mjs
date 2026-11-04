@@ -30,8 +30,14 @@ async function openEditor() {
   await page.locator('.monaco-editor').first().waitFor();
 }
 async function readDraft() {
-  return page.evaluate(args => window.omni.readEditorDraft(args.workspace, 'src/source.js'),
-    {workspace});
+  // Windows can express the same temp path with different casing or an alias.
+  // The IPC intentionally accepts ONLY the canonical active project returned
+  // by Electron; obtain that project rather than passing the Node fixture path.
+  return page.evaluate(async () => {
+    const projects = await window.omni.listProjects();
+    if (projects.length !== 1) throw Error('Workspace E2E não está isolado.');
+    return window.omni.readEditorDraft(projects[0].path, 'src/source.js');
+  });
 }
 try {
   client = await electron.launch({
