@@ -39,17 +39,23 @@ async function sampleOnce(index) {
 
     const details=await page.evaluate(()=>{
       const navigation=performance.getEntriesByType('navigation')[0];
+      const resources=performance.getEntriesByType('resource');
+      const scriptResourceNames=resources.map(item=>item.name)
+        .filter(name=>/\.js(?:$|\?)/i.test(name));
       return {
         domInteractiveMs: Number.isFinite(navigation?.domInteractive) ? navigation.domInteractive : null,
         domContentLoadedMs: Number.isFinite(navigation?.domContentLoadedEventEnd)
           ? navigation.domContentLoadedEventEnd : null,
-        resources:performance.getEntriesByType('resource').length,
-        flowCanvasInitiallyLoaded:performance.getEntriesByType('resource')
-          .some(item=>/FlowCanvas-[^/]+\.js/i.test(item.name))
+        resources:resources.length,
+        scriptResourceEntries:scriptResourceNames.length,
+        flowCanvasResourceObserved:scriptResourceNames.length
+          ? scriptResourceNames.some(name=>/FlowCanvas-[^/]+\.js/i.test(name))
+          : null,
+        flowDomMounted:Boolean(document.querySelector('.react-flow'))
       };
     });
-    assert.equal(details.flowCanvasInitiallyLoaded,false,
-      'O canvas pesado não pode carregar na Home fria.');
+    assert.equal(details.flowDomMounted,false,
+      'A Home fria não pode montar o canvas de automação.');
     let rendererHeapUsedBytes=null;
     try {
       const session=await page.context().newCDPSession(page);
@@ -85,7 +91,7 @@ try {
     measures:'wall-clock from Electron launch to React workbench visible; renderer heap from Chromium CDP when available',
     coldStartMs:{minimum:values[0],median:values[1],maximum:values.at(-1)},
     samples,
-    caveat:'CI runner and cold cache vary. No RAM/FPS improvement claim is implied by this sample.'
+    caveat:'CI runner/cache vary. omni:// may omit script resource timing (null), so the bundle manifest is authoritative. No RAM/FPS improvement claim without comparison on matched hardware.'
   };
   await fs.mkdir(artifacts,{recursive:true});
   await fs.writeFile(path.join(artifacts,'startup-benchmark-v076.json'),
