@@ -48,6 +48,9 @@ try {
   await page.getByRole('button',{name:'Abrir projeto'}).click();
   await page.getByText('Projeto aberto:',{exact:false}).waitFor();
   await page.locator('.react-flow__node').first().waitFor();
+  const lazyCanvasLoaded = await page.evaluate(()=>performance.getEntriesByType('resource')
+    .some(item=>/FlowCanvas-[^/]+\.js/i.test(item.name)));
+  assert.equal(lazyCanvasLoaded,true,'React Flow não foi importado sob demanda ao abrir automações.');
   const initialCount=await snapshot();
   assert.ok(initialCount>=3,'Dados reais do fluxo inicial devem aparecer no canvas.');
   await page.getByRole('button',{name:'Salvar fluxo'}).click();
@@ -55,6 +58,26 @@ try {
   const originalBytes=await fs.readFile(flowPath);
   const original=JSON.parse(originalBytes.toString());
   assert.equal(original.nodes.length,initialCount);
+
+  phase='drag native React Flow node and preserve controlled model changes';
+  const moving=page.locator('.react-flow__node').first();
+  const draggedId=await moving.getAttribute('data-id');
+  const originalDragged=original.nodes.find(node=>node.id===draggedId);
+  const rect=await moving.boundingBox();
+  assert.ok(draggedId && originalDragged && rect,'O nó a ser arrastado precisa existir no documento real.');
+  const startX=rect.x+rect.width/2, startY=rect.y+rect.height/2;
+  await page.mouse.move(startX,startY);
+  await page.mouse.down();
+  await page.mouse.move(startX+90,startY+34,{steps:10});
+  await page.mouse.up();
+  await page.waitForFunction(({id,x,y})=>{
+    const node=document.querySelector('.react-flow__node[data-id="'+id+'"]');
+    if(!node)return false;
+    const style=node.style.transform;
+    const m=style.match(/translate\(([-\d.]+)px,\s*([-\d.]+)px\)/);
+    return Boolean(m && Math.hypot(Number(m[1])-x,Number(m[2])-y)>10);
+  },{id:draggedId,x:originalDragged.position.x,y:originalDragged.position.y});
+  assert.deepEqual(await fs.readFile(flowPath),originalBytes,'Arrastar nó não deve gravar sem aprovação.');
 
   phase='edit flow and leave canvas without losing uncommitted state';
   await page.locator('.catalog-item').first().click();
@@ -67,7 +90,7 @@ try {
   await page.getByRole('button',{name:'Visão geral'}).click();
   await page.getByTestId('workspace-overview').waitFor();
   await page.getByText('Edições pendentes',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'Editor de código'}).click();
+  await page.getByTestId('primary-sidebar').getByRole('button',{name:'Editor de código'}).click();
   await page.getByRole('button',{name:'Arquitetura visual'}).click();
   await page.waitForFunction(expected=>
     document.querySelectorAll('.react-flow__node').length===expected,initialCount+1);
@@ -79,6 +102,10 @@ try {
   await page.getByText('Fluxo gravado em',{exact:false}).waitFor();
   const modified=JSON.parse(await fs.readFile(flowPath,'utf8'));
   assert.equal(modified.nodes.length,initialCount+1);
+  const relocated=modified.nodes.find(node=>node.id===draggedId);
+  assert.ok(relocated && Math.hypot(relocated.position.x-originalDragged.position.x,
+    relocated.position.y-originalDragged.position.y)>10,
+    'Posição movida pelo mouse deve persistir em documento real.');
   assert.deepEqual(modified.edges,original.edges);
 
   phase='read-back after workspace reload and ensure no data loss';
