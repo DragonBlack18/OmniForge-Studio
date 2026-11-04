@@ -64,3 +64,15 @@
 .cad-top-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:1380px){.cad-topbar{min-height:80px}.cad-context{max-width:220px}}
 @media(max-width:1130px){.cad-topbar{flex-wrap:wrap;gap:6px;justify-content:space-between}.cad-context{order:3;flex-basis:100%;max-width:unset}.cad-top-actions{margin-left:auto}}
+
+
+/* v0.7.4 local crash recovery: compact and separate from the drawing viewport. */
+.cad-recovery{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:9px 16px;border-bottom:1px solid #395d68;background:#183139;color:#b9dce3;font-size:11px}
+.cad-recovery strong{color:#a6ece3;font-weight:750}
+.cad-recovery span{flex:1;min-width:180px}
+.cad-recovery button{border:1px solid #497a82;border-radius:6px;padding:7px 10px;background:#25434a;color:#e2f5f7;font-size:11px;font-weight:650}
+.cad-recovery button:disabled{opacity:.5}
+.cad-recovery button:hover:not(:disabled){background:#31545c}
+.cad-recovery--conflict{background:#3c2d27;border-color:#85634d}
+.cad-recovery--conflict strong{color:#ffd4a3}
+.cad-recovery textarea{flex-basis:100%;min-height:80px;max-height:160px;resize:vertical;padding:8px;background:#0b1820;color:#b9dce3;border:1px solid #4c6770;border-radius:6px;font:10px Consolas,monospace}
