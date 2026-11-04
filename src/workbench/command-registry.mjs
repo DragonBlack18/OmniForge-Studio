@@ -36,6 +36,11 @@ export function buildWorkbenchCommands(files = [], workspace = '') {
         !item.path || item.path.startsWith('/') || item.path.includes('\\') ||
         item.path.split('/').some(segment => !segment || segment === '.' || segment === '..') ||
         seen.has(item.path)) continue;
+    const segments = item.path.split('/');
+    const leaf = segments.at(-1);
+    if (segments.some(segment => ['.git','.omniforge','node_modules'].includes(segment)) ||
+        /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|secrets?(?:\..*)?|credentials(?:\..*)?|id_(?:rsa|dsa|ed25519|ecdsa)(?:\.pub)?)$/i.test(leaf) ||
+        /\.(?:pem|key|p12|pfx)$/i.test(leaf)) continue;
     seen.add(item.path);
     commands.push({
       id:'file:' + item.path, kind:'file', path:item.path,
