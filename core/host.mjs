@@ -15,6 +15,7 @@ export { summarizeProjectCalls } from './modules/integrations/capabilities.mjs';
 
 const loaders = Object.freeze({
   cadStore: () => import('./modules/cad/cad-store.mjs'),
+  cadRecovery: () => import('./modules/cad/cad-recovery.mjs'),
   cadFile: () => import('./modules/cad/cad-import-file.mjs'),
   workspace: () => import('./modules/workspace/workspace.mjs'),
   projects: () => import('./modules/workspace/projects.mjs'),
@@ -29,6 +30,9 @@ const loaders = Object.freeze({
   supervisor: () => import('./supervisor.mjs')
 });
 
+export const readCadDraft = (...args) => loaders.cadRecovery().then(module => module.readCadDraft(...args));
+export const writeCadDraft = (...args) => loaders.cadRecovery().then(module => module.writeCadDraft(...args));
+export const discardCadDraft = (...args) => loaders.cadRecovery().then(module => module.discardCadDraft(...args));
 export const loadCadDocument = (...args) => loaders.cadStore().then(module => module.loadCadDocument(...args));
 export const saveCadDocument = (...args) => loaders.cadStore().then(module => module.saveCadDocument(...args));
 export const exportCadSketch = (...args) => loaders.cadStore().then(module => module.exportCadSketch(...args));
