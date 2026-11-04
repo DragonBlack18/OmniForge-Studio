@@ -18,7 +18,7 @@ await fs.writeFile(path.join(workspace, 'src', 'entry.js'), source);
 await fs.writeFile(path.join(workspace, '.env.local'), 'IDE-SECRET-998=do-not-display');
 await fs.mkdir(path.join(workspace, '.omniforge'));
 await fs.writeFile(path.join(workspace, '.omniforge', 'hidden.txt'), 'IDE-SECRET-998');
-let client, phase = 'boot';
+let client, page, phase = 'boot';
 const watchdog = setTimeout(() => {
   console.error('[IDE E2E] Global timeout phase=' + phase);
   process.exit(1);
@@ -30,7 +30,7 @@ try {
     env: { ...process.env, OMNIFORGE_E2E: '1',
       OMNIFORGE_E2E_USER_DATA: profile, ELECTRON_RENDERER_URL: '' }
   });
-  const page = await client.firstWindow({ timeout: 45000 });
+  page = await client.firstWindow({ timeout: 45000 });
   page.setDefaultTimeout(20000);
   const actualProfile = await client.evaluate(({ app }) => app.getPath('userData'));
   assert.equal(path.normalize(actualProfile).toLowerCase(),
@@ -68,15 +68,37 @@ try {
   await page.getByRole('button', { name: /Nova pasta/ }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo');
   await page.getByTestId('workspace-create-confirm').click();
-  await page.waitForFunction(async () =>
-    (await window.omni.listFiles()).some(file => file.path === 'novo-modulo' && file.kind === 'directory'));
+  // Observe the authoritative filesystem from the Node test process.
+  // Async browser predicates may resolve after Playwright's polling deadline
+  // under Windows runner load, yielding a false timeout.
+  const waitForEntry = async (relative, kind, timeoutMs = 20000) => {
+    const deadline = Date.now() + timeoutMs;
+    const target = path.join(workspace, ...relative.split('/'));
+    let foundOnDisk = false, foundInRenderer = false;
+    while (Date.now() < deadline) {
+      try {
+        const stat = await fs.lstat(target);
+        foundOnDisk = kind === 'directory' ? stat.isDirectory() : stat.isFile();
+      } catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (foundOnDisk) {
+        const rows = await page.evaluate(() => window.omni.listFiles());
+        foundInRenderer = rows.some(item => item.path === relative && item.kind === kind);
+        if (foundInRenderer) return;
+      }
+      await new Promise(resolve => setTimeout(resolve, 140));
+    }
+    throw new Error('Resultado não confirmado no disco e na interface: ' +
+      JSON.stringify({ relative, kind, foundOnDisk, foundInRenderer }));
+  };
+  await page.getByText('Pasta criada: novo-modulo', { exact: false }).waitFor();
+  await waitForEntry('novo-modulo', 'directory');
   assert.ok((await fs.stat(path.join(workspace, 'novo-modulo'))).isDirectory());
   phase = 'create new file from UI and save in Monaco';
   await page.getByRole('button', { name: /Novo arquivo/ }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo/exemplo.py');
   await page.getByTestId('workspace-create-confirm').click();
-  await page.waitForFunction(async () =>
-    (await window.omni.listFiles()).some(file => file.path === 'novo-modulo/exemplo.py' && file.kind === 'file'));
+  await page.getByText('Arquivo criado: novo-modulo/exemplo.py', { exact: false }).waitFor();
+  await waitForEntry('novo-modulo/exemplo.py', 'file');
   await page.getByText('novo-modulo/exemplo.py', { exact: false }).first().waitFor();
   assert.equal(await fs.readFile(path.join(workspace, 'novo-modulo', 'exemplo.py'), 'utf8'), '');
   const before = await page.evaluate(() => window.omni.readFile('novo-modulo/exemplo.py'));
@@ -85,8 +107,15 @@ try {
   await page.locator('.monaco-editor').first().click();
   await page.keyboard.insertText('print("IDE OK")');
   await page.getByRole('button', { name: 'Salvar arquivo' }).click();
-  await page.waitForFunction(async () =>
-    (await window.omni.readFile('novo-modulo/exemplo.py')).content.includes('IDE OK'));
+  await page.getByText('Arquivo atualizado: novo-modulo/exemplo.py', { exact: false }).waitFor();
+  const saveDeadline = Date.now() + 20000;
+  let saved = false;
+  while (Date.now() < saveDeadline) {
+    const file = await page.evaluate(() => window.omni.readFile('novo-modulo/exemplo.py'));
+    if (file.content.includes('IDE OK')) { saved = true; break; }
+    await new Promise(resolve => setTimeout(resolve, 140));
+  }
+  assert.ok(saved, 'Editor deve salvar conteúdo real antes do prazo.');
   // The Electron renderer and the independent Node process must both observe
   // the committed file, not just the editor's in-memory value. Windows can
   // briefly retain a stale handle after an atomic rename.
@@ -114,6 +143,18 @@ try {
   phase = 'pass';
 } catch (error) {
   console.error('[IDE E2E] phase=' + phase, error);
+  // Only synthetic, isolated E2E fixtures are used. Do not capture user data,
+  // npm environment, workspace paths or exception stack in published artifacts.
+  const diagnostics = path.join(root, 'smoke-artifacts');
+  await fs.mkdir(diagnostics, { recursive: true }).catch(() => {});
+  await fs.writeFile(path.join(diagnostics, 'ide-failure.json'), JSON.stringify({
+    schemaVersion: 1, suite: 'workspace-ide', phase,
+    errorName: String(error?.name || 'Error').slice(0, 50)
+  }, null, 2) + '\n').catch(() => {});
+  if (page && !page.isClosed()) {
+    await page.screenshot({ path: path.join(diagnostics, 'ide-failure.png'), timeout: 3000 })
+      .catch(() => {});
+  }
   process.exitCode = 1;
 } finally {
   if (client) {

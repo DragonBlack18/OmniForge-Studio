@@ -13,9 +13,11 @@ const GitSourceControl = React.lazy(() => import('../modules/ide/GitSourceContro
 const ProjectTasks = React.lazy(() => import('../modules/ide/ProjectTasks.jsx'));
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
 import NavigationSidebar from './NavigationSidebar.jsx';
+import ModuleErrorBoundary from './ModuleErrorBoundary.jsx';
 import { NavGlyph } from '../shared/NavGlyph.jsx';
 import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
+import { createOperationGate } from '../utils/operation-gate.mjs';
 
 
 
@@ -155,12 +157,19 @@ export default function AppShell() {
   },[]);
 
   const notify = useCallback(message => setStatus(message), []);
+  // A React state update is asynchronous. Use a real single-flight gate so
+  // double clicks cannot race privileged IPC operations or workspace swaps.
+  const operationGate = useRef(null);
+  if (!operationGate.current) operationGate.current = createOperationGate();
   const execute = useCallback(async (action) => {
     if (!window.omni) return notify('Integração desktop indisponível.');
-    setBusy(true);
-    try { await action(); }
-    catch (err) { notify(`Erro: ${err.message}`); }
-    finally { setBusy(false); }
+    const attempt = await operationGate.current.run(async () => {
+      setBusy(true);
+      try { await action(); }
+      catch (err) { notify(`Erro: ${err?.message || 'Falha inesperada.'}`); }
+      finally { setBusy(false); }
+    });
+    if (!attempt.accepted) notify('Conclua a operação atual antes de iniciar outra.');
   }, [notify]);
 
   const applyProject = async result => {
@@ -574,8 +583,8 @@ export default function AppShell() {
 
         <main className="main-panel">
           {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={navigate} onOpenProject={openWorkspace} flowDirty={flowDirty} cadDirty={cadDirty} lastRun={lastRun}/>}
-          {mode==='search' && <React.Suspense fallback={<ModuleLoading label="busca"/>}><WorkspaceSearch workspace={workspace} busy={busy} onOpenResult={openSearchHit}/></React.Suspense>}
-          {(cadEverOpened || mode==='cad') && <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><React.Suspense fallback={<ModuleLoading label="CAD"/>}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}/></React.Suspense></div>}
+          {mode==='search' && <ModuleErrorBoundary label="Busca no projeto"><React.Suspense fallback={<ModuleLoading label="busca"/>}><WorkspaceSearch workspace={workspace} busy={busy} onOpenResult={openSearchHit}/></React.Suspense></ModuleErrorBoundary>}
+          {(cadEverOpened || mode==='cad') && <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><ModuleErrorBoundary key={workspace || '__none__'} label="CAD 2D"><React.Suspense fallback={<ModuleLoading label="CAD"/>}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}/></React.Suspense></ModuleErrorBoundary></div>}
           {mode === 'canvas' && (
             <>
               <div className="main-toolbar">
@@ -590,12 +599,12 @@ export default function AppShell() {
                     onClick={()=>setInspectorOpen(open=>!open)}><NavGlyph name="layers" size={16}/></button>
                 </div>
               </div>
-              <React.Suspense fallback={<ModuleLoading label="automações"/>}>
+              <ModuleErrorBoundary label="Automação visual"><React.Suspense fallback={<ModuleLoading label="automações"/>}>
                 <FlowCanvas nodes={nodes} edges={edges} onNodesChange={handleNodesChange}
                   onEdgesChange={handleEdgesChange} onConnect={onConnect}
                   onNodeClick={(_event,node)=>{setSelectedId(node.id);setInspectorOpen(true);}}
                   onPaneClick={()=>setSelectedId(null)}/>
-              </React.Suspense>
+              </React.Suspense></ModuleErrorBoundary>
             </>
           )}
           {mode === 'templates' && (
@@ -622,7 +631,7 @@ export default function AppShell() {
                 </div>
               </div>
               {fileName ? (
-                <div className="editor-wrap"><React.Suspense fallback={<ModuleLoading label="editor"/>}><CodeEditor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
+                <div className="editor-wrap"><ModuleErrorBoundary key={fileName} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}><CodeEditor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
                   onMount={editor => {
                     editor.onDidChangeCursorPosition(event => setEditorPosition({
                       line:event.position.lineNumber,column:event.position.column
@@ -637,7 +646,7 @@ export default function AppShell() {
                     }
                   }}
                   onChange={v => {setFileContent(v ?? ''); setDirty(true);}}
-                  options={{ automaticLayout: true, fontSize: 14, minimap: { enabled: true }, scrollBeyondLastLine: false, wordWrap: 'on' }} /></React.Suspense></div>
+                  options={{ automaticLayout: true, fontSize: 14, minimap: { enabled: true }, scrollBeyondLastLine: false, wordWrap: 'on' }} /></React.Suspense></ModuleErrorBoundary></div>
               ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}
             </>
           )}
@@ -668,21 +677,21 @@ export default function AppShell() {
               </section>
             </>
           )}
-          {mode === 'git' && <React.Suspense fallback={<ModuleLoading label="Git"/>}><GitSourceControl workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense>}
-          {mode === 'tasks' && <React.Suspense fallback={<ModuleLoading label="tarefas"/>}><ProjectTasks workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense>}
-          {mode === 'schedules' && <React.Suspense fallback={<ModuleLoading label="agendamentos"/>}><ScheduleCenter
+          {mode === 'git' && <ModuleErrorBoundary label="Controle Git"><React.Suspense fallback={<ModuleLoading label="Git"/>}><GitSourceControl workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
+          {mode === 'tasks' && <ModuleErrorBoundary label="Central de Tarefas"><React.Suspense fallback={<ModuleLoading label="tarefas"/>}><ProjectTasks workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
+          {mode === 'schedules' && <ModuleErrorBoundary label="Agendamentos"><React.Suspense fallback={<ModuleLoading label="agendamentos"/>}><ScheduleCenter
             schedules={schedules} projects={projects} workspace={workspace}
             activeProjectId={activeProjectId} flowDirty={flowDirty} busy={busy}
             onCreate={createScheduledTask} onEnable={enableScheduledTask}
             onRunNow={executeScheduledTask} onCancel={cancelScheduledTask}
             onRebind={rebindScheduledTask} onRemove={removeScheduledTask}
-            onRefresh={()=>execute(async()=>{await refreshSchedules();notify('Agendamentos atualizados.');})}/></React.Suspense>}
-          {mode === 'extensions' && <React.Suspense fallback={<ModuleLoading label="extensões"/>}><ExtensionsHub
+            onRefresh={()=>execute(async()=>{await refreshSchedules();notify('Agendamentos atualizados.');})}/></React.Suspense></ModuleErrorBoundary>}
+          {mode === 'extensions' && <ModuleErrorBoundary label="Extensões"><React.Suspense fallback={<ModuleLoading label="extensões"/>}><ExtensionsHub
             extensions={extensions} workspace={workspace} busy={busy}
             onInstall={installExtension} onInstallExample={installExampleExtension}
             onEnable={enableExtension} onGrant={grantExtension}
             onRemove={removeInstalledExtension} onAddAction={insertExtensionAction}
-            onRefresh={()=>execute(async()=>{await refreshExtensions();notify('Extensões atualizadas.');})}/></React.Suspense>}
+            onRefresh={()=>execute(async()=>{await refreshExtensions();notify('Extensões atualizadas.');})}/></React.Suspense></ModuleErrorBoundary>}
           {mode === 'integrations' && (
             <>
               <div className="main-toolbar">

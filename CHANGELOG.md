@@ -1,3 +1,11 @@
+## [0.7.2] — Stability Foundation (candidata)
+
+- Trava síncrona e testada de operações do workbench para evitar double-click races sem enfileirar efeitos privilegiados.
+- Limites de erro React por ferramenta lazy (Monaco, CAD, automação e demais módulos), com recuperação manual sem recarga global.
+- E2E da IDE com verificação visível, IPC e filesystem; duas sessões isoladas no CI Windows.
+- Evidências restritas a testes sintéticos são coletadas apenas em falhas, com artefatos CI.
+- Nenhum schema de projeto, CAD, fluxo ou persistência foi migrado ou resetado.
+
 ## [0.7.1] — Histórico persistente de tarefas (candidata)
 
 - Resultados de tarefas npm persistidos por workspace, no perfil do Electron, fora das pastas de projeto.
