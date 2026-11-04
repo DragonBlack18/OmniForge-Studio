@@ -52,6 +52,9 @@ jobs:
         timeout-minutes: 5
       - run: npm run smoke:cad-import
         timeout-minutes: 5
+      - name: Gate de recuperacao CAD nao destrutiva
+        run: npm run smoke:cad-recovery
+        timeout-minutes: 5
       - run: npm run dist:win
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh

@@ -456,6 +456,14 @@ async function initializeIpc() {
     }
     return current;
   };
+  register('readCadDraft', claimed =>
+    core.readCadDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed)));
+  register('writeCadDraft', (claimed, sketch, baseRevision, expectedDraftRevision) =>
+    core.writeCadDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed),
+      sketch, baseRevision, expectedDraftRevision));
+  register('discardCadDraft', (claimed, expectedDraftRevision) =>
+    core.discardCadDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed),
+      expectedDraftRevision));
   register('readEditorDraft', (claimed, relative) =>
     core.readEditorDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed), relative));
   register('writeEditorDraft', (claimed, relative, content, baseRevision, expectedDraftRevision) =>
