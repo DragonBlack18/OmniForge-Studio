@@ -28,8 +28,8 @@ const SHAPES = {
   circle: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
   chevron: 'm9 6 6 6-6 6'
 };
-export function NavGlyph({name, size = 18}) {
+export const NavGlyph = React.memo(function NavGlyph({name, size = 18}) {
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24"
     fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"
     strokeLinejoin="round"><path d={SHAPES[name] || SHAPES.info}/></svg>;
-}
+});
