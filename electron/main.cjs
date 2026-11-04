@@ -447,6 +447,23 @@ async function initializeIpc() {
   register('listRunHistory', () => core.listRunHistory(requireWorkspace()));
   register('readRunHistory', id => core.readRunHistory(requireWorkspace(), id));
   register('readFile', relative => core.readProjectFile(requireWorkspace(), relative));
+  // Recovery IPC is tied to the exact active workspace. Stale renderer writes
+  // after switching projects must never end up in another project's slot.
+  const pinnedDraftWorkspace = claimed => {
+    const current = requireWorkspace();
+    if (typeof claimed !== 'string' || current !== claimed) {
+      throw new Error('Workspace alterado durante recuperação. Operação bloqueada.');
+    }
+    return current;
+  };
+  register('readEditorDraft', (claimed, relative) =>
+    core.readEditorDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed), relative));
+  register('writeEditorDraft', (claimed, relative, content, baseRevision, expectedDraftRevision) =>
+    core.writeEditorDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed),
+      relative, content, baseRevision, expectedDraftRevision));
+  register('discardEditorDraft', (claimed, relative, expectedDraftRevision) =>
+    core.discardEditorDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed),
+      relative, expectedDraftRevision));
   register('saveFile', async (relative, content, expectedRevision) => {
     if (saveInProgress || executionInProgress || cadMutationInProgress || registryMutationInProgress || projectTaskController?.isActive())
       throw new Error('Conclua a tarefa/execução antes de salvar arquivos.');
