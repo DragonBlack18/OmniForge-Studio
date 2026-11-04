@@ -1,3 +1,11 @@
+## [0.7.4] — Recuperação CAD não destrutiva (candidata em validação)
+
+- Checkpoints locais de desenhos 2D não salvos após 900 ms, em userData, sem escrita automática no arquivo original.
+- Revisões SHA-256 independentes de desenho original e rascunho, fila serializada, escrita atômica e limites por perfil.
+- Recuperação manual com guarda de conflito externo, inspeção JSON e descarte confirmado; CAD, IDE e automações permanecem módulos independentes.
+- Testes Node de concorrência, quotas, isolamento, corrupção e conflito; smoke Electron Windows com recarga, salvamento explícito e verificação do filesystem.
+- Versão candidata: publicação e integração condicionadas ao CI e à validação real do instalador/portátil Windows.
+
 ## [0.7.3] — Recuperação local e não destrutiva do Monaco (candidata)
 
 - Checkpoint automático de conteúdo não salvo, com debounce de 700 ms e armazenamento separado no userData.
