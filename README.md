@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.7.2 — Stability Foundation (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.7.3 — Recuperação local de rascunhos da IDE (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -9,7 +9,7 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 | Módulo | Entrega atual | Observação |
 |---|---|---|
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
-| Programação | Editor Monaco, arquivos e pastas novos, busca global literal com navegação para linha/coluna, proteção contra overwrite | Não é um host Theia/LSP nem terminal/depurador |
+| Programação | Editor Monaco, arquivos e pastas, busca global, revisão SHA-256 e recuperação local de edições não salvas com confirmação | Não inclui LSP, depurador, backup versionado ou recuperação de CAD nesta etapa |
 | Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
 | Central de Tarefas | Executa scripts reais do package.json com logs ao vivo, cancelamento e histórico local de até 60 resultados por projeto | Node.js/npm instalados; scripts confiáveis somente, sem terminal arbitrário |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
@@ -22,6 +22,12 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
 Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+
+## Recuperação da IDE v0.7.3
+
+Ao editar código no Monaco, o OmniForge mantém uma cópia temporária local após aproximadamente 700 ms de inatividade, limitada a 240 KB por arquivo e 40 documentos por perfil. Essa cópia fica no perfil do aplicativo, não no workspace ou no Git. Se a janela perder o estado e você reabrir o mesmo arquivo, poderá **Restaurar no editor**, **Copiar rascunho** ou **Descartar rascunho**. O arquivo original só é alterado pelo comando **Salvar arquivo**. Quando a revisão original mudou externamente, a restauração direta fica bloqueada; o conteúdo pode ser copiado para comparação manual.
+
+Não é um backup criptografado: o código recuperável permanece no perfil local em texto, e mudanças ainda em trânsito no instante de um crash podem ser perdidas. Arquivos típicos de credenciais não recebem checkpoint automático. Detalhes de arquitetura, riscos e critérios: [Recuperação do editor v0.7.3](docs/EDITOR_RECOVERY_V073.md). Teste E2E Electron Windows: `npm run smoke:recovery`.
 
 ## Estabilidade da interface v0.7.2
 
