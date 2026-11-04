@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addCadEntity, addCadLayer, cadBounds, cadEntityMetrics, cadStats, deleteCadEntity, initialCadSketch, makeCadEntity, removeCadLayer, replaceCadEntity, snapCadPoint } from '../../../core/modules/cad/cad2d.mjs';
 import { NavGlyph } from '../../shared/NavGlyph.jsx';
+import { useCadRecovery } from './useCadRecovery.mjs';
 import './CadWorkbench.css';
 
 const TOOLS = [
@@ -43,6 +44,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const [dimensions,setDimensions]=useState({w:800,h:500});
   const [undo,setUndo]=useState([]);
   const [redo,setRedo]=useState([]);
+  const [showRecoveryJson,setShowRecoveryJson]=useState(false);
   const svgRef=useRef(null);
   const panRef=useRef(null);
   const viewRef=useRef(view);
@@ -51,6 +53,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const selectedEntity=sketch.entities.find(e=>e.id===selected);
   const vb=useMemo(()=>`${view.cx-dimensions.w/(2*view.zoom)} ${-view.cy-dimensions.h/(2*view.zoom)} ${dimensions.w/view.zoom} ${dimensions.h/view.zoom}`,[view,dimensions]);
   const setDirtyFlag=useCallback(value=>{setDirty(value);onDirtyChange?.(value);},[onDirtyChange]);
+  const recovery=useCadRecovery({workspace,sketch,revision,dirty});
 
   useEffect(()=>{viewRef.current=view;},[view]);
   useEffect(()=>{
@@ -72,15 +75,17 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   useEffect(()=>{
     let active=true;
     setSelected(null);setFrom(null);setUndo([]);setRedo([]);setSketch(initialCadSketch());setRevision(null);setDirtyFlag(false);
+    setShowRecoveryJson(false);
+    recovery.reset();
     if(!workspace){setStatus('Abra um projeto para habilitar o CAD.');return()=>{active=false;};}
     setWorking(true);
-    window.omni.loadCadSketch().then(doc=>{
+    Promise.all([window.omni.loadCadSketch(),recovery.open(workspace)]).then(([doc])=>{
       if(!active)return;
       setSketch(doc.sketch);setRevision(doc.revision);setStatus(doc.revision?'Desenho CAD carregado do projeto.':'Novo desenho. Nada foi alterado no disco.');
     }).catch(e=>{if(active)setStatus(`Não foi possível abrir CAD: ${e.message}`);})
       .finally(()=>{if(active)setWorking(false);});
     return()=>{active=false;};
-  },[workspace,setDirtyFlag]);
+  },[workspace,setDirtyFlag,recovery.open,recovery.reset]);
 
   const record=useCallback(next=>{
     if(working)return;
@@ -216,12 +221,32 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       setStatus('Medidas aplicadas com precisão em milímetros.');
     }catch(e){setStatus(e.message);}
   }
+  function restoreCadDraft(){
+    if(!workspace || working)return;
+    const value=recovery.restore(revision);
+    if(!value){setStatus('Restauração CAD bloqueada: revisão do disco divergente.');return;}
+    setUndo([]);setRedo([]);setSelected(null);setFrom(null);
+    setSketch(value);setLayerId(value.layers[0].id);setDirtyFlag(true);
+    setShowRecoveryJson(false);
+    setStatus('Rascunho restaurado somente na memória. Use Salvar desenho para persistir.');
+  }
+  async function discardCadDraft(){
+    if(!workspace || working || !recovery.draft)return;
+    if(!window.confirm('Descartar somente a cópia de recuperação CAD? O desenho salvo não será alterado.'))return;
+    try{
+      await recovery.discard(workspace);
+      setShowRecoveryJson(false);
+      setStatus('Cópia de recuperação CAD descartada; arquivo original preservado.');
+    }catch(e){setStatus('Não foi possível descartar rascunho CAD: '+e.message);}
+  }
   async function save(){
     if(!workspace||working)return;
     setWorking(true);
     try{
+      await recovery.beforeSave(workspace);
       const result=await window.omni.saveCadSketch(sketch,revision);
       setRevision(result.revision);setDirtyFlag(false);setStatus(`Desenho salvo: ${result.path}`);
+      await recovery.onSaved(workspace);
     }catch(e){setStatus(`Erro ao salvar: ${e.message}`);}finally{setWorking(false);}
   }
   useEffect(()=>{
@@ -298,6 +323,25 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
         <button type="button" disabled={!workspace||working} onClick={()=>exportFormat('svg')} className="cad-action">Exportar SVG</button>
       </div>
     </header>
+    {workspace && (recovery.draft || recovery.error ||
+      (dirty && (recovery.status==='pending'||recovery.status==='saved'))) &&
+      <section className={`cad-recovery ${recovery.draft && recovery.draft.baseRevision!==revision?'cad-recovery--conflict':''}`}
+        aria-label="Recuperação de desenho CAD" data-testid={recovery.draft?'cad-recovery':undefined}>
+        {recovery.draft ? <>
+          <strong>{recovery.draft.baseRevision===revision?'Rascunho CAD recuperável':'Conflito: desenho CAD alterado externamente'}</strong>
+          <span>{recovery.draft.baseRevision===revision
+            ? 'Cópia temporária local disponível. Restaurar não grava no projeto.'
+            : 'O arquivo CAD mudou desde o checkpoint. Restauração direta bloqueada; examine o JSON antes de descartar.'}</span>
+          {recovery.draft.baseRevision===revision &&
+            <button type="button" disabled={working} data-testid="cad-restore-draft" onClick={restoreCadDraft}>Restaurar no CAD</button>}
+          <button type="button" disabled={working} onClick={discardCadDraft}>Descartar rascunho CAD</button>
+          <button type="button" onClick={()=>setShowRecoveryJson(old=>!old)}>Visualizar JSON recuperável</button>
+          {showRecoveryJson && <textarea aria-label="JSON do rascunho CAD" readOnly value={JSON.stringify(recovery.draft.sketch,null,2)} />}
+        </> : recovery.error ? <span role="alert">{recovery.error}</span> :
+          <span data-testid={recovery.status==='saved'?'cad-draft-saved':undefined}>
+            {recovery.status==='saved'?'Rascunho CAD protegido no perfil local.':'Protegendo rascunho CAD...'}
+          </span>}
+      </section>}
     <div className="cad-body">
       <aside className="cad-tools" aria-label="Ferramentas CAD">
         <span className="cad-label">DESENHAR</span>
