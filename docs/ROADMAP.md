@@ -32,6 +32,7 @@ A tabela histórica abaixo foi redigida na fundação do projeto; seus números 
 | v0.7.2 | Stability Foundation: trava síncrona, erros isolados por módulo, E2E determinístico e diagnósticos CI | Integrada à main com CI Linux/Windows e distribuição PR aprovados |
 | v0.7.3 | Recuperação local de rascunhos do editor com confirmação, exclusão segura e conflito explícito | Testes filesystem, Electron real e Portable/NSIS no Windows |
 | v0.7.4 | Checkpoints CAD 2D em userData, restore explícito e bloqueio de conflito externo | Candidata: testes Node, Electron real, Setup/Portable e SHA-256 pendentes de aprovação |
+| v0.7.5 | Workbench técnico: área por domínio, comandos seguros, quick-open e otimização moderada do Monaco | Candidata; Node, Electron Windows, orçamento Vite, NSIS/Portable e SHA-256 |
 | Proposta v0.7.x | Gerenciamento seguro de tarefas de desenvolvimento e terminal isolado | Quotas, consentimento, cancelamento, processo filho, ameaças |
 | Proposta v0.8.x | Integração Theia/LSP/depuração via adaptador | Isolamento, licenças, end-to-end |
 | Proposta v0.9.x | Gatilhos de eventos mais amplos, retenção e monitoramento de fluxos | Idempotência, replay, side effects, recovering |
