@@ -1,0 +1,25 @@
+/* v0.7.5: native-feeling workbench quick input; no framework runtime. */
+.command-overlay{position:fixed;inset:0;z-index:1200;display:flex;align-items:flex-start;justify-content:center;padding:clamp(55px,11vh,110px) 18px 25px;background:#050b10bc;backdrop-filter:blur(3px)}
+.command-palette{width:min(680px,100%);max-height:min(650px,85vh);display:flex;flex-direction:column;min-height:0;overflow:hidden;color:#d8e9ee;background:#13212a;border:1px solid #4b6d7b;border-radius:11px;box-shadow:0 24px 85px #000b}
+.command-palette__heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 18px 10px;color:#8daab9;font-size:10px;font-weight:800;letter-spacing:.13em}
+.command-palette__heading span{display:flex;align-items:center;gap:10px}
+.command-palette kbd{border:1px solid #3b5661;color:#9cb5c1;background:#1b313b;border-radius:4px;font:10px ui-monospace,Consolas,monospace;padding:3px 6px}
+.command-palette__search{display:flex;align-items:center;gap:10px;background:#0d1a23;margin:0 12px 10px;padding:0 13px;border:1px solid #4e7480;border-radius:8px;min-height:47px;color:#9abfc6}
+.command-palette__search:focus-within{border-color:#9bd2cd;box-shadow:0 0 0 2px #7cb9b526}
+.command-palette__search input{flex:1;min-width:0;border:0;background:none;outline:0;color:#edf9fa;padding:13px 0;font:13px Inter,'Segoe UI',system-ui,sans-serif}
+.command-palette__search input::placeholder{color:#78939e}
+.command-palette__search small{flex:none;font:10px Consolas,monospace;color:#6e95a2}
+.command-palette__results{overflow-y:auto;min-height:0;max-height:430px;padding:4px 8px 10px;scrollbar-width:thin;scrollbar-color:#395768 transparent}
+.command-palette__option{display:flex;gap:12px;align-items:center;width:100%;text-align:left;padding:9px 12px;background:transparent;color:#d2e4e8;border:1px solid transparent;border-radius:7px;cursor:pointer}
+.command-palette__option .command-palette__glyph{width:32px;height:32px;flex:none;display:grid;place-items:center;color:#92bcc8;border-radius:6px;border:1px solid #334b57;background:#1d343d}
+.command-palette__copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.command-palette__copy strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:640}
+.command-palette__copy small{font:10px Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#809eaa}
+.command-palette__option.is-selected,.command-palette__option:hover{background:#234149;border-color:#4c8184}
+.command-palette__option.is-selected .command-palette__glyph{color:#a3e0d6;background:#2d5457;border-color:#52888b}
+.command-palette__option:focus-visible{outline:2px solid #89d0d0;outline-offset:-2px}
+.command-palette__empty{font-size:12px;color:#92afba;padding:28px;text-align:center}
+.command-palette__footer{display:flex;align-items:center;gap:15px;flex-wrap:wrap;border-top:1px solid #304752;background:#172933;color:#7999a5;padding:10px 14px;font-size:10px}
+.command-palette__footer span:last-child{margin-left:auto}
+@media(max-width:680px){.command-overlay{padding:45px 8px 14px}.command-palette__footer span:last-child{display:none}}
+@media(prefers-reduced-motion:reduce){.command-overlay{backdrop-filter:none}}
