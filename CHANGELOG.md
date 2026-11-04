@@ -1,3 +1,12 @@
+## [0.7.3] — Recuperação local e não destrutiva do Monaco (candidata)
+
+- Checkpoint automático de conteúdo não salvo, com debounce de 700 ms e armazenamento separado no userData.
+- Backend isolado da IDE com gravação atômica, revisão otimista por arquivo, no máximo 40 documentos de 240 KB e rejeição de arquivos de credenciais.
+- UI permite restaurar somente no editor, copiar o rascunho ou descartá-lo explicitamente; alterações externas bloqueiam restauração direta.
+- Registros nunca sobrescrevem arquivos do workspace. O salvamento original segue revisão SHA-256 e tenta limpar checkpoint obsoleto somente por token.
+- Testes Node de isolamento, symlinks, corrupção, quota e concorrência; E2E real Electron com recarga do renderer, salvamento e conflito externo.
+- Distribuição Windows permanece condicionada ao gate de recuperação, testes antigos e validação de Setup/Portable.
+
 ## [0.7.2] — Stability Foundation (candidata)
 
 - Trava síncrona e testada de operações do workbench para evitar double-click races sem enfileirar efeitos privilegiados.

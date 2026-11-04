@@ -66,6 +66,11 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   listRunHistory: () => ipcRenderer.invoke('omni:listRunHistory'),
   readRunHistory: id => ipcRenderer.invoke('omni:readRunHistory', id),
   readFile: relative => ipcRenderer.invoke('omni:readFile', relative),
+  readEditorDraft: (workspace, relative) => ipcRenderer.invoke('omni:readEditorDraft', workspace, relative),
+  writeEditorDraft: (workspace, relative, content, baseRevision, expectedDraftRevision) =>
+    ipcRenderer.invoke('omni:writeEditorDraft', workspace, relative, content, baseRevision, expectedDraftRevision),
+  discardEditorDraft: (workspace, relative, expectedDraftRevision) =>
+    ipcRenderer.invoke('omni:discardEditorDraft', workspace, relative, expectedDraftRevision),
   saveFile: (relative, content, revision) => ipcRenderer.invoke('omni:saveFile', relative, content, revision),
   saveFlow: (flow, revision) => ipcRenderer.invoke('omni:saveFlow', flow, revision),
   validateFlow: flow => ipcRenderer.invoke('omni:validateFlow', flow),

@@ -29,7 +29,8 @@ A tabela histórica abaixo foi redigida na fundação do projeto; seus números 
 | v0.6.1 | Separação física dos domínios, lazy-load de Monaco/CAD/Canvas e limite de bundle | Publicada |
 | v0.7.0 | Central real de tarefas npm com consentimento, logs, cancelamento e quotas | CI, E2E Electron e NSIS/Portable aprovados | 
 | v0.7.1 | Histórico persistente por workspace com metadados e retenção limitada, sem guardar stdout | Publicada e validada |
-| v0.7.2 | Stability Foundation: trava síncrona, erros isolados por módulo, E2E determinístico e diagnósticos CI | Core Linux/Windows, build, smokes duplos IDE e NSIS/Portable |
+| v0.7.2 | Stability Foundation: trava síncrona, erros isolados por módulo, E2E determinístico e diagnósticos CI | Integrada à main com CI Linux/Windows e distribuição PR aprovados |
+| v0.7.3 | Recuperação local de rascunhos do editor com confirmação, exclusão segura e conflito explícito | Testes filesystem, Electron real e Portable/NSIS no Windows |
 | Proposta v0.7.x | Gerenciamento seguro de tarefas de desenvolvimento e terminal isolado | Quotas, consentimento, cancelamento, processo filho, ameaças |
 | Proposta v0.8.x | Integração Theia/LSP/depuração via adaptador | Isolamento, licenças, end-to-end |
 | Proposta v0.9.x | Gatilhos de eventos mais amplos, retenção e monitoramento de fluxos | Idempotência, replay, side effects, recovering |

@@ -188,3 +188,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .module-error h2{font-size:19px;margin:0;font-weight:700}
 .module-error p{font-size:12px;max-width:620px;line-height:1.75;color:#bbaeb8;margin:0}
 .module-error button{margin-top:6px}
+/* Recovery UI: a compact non-destructive editor checkpoint ribbon. */
+.editor-recovery{flex:none;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:13px 18px;background:#243034;border-bottom:1px solid #506f71;color:#d2e5e5}
+.editor-recovery>div:first-child{flex:1;min-width:260px;max-width:700px}
+.editor-recovery strong{font-size:12px;font-weight:750}
+.editor-recovery p{font-size:10px;line-height:1.6;color:#a6c0c3;margin:5px 0 0}
+.editor-recovery__actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.editor-recovery__actions .button{font-size:10px;min-height:31px}
+.editor-recovery__saved{flex:none;margin:0;padding:7px 19px;background:#19322c;border-bottom:1px solid #376457;color:#a7ddc8;font-size:10px}
+.editor-recovery__error{flex:none;margin:0;padding:9px 18px;background:#3c2528;border-bottom:1px solid #885058;color:#ebc0c4;font-size:11px}
+@media(max-width:1100px){.editor-recovery{align-items:flex-start;flex-direction:column}}

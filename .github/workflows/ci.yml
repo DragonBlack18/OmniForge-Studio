@@ -25,7 +25,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test
+      - name: Instalar dependências em ambiente reproduzível
+        run: npm install --no-audit --no-fund
+        timeout-minutes: 8
+      - name: Testes Node com limite de duração
+        run: npm test
+        timeout-minutes: 6
       - run: node --check electron/main.cjs
       - run: node --check scripts/smoke-electron.mjs
   renderer-build:
@@ -64,6 +69,9 @@ jobs:
         timeout-minutes: 5
       - name: Smoke IDE - segunda execução isolada
         run: npm run smoke:ide
+        timeout-minutes: 5
+      - name: Smoke de recuperação de código após reload
+        run: npm run smoke:recovery
         timeout-minutes: 5
       - run: npm run smoke:cad-import
         timeout-minutes: 5
