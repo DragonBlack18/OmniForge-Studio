@@ -61,10 +61,14 @@ export function useCadRecovery({ workspace, sketch, revision, dirty }) {
         const saved = await window.omni.writeCadDraft(
           root, snapshot, baseRevision, tokenRef.current
         );
-        if (currentRef.current === root && epochRef.current === epoch) {
+        if (currentRef.current === root) {
+          // A save can invalidate the timer while an IPC write is in flight;
+          // retain its CAS token so the completed native save can clean it.
           tokenRef.current = saved.draftRevision;
-          setStatus('saved');
-          setError('');
+          if (epochRef.current === epoch) {
+            setStatus('saved');
+            setError('');
+          }
         }
       }).catch(cause => {
         if (currentRef.current === root && epochRef.current === epoch) {
