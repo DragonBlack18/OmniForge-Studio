@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.7.1 — Histórico persistente de tarefas (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.7.2 — Stability Foundation (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -22,6 +22,12 @@ Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio]
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
 Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+
+## Estabilidade da interface v0.7.2
+
+O shell usa uma trava síncrona de execução por sessão, independente do indicador visual de processamento, impedindo duas ações privilegiadas simultâneas disparadas rapidamente. Módulos React carregados sob demanda possuem limites de erro de renderização com reabertura manual, sem reiniciar todo o aplicativo; isso não recupera edições não salvas do componente afetado, nem intercepta crashes completos do Electron.
+
+O teste E2E da IDE exige resposta visível da interface e verificação independente do filesystem e da API local. No Windows, duas execuções isoladas do teste detectam intermitência sem mascarar falhas. Em caso de FAIL, são guardadas evidências sintéticas, sem logs pessoais. A especificação completa e os limites estão em [Stability Foundation v0.7.2](docs/STABILITY_FOUNDATION_V072.md).
 
 ## Arquitetura modular v0.6.1
 
