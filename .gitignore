@@ -10,3 +10,4 @@ release/
 .omniforge/
 .DS_Store
 .vscode/
+smoke-artifacts/
