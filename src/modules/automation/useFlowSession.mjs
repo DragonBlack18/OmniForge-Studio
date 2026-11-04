@@ -6,7 +6,7 @@
  * The owner hook remains mounted while users visit IDE, CAD, Git, or Home so
  * uncommitted edits, selections, revisions and dirty flags survive navigation.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export function toUiNodes(flow) {
   return flow.nodes.map(node => ({
@@ -53,22 +53,42 @@ export function useFlowSession(initialFlow) {
   const [selectedId, setSelectedId] = useState('inicio');
   const [flowRevision, setFlowRevision] = useState(null);
   const [flowDirty, setFlowDirty] = useState(false);
+  const documentEpoch = useRef(0);
+  const editEpoch = useRef(0);
+  const markEdited = useCallback(() => {
+    editEpoch.current += 1;
+    setFlowDirty(true);
+  }, []);
+  const captureSaveToken = useCallback(() => ({
+    document: documentEpoch.current,
+    edit: editEpoch.current
+  }), []);
+  const markSaved = useCallback((token, revision) => {
+    if (!token || !Number.isInteger(token.document) || !Number.isInteger(token.edit) ||
+        token.document !== documentEpoch.current) return false;
+    const unchanged = token.edit === editEpoch.current;
+    setFlowRevision(revision);
+    setFlowDirty(!unchanged);
+    return unchanged;
+  }, []);
 
   const graph = useMemo(() => toFlowDocument(nodes, edges), [nodes, edges]);
 
   const handleNodesChange = useCallback((changes, applyChanges) => {
     if (typeof applyChanges !== 'function') throw new TypeError('Atualizador de nós inválido.');
-    if (hasPersistentNodeChange(changes)) setFlowDirty(true);
+    if (hasPersistentNodeChange(changes)) markEdited();
     setNodes(previous => applyChanges(changes, previous));
-  }, []);
+  }, [markEdited]);
 
   const handleEdgesChange = useCallback((changes, applyChanges) => {
     if (typeof applyChanges !== 'function') throw new TypeError('Atualizador de conexões inválido.');
-    if (hasPersistentEdgeChange(changes)) setFlowDirty(true);
+    if (hasPersistentEdgeChange(changes)) markEdited();
     setEdges(previous => applyChanges(changes, previous));
-  }, []);
+  }, [markEdited]);
 
   const replaceDocument = useCallback((flow, revision, dirty = false) => {
+    documentEpoch.current += 1;
+    editEpoch.current = dirty ? 1 : 0;
     setNodes(toUiNodes(flow));
     setEdges(flow.edges);
     setSelectedId(flow.nodes[0]?.id || null);
@@ -82,6 +102,7 @@ export function useFlowSession(initialFlow) {
     flowRevision, setFlowRevision,
     flowDirty, setFlowDirty,
     handleNodesChange, handleEdgesChange,
+    markEdited, captureSaveToken, markSaved,
     replaceDocument
   };
 }
