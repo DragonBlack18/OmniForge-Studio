@@ -32,7 +32,7 @@ async function total(files) {
 }
 const initialJs = await total(js);
 const initialCss = await total(css);
-const MAX_INITIAL_JS = 1_900_000;
+const MAX_INITIAL_JS = 375_000; // v0.7.6: require ≥20% less than measured v0.7.5
 const MAX_INITIAL_CSS = 300_000;
 const chunks = Object.entries(manifest)
   .filter(([,row]) => row.file?.endsWith('.js'))
@@ -41,16 +41,22 @@ const deferredEditor = chunks.some(x => /src\/modules\/ide\/CodeEditor\.jsx/.tes
 const deferredCad = chunks.some(x => /src\/modules\/cad\/CadWorkbench\.jsx/.test(x.key) && !js.has(x.file));
 const deferredCanvas = chunks.some(x => /src\/modules\/automation\/FlowCanvas\.jsx/.test(x.key) && !js.has(x.file));
 const report = {
-  version: 1, staticEntrypoint: entry[0],
+  version: 2, staticEntrypoint: entry[0],
   initialJsBytes: initialJs, initialCssBytes: initialCss,
   initialJsChunks: [...js].sort(),
   lazy: { monaco: deferredEditor, cad:deferredCad, flow:deferredCanvas },
   budget: { initialJsBytes:MAX_INITIAL_JS, initialCssBytes:MAX_INITIAL_CSS },
-  baselineV060: { initialJsBytes:4251260, initialCssBytes:232630 }
+  baselineV060: { initialJsBytes:4251260, initialCssBytes:232630 },
+  baselineV075: { initialJsBytes:474362, initialCssBytes:45023 },
+  vsV075: {
+    initialJsSavedBytes:474362-initialJs,
+    initialJsSavedPercent:Number(((474362-initialJs)/474362*100).toFixed(2)),
+    note:'Static asset bytes, not measured RAM, CPU, FPS or cold-start duration'
+  }
 };
 console.log('OmniForge production bundle:\n' + JSON.stringify(report,null,2));
 if (initialJs > MAX_INITIAL_JS || initialCss > MAX_INITIAL_CSS ||
     !deferredEditor || !deferredCad || !deferredCanvas) {
   throw new Error('FAIL: startup bundle excessivo ou módulo pesado carregado sem demanda.');
 }
-console.log('PASS: limite de entrada estática e isolamento de Monaco/CAD/automações.');
+console.log('PASS: v0.7.6 orçamento inicial reduzido; motor React Flow, CAD e Monaco permanecem sob demanda.');
