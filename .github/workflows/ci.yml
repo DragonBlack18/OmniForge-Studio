@@ -55,6 +55,15 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Encrypted flow recovery and process restart
+        run: npm run smoke:flow-recovery
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Flow-Recovery-Preview
+          path: smoke-artifacts/flow-recovery-*.png
+          if-no-files-found: warn
       - name: Studio UX and CAD inspector regression
         run: npm run smoke:studio
         timeout-minutes: 5
