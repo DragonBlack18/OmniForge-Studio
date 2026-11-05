@@ -1,3 +1,12 @@
+## [0.8.0] — Native security and release foundation (candidate)
+
+- Central native IPC boundary, bounded payloads/concurrency and reserved cancellation capacity.
+- Strict production resource policy, deny permission checks/devices/downloads, guard close during writes and execution during native mutations.
+- Local private diagnostics with explicit new-file JSON export, no telemetry or extra navigation.
+- Committed tested dependency lock; npm ci; deterministic dependency/security contract.
+- Packaged Electron fuses verified from executable bytes; manifest, dependency inventory and source/lock/binary digests.
+- Experimental/unsigned status retained; all v0.7.9 regressions mandatory before merge.
+
 ## [0.7.9] — Autoria e recuperação unificadas
 
 - Um único store de sessão reúne undo/redo, duplicação, remoção com conexões, organização, seleção, nome e revisão do documento.

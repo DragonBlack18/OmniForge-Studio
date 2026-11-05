@@ -1,3 +1,4 @@
+import { waitForPageState } from './lib/wait-for-state.mjs';
 /** Combined PR36+PR37 acceptance: native Windows process, real history/recovery/data tools. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -17,7 +18,7 @@ let app,page,phase='boot';const errors=[];
 const watchdog=setTimeout(()=>{console.error('[UNIFIED FLOW] timeout',phase);process.exit(1);},180000);watchdog.unref();
 const count=n=>page.waitForFunction(expected=>document.querySelectorAll('.react-flow__node').length===expected,n);
 const draft=()=>page.evaluate(async()=>{const [p]=await window.omni.listProjects();return window.omni.readFlowDraft(p.path);});
-const absent=()=>page.waitForFunction(async()=>{const [p]=await window.omni.listProjects();return (await window.omni.readFlowDraft(p.path))===null;});
+const absent=()=>waitForPageState(page, async()=>{const [p]=await window.omni.listProjects();return (await window.omni.readFlowDraft(p.path))===null;});
 const checkpoint=()=>page.getByTestId('flow-draft-saved').waitFor();
 async function start(){
   app=await electron.launch({args:['.'],cwd:root,timeout:45000,env:{...process.env,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:profile,ELECTRON_RENDERER_URL:''}});

@@ -62,3 +62,7 @@ Não afirmar completude ou produção industrial antes dos gates específicos de
 - [ ] Sem vazamento de credenciais em logs.
 - [ ] Compatível com save/load e versão de schema.
 - [ ] Exemplo e evidências de CI.
+
+## Etapa efetiva v0.8.0 — Fundação de produção
+
+Prioridade de segurança/estabilidade antes da expansão: IPC, política nativa, proteção de gravações, diagnóstico privado, lockfile e distribuição verificável. Ver [PRODUCTION_FOUNDATION_V080.md](PRODUCTION_FOUNDATION_V080.md). Esta etapa não substitui os planos de adaptadores, layout, LSP/DAP, terminal ou CAD avançado.

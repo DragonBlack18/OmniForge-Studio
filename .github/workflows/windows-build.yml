@@ -27,10 +27,21 @@ jobs:
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path scripts/windows-distribution-smoke.ps1).Path, [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -ne 0) { throw ($errors | Out-String) }
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+      - name: Verify locked release contract
+        run: npm run verify:release
       - run: npm test
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Native security and private diagnostics acceptance
+        run: npm run smoke:native-security
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Native-Diagnostics-V080
+          path: smoke-artifacts/native-diagnostics-v080.png
+          if-no-files-found: warn
       - name: Unified authoring and recovery acceptance
         run: npm run smoke:flow-integration
         timeout-minutes: 5
@@ -104,6 +115,10 @@ jobs:
         run: npm run benchmark:startup
         timeout-minutes: 5
       - run: npm run dist:win
+      - name: Verify hardening in packaged executable
+        run: npm run verify:packaged-security
+      - name: Artifact and dependency provenance
+        run: npm run release:manifest
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh
         run: ./scripts/windows-distribution-smoke.ps1
@@ -125,6 +140,9 @@ jobs:
           path: |
             release/*.exe
             release/SHA256SUMS.txt
+            release/RELEASE-MANIFEST.json
+            release/DEPENDENCIES.json
+            release/PACKAGED-SECURITY.json
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v4

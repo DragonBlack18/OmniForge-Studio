@@ -8,8 +8,8 @@
 function installProjectTaskIpc({ register, dialog, core, getWorkspace,
   getUserData, getWindow, isHostBusy, onFinished }) {
   let runner = null;
-  let pending = false;
-  const isActive = () => pending || Boolean(runner?.isRunning);
+  let pending = false, settling = 0;
+  const isActive = () => pending || settling > 0 || Boolean(runner?.isRunning);
   const snapshot = () => runner?.snapshot() || null;
   function sendEvent(event) {
     const target = getWindow();
@@ -21,10 +21,11 @@ function installProjectTaskIpc({ register, dialog, core, getWorkspace,
     if (event.type !== 'finished') return sendEvent(event);
     // Persist ONLY final metadata before broadcasting completion or exiting.
     // A write failure never changes the real task result; the UI is informed.
-    void core.recordProjectTaskHistory(getUserData(), event.task)
+    settling++;
+    void Promise.resolve().then(() => core.recordProjectTaskHistory(getUserData(), event.task))
       .then(() => sendEvent({ ...event, historySaved:true }))
       .catch(() => sendEvent({ ...event, historySaved:false }))
-      .finally(() => onFinished?.(event.task));
+      .finally(() => { settling--; onFinished?.(event.task); });
   }
 
   register('listProjectTasks', async () => {
@@ -70,10 +71,10 @@ function installProjectTaskIpc({ register, dialog, core, getWorkspace,
         runner = new module.LocalProjectTaskRunner();
       }
       return runner.start({workspace,id,revision,onEvent:notify});
-    } finally { pending = false; }
+    } finally { pending = false; onFinished?.(); }
   });
   return {
-    isActive, snapshot,
+    isActive, snapshot, isPending: () => pending,
     cancel:() => Boolean(runner?.cancel('cancelled'))
   };
 }

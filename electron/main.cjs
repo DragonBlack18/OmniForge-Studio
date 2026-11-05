@@ -3,31 +3,43 @@ const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, session, powe
 const path = require('node:path');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
+const security = require('./security/boundary.cjs');
+const { createCloseController } = require('./security/close-controller.cjs');
+const { PRODUCTION_CSP, resolveResource } = require('./security/protocol.cjs');
+const { createDiagnostics, exportDiagnostics } = require('./modules/runtime-diagnostics.cjs');
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'omni', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
 }]);
 
 let mainWindow;
+let closeController = null;
 let workspaceRoot = null;
 let executionInProgress = false;
 let activeRunController = null;
-let exitAfterRun = false;
 let saveInProgress = false;
 let workspaceSearchInProgress = false;
 let registryMutationInProgress = false;
 let cadMutationInProgress = false;
 let activeProjectId = null;
 let hasUnsavedChanges = false;
-let exitPromptOpen = false;
-let userApprovedExit = false;
 let scheduleService = null;
 let scheduleReady = false;
 let schedulePromptOpen = false;
 let projectTaskController = null;
-let exitAfterTask = false;
+let diagnosticExportInProgress = false;
 const projectRoot = path.resolve(__dirname, '..');
-const isDevelopment = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
+const devUrl = security.developmentUrl(app.isPackaged, process.env.ELECTRON_RENDERER_URL);
+const isDevelopment = Boolean(devUrl);
+const diagnostics = createDiagnostics({ version: app.getVersion(), versions: process.versions, packaged: app.isPackaged });
+const nativeBoundary = security.createBoundary({ getWindow: () => mainWindow, devUrl, record: diagnostics.record, isClosing: () => closeController?.isBusy() === true });
+const operationState = () => ({ save: saveInProgress, cad: cadMutationInProgress, registry: registryMutationInProgress,
+  execution: executionInProgress, task: Boolean(projectTaskController?.isActive()), schedulePrompt: schedulePromptOpen, taskPrompt: projectTaskController?.isPending() === true,
+  closing: closeController?.isBusy() === true, diagnosticExport: diagnosticExportInProgress, unsaved: hasUnsavedChanges });
+function diagnosticSnapshot() {
+  return diagnostics.snapshot({ preferences: mainWindow?.webContents.getLastWebPreferences(), operations: operationState(),
+    recoveryAvailable: process.platform === 'win32' && safeStorage.isEncryptionAvailable() });
+}
 
 // Isolated userData is allowed ONLY for local E2E smoke processes.
 // Do not trust arbitrary profile paths from the renderer and never enable
@@ -50,22 +62,8 @@ if (!app.isPackaged && process.env.OMNIFORGE_E2E === '1' &&
 }
 
 
-function assertTrustedSender(event) {
-  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
-    throw new Error('Origem de IPC não autorizada.');
-  }
-  const url = event.senderFrame.url;
-  const approved = isDevelopment
-    ? url.startsWith('http://127.0.0.1:5173/')
-    : url.startsWith('omni://app/');
-  if (!approved) throw new Error('Renderer não autorizado.');
-}
-
 function register(name, action) {
-  ipcMain.handle(`omni:${name}`, (event, ...args) => {
-    assertTrustedSender(event);
-    return action(...args);
-  });
+  ipcMain.handle(`omni:${name}`, (event, ...args) => nativeBoundary(name, action, event, args));
 }
 
 function requireWorkspace() {
@@ -82,16 +80,21 @@ async function initializeIpc() {
     getUserData:() => app.getPath('userData'),
     getWindow:() => mainWindow,
     isHostBusy:() => Boolean(executionInProgress || saveInProgress ||
-      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen),
-    onFinished:() => {
-      if (exitAfterTask) {
-        exitAfterTask = false;
-        userApprovedExit = true;
-        setImmediate(() => app.quit());
-      }
-    }
+      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen || closeController?.isBusy()),
+    onFinished:() => closeController?.workFinished()
   });
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
+  register('runtimeDiagnostics', () => diagnosticSnapshot());
+  register('exportRuntimeDiagnostics', async () => {
+    if (diagnosticExportInProgress) throw Error('Uma exportação de diagnóstico já está aberta.');
+    diagnosticExportInProgress = true;
+    try {
+    const chosen = await dialog.showSaveDialog(mainWindow, { title: 'Exportar diagnóstico local',
+      defaultPath: 'OmniForge-diagnostico.json', filters: [{ name: 'JSON', extensions: ['json'] }] });
+    if (chosen.canceled || !chosen.filePath) return { saved: false };
+    return await exportDiagnostics(chosen.filePath, diagnosticSnapshot());
+    } finally { diagnosticExportInProgress = false; }
+  });
   register('setUnsavedChanges', dirty => {
     if (typeof dirty !== 'boolean') throw new Error('Estado de edição inválido.');
     hasUnsavedChanges = dirty;
@@ -104,7 +107,7 @@ async function initializeIpc() {
   register('catalog', () => core.NODE_CATALOG);
   register('loadCadSketch', () => core.loadCadDocument(requireWorkspace()));
   register('saveCadSketch', async (sketch, revision) => {
-    if (cadMutationInProgress || executionInProgress || registryMutationInProgress) throw new Error('Operação simultânea não permitida.');
+    security.assertCanExecute(operationState());
     cadMutationInProgress = true;
     try { return await core.saveCadDocument(requireWorkspace(), sketch, revision); }
     finally { cadMutationInProgress = false; }
@@ -143,7 +146,7 @@ async function initializeIpc() {
     }
   });
   register('exportCadSketch', async (format, sketch) => {
-    if (cadMutationInProgress || executionInProgress) throw new Error('Conclua a operação atual antes de exportar.');
+    security.assertCanExecute(operationState());
     cadMutationInProgress = true;
     try { return await core.exportCadSketch(requireWorkspace(), format, sketch); }
     finally { cadMutationInProgress = false; }
@@ -243,7 +246,7 @@ async function initializeIpc() {
     userData:catalogDataRoot,
     acquireSlot:()=>{
       if(executionInProgress||saveInProgress||cadMutationInProgress||
-         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive())return null;
+         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive()||closeController?.isBusy())return null;
       executionInProgress=true;
       activeRunController=new AbortController();
       return activeRunController;
@@ -251,10 +254,7 @@ async function initializeIpc() {
     releaseSlot:controller=>{
       if(activeRunController!==controller)return;
       executionInProgress=false;activeRunController=null;
-      if(exitAfterRun){
-        exitAfterRun=false;userApprovedExit=true;
-        setImmediate(()=>app.quit());
-      }
+      closeController?.workFinished();
     },
     onChange:event=>{
       if(mainWindow && !mainWindow.isDestroyed())
@@ -484,8 +484,8 @@ async function initializeIpc() {
   });
   register('saveFlow', async (flow, expectedRevision) => {
     if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive()) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
-    saveInProgress = true;
     const root = requireWorkspace();
+    saveInProgress = true;
     try { return await core.saveFlow(root, flow, expectedRevision); }
     finally { saveInProgress = false; }
   });
@@ -500,7 +500,7 @@ async function initializeIpc() {
   });
   register('executeFlow', async (flow, dryRun) => {
     if (typeof dryRun !== 'boolean') throw new Error('Modo de execução inválido.');
-    if (executionInProgress || projectTaskController?.isActive()) throw new Error('Conclua a tarefa atual antes de executar um fluxo.');
+    security.assertCanExecute(operationState());
     executionInProgress = true;
     activeRunController = new AbortController();
     try {
@@ -537,11 +537,7 @@ async function initializeIpc() {
     finally {
       executionInProgress = false;
       activeRunController = null;
-      if (exitAfterRun) {
-        exitAfterRun = false;
-        userApprovedExit = true;
-        setImmediate(() => app.quit());
-      }
+      closeController?.workFinished();
     }
   });
   register('openDeveloper', () => shell.openExternal('https://github.com/DragonBlack18'));
@@ -549,18 +545,16 @@ async function initializeIpc() {
 
 function configureProtocol() {
   const distDir = path.join(projectRoot, 'dist');
-  protocol.handle('omni', request => {
+  protocol.handle('omni', async request => {
     try {
-      const url = new URL(request.url);
-      if (url.hostname !== 'app') return new Response('Not Found', { status: 404 });
-      const raw = decodeURIComponent(url.pathname);
-      const relative = raw === '/' ? 'index.html' : raw.replace(/^\/+/, '');
-      const absolute = path.resolve(distDir, relative);
-      if (!absolute.startsWith(distDir + path.sep)) return new Response('Forbidden', { status: 403 });
-      return net.fetch(pathToFileURL(absolute).href);
-    } catch {
-      return new Response('Bad Request', { status: 400 });
-    }
+      const resource = resolveResource(request, distDir);
+      const response = await net.fetch(pathToFileURL(resource.absolute).href);
+      const headers = new Headers(response.headers);
+      headers.set('X-Content-Type-Options', 'nosniff');
+      headers.set('Referrer-Policy', 'no-referrer');
+      if (resource.document) headers.set('Content-Security-Policy', PRODUCTION_CSP);
+      return new Response(resource.head ? null : response.body, { status: response.status, headers });
+    } catch { return new Response('Resource unavailable', { status: 403 }); }
   });
 }
 
@@ -577,48 +571,32 @@ async function createWindow() {
       webSecurity: true
     }
   });
-  // Electron does not display the browser's beforeunload confirmation. Preventing
-  // beforeunload in the renderer can trap both Setup and Portable indefinitely.
-  // Handle close natively, once, including the system X button and Alt+F4.
-  mainWindow.on('close', event => {
-    if (userApprovedExit || mainWindow.isDestroyed()) return;
-    if (!(hasUnsavedChanges || executionInProgress || saveInProgress || cadMutationInProgress || projectTaskController?.isActive())) return;
-    event.preventDefault();
-    if (exitPromptOpen) return;
-    exitPromptOpen = true;
-    const isExecuting = executionInProgress || saveInProgress || cadMutationInProgress || projectTaskController?.isActive();
-    dialog.showMessageBox(mainWindow, {
-      type: 'warning',
-      title: 'Fechar OmniForge Studio',
-      message: isExecuting ? 'Há uma operação em andamento.' : 'Existem alterações não salvas.',
-      detail: 'Se sair agora, as alterações não salvas serão descartadas. Os dados já gravados continuarão no projeto.',
-      buttons: ['Continuar no programa', 'Sair sem salvar'],
-      defaultId: 0, cancelId: 0, noLink: true
-    }).then(answer => {
-      if (answer.response !== 1 || !mainWindow || mainWindow.isDestroyed()) return;
-      if (executionInProgress && activeRunController) {
-        // Workflow cancellation is recorded before closing.
-        exitAfterRun = true;
-        activeRunController.abort();
-      } else if (projectTaskController?.isActive()) {
-        exitAfterTask = true;
-        if (!projectTaskController.cancel()) {
-          exitAfterTask = false;
-          userApprovedExit = true;
-          app.quit();
-        }
-      } else {
-        userApprovedExit = true;
-        app.quit();
-      }
-    }).catch(() => {}).finally(() => { exitPromptOpen = false; });
+  const ownedWindow = mainWindow;
+  closeController?.dispose();
+  const ownedClose = createCloseController({
+    getState: operationState, isAlive: () => !ownedWindow.isDestroyed(),
+    prompt: options => dialog.showMessageBox(ownedWindow, options),
+    quit: () => app.quit(), cancelFlow: () => activeRunController?.abort(),
+    cancelTask: () => projectTaskController?.cancel(), record: diagnostics.record
   });
-  mainWindow.on('closed', () => { scheduleService?.stop(); projectTaskController?.cancel(); mainWindow = null; hasUnsavedChanges = false; });
+  closeController = ownedClose;
+  ownedWindow.on('close', ownedClose.handleClose);
+  ownedWindow.on('closed', () => {
+    ownedClose.dispose();
+    scheduleService?.stop(); projectTaskController?.cancel();
+    if (mainWindow === ownedWindow) { mainWindow = null; closeController = null; hasUnsavedChanges = false; }
+  });
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
-  mainWindow.webContents.on('will-navigate', event => event.preventDefault());
-  if (isDevelopment) await mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+  const denyNavigation = event => { event.preventDefault(); diagnostics.record('navigation-denied'); };
+  mainWindow.webContents.on('will-navigate', denyNavigation);
+  mainWindow.webContents.on('will-redirect', denyNavigation);
+  mainWindow.webContents.on('will-frame-navigate', denyNavigation);
+  mainWindow.webContents.on('render-process-gone', () => { diagnostics.record('renderer-gone'); activeRunController?.abort(); projectTaskController?.cancel(); scheduleService?.stop(); scheduleReady = false; });
+  mainWindow.on('unresponsive', () => diagnostics.record('renderer-unresponsive'));
+  mainWindow.on('responsive', () => diagnostics.record('renderer-responsive'));
+  if (isDevelopment) await mainWindow.loadURL(devUrl);
   else await mainWindow.loadURL('omni://app/');
 }
 
@@ -632,7 +610,7 @@ app.on('second-instance', () => {
   }
 });
 app.whenReady().then(async () => {
-  session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+  security.installSessionPolicy(session.defaultSession, diagnostics.record);
   configureProtocol();
   await initializeIpc();
   await createWindow();
@@ -648,7 +626,6 @@ app.whenReady().then(async () => {
   dialog.showErrorBox('Erro ao iniciar OmniForge', String(error.message));
   app.quit();
 });
-app.on('before-quit', () => { projectTaskController?.cancel(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().then(()=>{ if(scheduleReady) scheduleService?.start(); }); });
 }

@@ -1,3 +1,4 @@
+import { waitForPageState } from './lib/wait-for-state.mjs';
 /** Real Windows Electron: OS-encrypted draft, complete process restart, restore,
  * explicit save, conflict, consent, filesystem integrity and no auto execution. */
 import assert from 'node:assert/strict';
@@ -94,7 +95,7 @@ try {
   phase='explicit save persists restored flow then clears only its checkpoint';
   await page.getByRole('button',{name:'Salvar fluxo',exact:true}).click();
   await page.getByText('Fluxo gravado em',{exact:false}).waitFor();
-  await page.waitForFunction(async()=>{const p=await window.omni.listProjects();return (await window.omni.readFlowDraft(p[0].path))===null;});
+  await waitForPageState(page, async()=>{const p=await window.omni.listProjects();return (await window.omni.readFlowDraft(p[0].path))===null;});
   const stored=JSON.parse(await fs.readFile(FLOW,'utf8'));assert.equal(stored.nodes.length,4);
 
   phase='save before debounce cannot leave a stale checkpoint';

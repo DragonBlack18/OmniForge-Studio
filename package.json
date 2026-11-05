@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.7.9",
+  "version": "0.8.0",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
@@ -35,7 +35,11 @@
     "smoke:cad-toolkit": "node scripts/smoke-cad-toolkit.mjs",
     "smoke:flow-authoring": "node scripts/smoke-flow-authoring.mjs",
     "smoke:flow-recovery": "node scripts/smoke-flow-recovery.mjs",
-    "smoke:flow-integration": "node scripts/smoke-flow-integration.mjs"
+    "smoke:flow-integration": "node scripts/smoke-flow-integration.mjs",
+    "smoke:native-security": "node scripts/smoke-native-security.mjs",
+    "verify:release": "node scripts/verify-release-contract.mjs",
+    "verify:packaged-security": "node scripts/verify-packaged-security.mjs",
+    "release:manifest": "node scripts/release-manifest.mjs"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",
@@ -89,6 +93,14 @@
     },
     "portable": {
       "artifactName": "OmniForge-Studio-Portable-${version}-${arch}.${ext}"
+    },
+    "electronFuses": {
+      "runAsNode": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true,
+      "grantFileProtocolExtraPrivileges": false
     }
   }
 }

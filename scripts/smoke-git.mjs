@@ -1,3 +1,4 @@
+import { waitForPageState } from './lib/wait-for-state.mjs';
 /** Windows E2E: real git.exe, renderer, controlled staging and native commit. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -73,7 +74,7 @@ try {
   phase = 'real stage and unstage';
   await page.getByRole('checkbox', { name: 'Selecionar nova.txt' }).check();
   await page.getByTestId('git-stage').click();
-  await page.waitForFunction(async () =>
+  await waitForPageState(page, async () =>
     (await window.omni.gitStatus()).files.some(file => file.path === 'nova.txt' && file.staged));
   // A completed Git index write can be observed before React has committed
   // the refreshed list and reset its previous selection. Wait for the real UI.
@@ -86,7 +87,7 @@ try {
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="git-unstage"]')?.textContent?.includes('Despreparar (1)'));
   await page.getByTestId('git-unstage').click();
-  await page.waitForFunction(async () =>
+  await waitForPageState(page, async () =>
     (await window.omni.gitStatus()).files.some(file => file.path === 'nova.txt' && file.untracked));
   await page.waitForFunction(() => {
     const box = document.querySelector('input[aria-label="Selecionar nova.txt"]');
@@ -97,7 +98,7 @@ try {
   phase = 'explicit native Git commit';
   await page.getByRole('checkbox', { name: 'Selecionar nova.txt' }).check();
   await page.getByTestId('git-stage').click();
-  await page.waitForFunction(async () =>
+  await waitForPageState(page, async () =>
     (await window.omni.gitStatus()).files.some(file => file.path === 'nova.txt' && file.staged));
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="git-commit"]')?.textContent?.includes('Confirmar commit (1)'));
@@ -120,7 +121,7 @@ try {
     };
   });
   await page.getByTestId('git-commit').click();
-  await page.waitForFunction(async () =>
+  await waitForPageState(page, async () =>
     (await window.omni.gitStatus()).commits[0]?.subject === 'feat: commit Git de verdade');
   // Compare independent processes against the exact same isolated Git
   // environment; account for brief Windows file/lock propagation delays.

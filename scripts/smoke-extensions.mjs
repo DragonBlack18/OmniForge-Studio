@@ -1,3 +1,4 @@
+import { waitForPageState, waitForState } from './lib/wait-for-state.mjs';
 /** Windows E2E: real Electron renderer, native package actions and actual worker writes. */
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
@@ -67,7 +68,7 @@ try {
   await page.getByRole('checkbox',{name:/Transformar dados nos fluxos/}).click();
   // A controlled checkbox is updated only AFTER native user consent and a
   // persisted grant. .check() incorrectly requires synchronous state changes.
-  await page.waitForFunction(async()=>{
+  await waitForPageState(page, async()=>{
     const entries=await window.omni.listExtensions();
     return entries[0]?.granted.includes('workflow.transform')===true;
   });
@@ -79,8 +80,22 @@ try {
   const writeFlow=entry();
   const blocked=await page.evaluate(flow=>window.omni.validateFlow(flow),writeFlow);
   assert.equal(blocked.valid,false);
+  await client.evaluate(({dialog}) => {
+    globalThis.__grantConsent = null;
+    dialog.showMessageBox = (_window, options) => {
+      if (options.title !== 'Autorizar capacidade local') throw Error('Consentimento inesperado.');
+      return new Promise(resolve => { globalThis.__grantConsent = resolve; });
+    };
+  });
   await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).click();
-  await page.waitForFunction(async()=>{
+  await waitForState(() => client.evaluate(() => typeof globalThis.__grantConsent === 'function'));
+  const stillDenied = await page.evaluate(flow => window.omni.validateFlow(flow), writeFlow);
+  assert.equal(stillDenied.valid, false, 'Sem consentimento concluído, escrita continua proibida.');
+  await client.evaluate(({dialog}) => {
+    globalThis.__grantConsent({response:1}); delete globalThis.__grantConsent;
+    dialog.showMessageBox = async () => ({response:1});
+  });
+  await waitForPageState(page, async()=>{
     const entries=await window.omni.listExtensions();
     return entries[0]?.granted.includes('workspace.output.write')===true;
   });
@@ -114,7 +129,7 @@ try {
   // management panel again before exercising revocation controls.
   await page.getByRole('button',{name:'Detalhes de Engenharia de dados'}).click();
   await page.getByRole('checkbox',{name:/Gravar JSON na saída do projeto/}).click();
-  await page.waitForFunction(async()=>{
+  await waitForPageState(page, async()=>{
     const entries=await window.omni.listExtensions();
     return entries[0]?.granted.includes('workspace.output.write')===false;
   });

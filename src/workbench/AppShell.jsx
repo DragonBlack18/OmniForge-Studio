@@ -19,6 +19,7 @@ const ProjectTasks = React.lazy(() => import('../modules/ide/ProjectTasks.jsx'))
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
 import NavigationSidebar from './NavigationSidebar.jsx';
 const CommandPalette = React.lazy(() => import('./CommandPalette.jsx'));
+const RuntimeDiagnostics = React.lazy(() => import('./diagnostics/RuntimeDiagnostics.jsx'));
 import { buildWorkbenchCommands } from './command-registry.mjs';
 import ModuleErrorBoundary from './ModuleErrorBoundary.jsx';
 import { NavGlyph } from '../shared/NavGlyph.jsx';
@@ -48,6 +49,7 @@ export default function AppShell() {
   useEffect(() => { if(mode==='cad') setCadEverOpened(true); }, [mode]);
   const [navigationCollapsed, setNavigationCollapsed] = useState(()=>readUiPreference('of.navCollapsed',false));
   const [paletteScope,setPaletteScope] = useState(null);
+  const [diagnosticsOpen,setDiagnosticsOpen] = useState(false);
   const [utilityOpen, setUtilityOpen] = useState(()=>readUiPreference('of.utilityOpen',true));
   const [inspectorOpen, setInspectorOpen] = useState(()=>readUiPreference('of.inspectorOpen',true));
   const [fileQuery, setFileQuery] = useState('');
@@ -503,7 +505,8 @@ export default function AppShell() {
     if (command.kind === 'navigate') navigate(command.mode);
     else if (command.kind === 'file' && workspace) openFile(command.path);
     else if (command.kind === 'action') {
-      if (command.action === 'open-project') openWorkspace();
+      if (command.action === 'runtime-diagnostics') setDiagnosticsOpen(true);
+      else if (command.action === 'open-project') openWorkspace();
       else if (command.action === 'toggle-nav') setNavigationCollapsed(value=>!value);
       else if (command.action === 'toggle-context' && (mode==='code'||mode==='canvas'))
         setUtilityOpen(value=>!value);
@@ -892,7 +895,8 @@ export default function AppShell() {
         scope={paletteScope} commands={workbenchCommands} mode={mode}
         hasWorkspace={Boolean(workspace)} onClose={()=>setPaletteScope(null)}
         onExecute={executePaletteCommand}/></React.Suspense>}
-      <footer className="statusbar"><span className="statusbar-left"><span className={`indicator-dot ${lastRun&&!lastRun.ok?'indicator-dot--error':''}`}/> {status}</span><span>OmniForge {info.version} <span className="statusbar-separator">·</span> Local</span></footer>
+      {diagnosticsOpen && <React.Suspense fallback={null}><RuntimeDiagnostics onClose={()=>setDiagnosticsOpen(false)}/></React.Suspense>}
+      <footer className="statusbar"><span className="statusbar-left"><span className={`indicator-dot ${lastRun&&!lastRun.ok?'indicator-dot--error':''}`}/> {status}</span><button type="button" className="runtime-diagnostics-trigger" aria-label="Abrir diagnóstico local" title="Versões e diagnóstico local" onClick={()=>setDiagnosticsOpen(true)}>OmniForge {info.version} <span className="statusbar-separator">·</span> Local</button></footer>
     </div>
   );
 }
