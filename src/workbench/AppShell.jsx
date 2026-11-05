@@ -533,10 +533,8 @@ export default function AppShell() {
           data-testid="command-palette-open" onClick={()=>setPaletteScope('all')}>
           <NavGlyph name="terminal" size={15}/><span>Comandos</span><kbd>Ctrl⇧P</kbd>
         </button>
-        <span className="environment" title="O OmniForge opera localmente"><span className="environment__dot"/> {info.mode} · LOCAL</span>
-        <button type="button" className="button button--outline topbar-exit" title="Fechar OmniForge" aria-label="Sair" onClick={()=>window.omni?.requestExit()}><NavGlyph name="close" size={14}/><span>Sair</span></button>
         <button disabled={busy} type="button" onClick={openWorkspace} className="button button--outline topbar-open"><NavGlyph name="folder" size={16}/> Abrir projeto</button>
-        {(mode==='canvas'||flowDirty) && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
+        {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
       </header>
 
       <div className="workspace-layout">
@@ -843,7 +841,7 @@ export default function AppShell() {
         </main>
 
         {mode==='canvas' && inspectorOpen && <aside className="inspector" aria-label="Inspetor de automações">
-          <div className="inspector-heading">INSPECTOR <span>{mode === 'canvas' ? 'NÓ' : 'PROJETO'}</span></div>
+          <div className="inspector-heading">PROPRIEDADES <span>{mode === 'canvas' ? 'NÓ' : 'PROJETO'}</span></div>
           {mode === 'canvas' && selected ? (
             <div className="inspector-section">
               <span className="eyebrow">CONFIGURAÇÃO DO BLOCO</span>

@@ -30,15 +30,17 @@ try {
 
   phase='desktop start surface and domain navigation';
   await page.getByTestId('workspace-overview').waitFor();
-  await page.getByTestId('activity-rail').waitFor();
+  await page.getByTestId('primary-sidebar').waitFor();
+  assert.equal(await page.getByTestId('activity-rail').count(),0);
   assert.equal(await page.locator('.overview-metrics').count(),0,'A Home não é um dashboard.');
   await page.getByRole('button',{name:'Abrir projeto'}).click();
   await page.getByText('Projeto aberto:',{exact:false}).waitFor();
-  await page.getByTestId('activity-development').click();
-  assert.equal(await page.getByTestId('activity-development').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.getByRole('navigation',{name:'Navegação principal'}).count(),1);
+  await page.getByRole('button',{name:'Recolher grupo DESENVOLVIMENTO'}).click();
+  assert.equal(await page.getByRole('button',{name:'Controle de versão Git'}).count(),0);
+  await page.getByRole('button',{name:'Expandir grupo DESENVOLVIMENTO'}).click();
   assert.equal(await page.getByRole('button',{name:'Controle de versão Git'}).count(),1);
-  assert.equal(await page.getByRole('button',{name:'CAD Sketch 2D'}).count(),0,
-    'A barra de atividade deve filtrar a árvore, não ocultar o módulo do sistema.');
+  assert.equal(await page.getByRole('button',{name:'CAD Sketch 2D'}).count(),1);
 
   phase='command palette navigates to CAD without executing external code';
   await page.keyboard.press('Control+Shift+P');
@@ -62,7 +64,8 @@ try {
   await page.keyboard.press('Control+b');
   assert.match(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
   await page.reload();
-  await page.getByTestId('activity-rail').waitFor();
+  await page.getByTestId('primary-sidebar').waitFor();
+  assert.equal(await page.getByTestId('activity-rail').count(),0);
   assert.match(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
   await page.keyboard.press('F1');
   await page.getByRole('dialog',{name:'Paleta de comandos'}).waitFor();

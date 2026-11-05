@@ -27,8 +27,8 @@ function clone(value) { return structuredClone(value); }
 
 export function initialCadSketch() {
   return { schemaVersion: 1, name: 'Desenho técnico', units: 'mm', layers: [
-    { id: 'principal', name: 'Principal', color: '#6CBCEC', visible: true, locked: false },
-    { id: 'construcao', name: 'Construção', color: '#9AA7B8', visible: true, locked: false }
+    { id: 'principal', name: 'Principal', color: '#C8515E', visible: true, locked: false },
+    { id: 'construcao', name: 'Construção', color: '#989398', visible: true, locked: false }
   ], entities: [] };
 }
 
@@ -50,6 +50,10 @@ export function validateCadSketch(raw) {
     if (!entity || !ID.test(entity.id) || entities.has(entity.id) || !KINDS.has(entity.type) || !layers.has(entity.layerId)) {
       throw new Error('Entidade CAD inválida, duplicada ou sem camada.');
     }
+    if (entity.name !== undefined && (typeof entity.name !== 'string' || !entity.name.trim() ||
+        entity.name.length>80 || /[\u0000-\u001f\u007f]/.test(entity.name))) throw new Error('Nome do objeto CAD inválido.');
+    for (const key of ['visible','locked']) if (entity[key] !== undefined && typeof entity[key] !== 'boolean')
+      throw new Error('Estado do objeto CAD inválido.');
     entities.add(entity.id);
     if (entity.type === 'circle') {
       point(entity.center, 'Centro');
@@ -73,7 +77,7 @@ export function makeCadEntity(type, first, second, layerId = 'principal', id = c
     entity = { id, type, layerId, center:a, radius };
   } else entity = { id, type, layerId, a, b };
   // validate through a complete trusted document, not a second schema.
-  validateCadSketch({ ...initialCadSketch(), layers:[{id:layerId,name:layerId,color:'#6CBCEC',visible:true,locked:false}], entities:[entity] });
+  validateCadSketch({ ...initialCadSketch(), layers:[{id:layerId,name:layerId,color:'#C8515E',visible:true,locked:false}], entities:[entity] });
   return entity;
 }
 
@@ -91,7 +95,7 @@ export function deleteCadEntity(sketch, id) {
   validateCadSketch(sketch);
   const entity = sketch.entities.find(e => e.id === id);
   if (!entity) return clone(sketch);
-  if (sketch.layers.find(l=>l.id === entity.layerId)?.locked) throw new Error('Camada bloqueada para edição.');
+  if (entity.locked || sketch.layers.find(l=>l.id === entity.layerId)?.locked) throw new Error('Camada bloqueada para edição.');
   return { ...clone(sketch), entities:sketch.entities.filter(e => e.id !== id).map(clone) };
 }
 
@@ -104,7 +108,7 @@ export function replaceCadEntity(sketch, replacement) {
   const previous=sketch.entities[index];
   if(previous.type!==replacement.type || previous.layerId!==replacement.layerId)
     throw new Error('A edição numérica não altera tipo nem camada.');
-  if(sketch.layers.find(l=>l.id===previous.layerId)?.locked)
+  if(previous.locked || sketch.layers.find(l=>l.id===previous.layerId)?.locked)
     throw new Error('Camada bloqueada para edição.');
   const next=clone(sketch);
   next.entities[index]=clone(replacement);
@@ -113,7 +117,7 @@ export function replaceCadEntity(sketch, replacement) {
 }
 
 /** Simple native layer management; no entities can become dangling. */
-export function addCadLayer(sketch, { id, name, color = '#6CBCEC' }) {
+export function addCadLayer(sketch, { id, name, color = '#C8515E' }) {
   validateCadSketch(sketch);
   if(sketch.layers.length>=MAX_LAYERS)throw new Error('Limite de 32 camadas atingido.');
   const next=clone(sketch);
@@ -137,7 +141,7 @@ export function cadBounds(sketch, { visibleOnly=true } = {}) {
   validateCadSketch(sketch);
   const pts=[];
   for(const e of sketch.entities) {
-    if(visibleOnly && !sketch.layers.find(l=>l.id===e.layerId)?.visible)continue;
+    if(visibleOnly && (e.visible===false || !sketch.layers.find(l=>l.id===e.layerId)?.visible))continue;
     if(e.type==='circle')pts.push(
       {x:e.center.x-e.radius,y:e.center.y-e.radius},
       {x:e.center.x+e.radius,y:e.center.y+e.radius}
@@ -160,7 +164,7 @@ export function cadEntityMetrics(entity) {
 
 export function cadStats(sketch) {
   validateCadSketch(sketch);
-  const visible = sketch.entities.filter(e => sketch.layers.find(l=>l.id===e.layerId)?.visible);
+  const visible = sketch.entities.filter(e => e.visible!==false && sketch.layers.find(l=>l.id===e.layerId)?.visible);
   const totalLength = visible.reduce((sum,e) => sum+cadEntityMetrics(e).length,0);
   return { count:sketch.entities.length, visible:visible.length, layers:sketch.layers.length, totalLength:round(totalLength) };
 }
@@ -174,7 +178,7 @@ export function snapCadPoint(raw, sketch, scale = 1, grid = 5) {
   const candidates=[];
   for (const e of sketch.entities) {
     const layer=sketch.layers.find(l=>l.id===e.layerId);
-    if (!layer?.visible) continue;
+    if (e.visible===false || !layer?.visible) continue;
     if (e.type === 'circle') candidates.push(e.center);
     else {
       candidates.push(e.a,e.b);
@@ -195,7 +199,7 @@ export function cadSvg(sketch, { padding = 20 } = {}) {
   if(!Number.isFinite(padding) || padding < 0 || padding > 1000) throw new Error('Margem inválida.');
   const points=[];
   for(const e of sketch.entities){
-    if(!sketch.layers.find(l=>l.id===e.layerId)?.visible)continue;
+    if(e.visible===false || !sketch.layers.find(l=>l.id===e.layerId)?.visible)continue;
     if(e.type==='circle')points.push({x:e.center.x-e.radius,y:e.center.y-e.radius},{x:e.center.x+e.radius,y:e.center.y+e.radius});
     else points.push(e.a,e.b);
   }
@@ -205,7 +209,7 @@ export function cadSvg(sketch, { padding = 20 } = {}) {
   const output=[];
   for(const e of sketch.entities){
     const layer=sketch.layers.find(l=>l.id===e.layerId);
-    if(!layer?.visible)continue;
+    if(e.visible===false || !layer?.visible)continue;
     const color=layer.color;
     if(e.type==='line')output.push(`<line x1="${fmt(e.a.x)}" y1="${fmt(e.a.y)}" x2="${fmt(e.b.x)}" y2="${fmt(e.b.y)}" stroke="${color}"/>`);
     if(e.type==='rectangle')output.push(`<rect x="${fmt(Math.min(e.a.x,e.b.x))}" y="${fmt(Math.min(e.a.y,e.b.y))}" width="${fmt(Math.abs(e.a.x-e.b.x))}" height="${fmt(Math.abs(e.a.y-e.b.y))}" fill="none" stroke="${color}"/>`);
@@ -227,6 +231,7 @@ export function cadDxf(sketch) {
   emit(0,'ENDTAB',0,'ENDSEC',0,'SECTION',2,'ENTITIES');
   const line=(a,b,layerId)=>emit(0,'LINE',8,layerId,10,fmt(a.x),20,fmt(a.y),30,0,11,fmt(b.x),21,fmt(b.y),31,0);
   for(const e of sketch.entities){
+    if(e.visible===false)continue;
     if(e.type==='line')line(e.a,e.b,e.layerId);
     if(e.type==='circle')emit(0,'CIRCLE',8,e.layerId,10,fmt(e.center.x),20,fmt(e.center.y),30,0,40,fmt(e.radius));
     if(e.type==='rectangle'){

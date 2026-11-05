@@ -564,7 +564,7 @@ function configureProtocol() {
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1500, height: 920, minWidth: 1040, minHeight: 680,
-    backgroundColor: '#0c111a', show: false,
+    backgroundColor: '#101012', show: false,
     title: 'OmniForge Studio',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

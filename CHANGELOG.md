@@ -1,3 +1,12 @@
+## [0.7.7] — Studio UX e propriedades CAD (candidata)
+
+- Remove o trilho global de navegação duplicado; preserva destinos e atalhos em um único menu.
+- Tema grafite/preto com vermelho discreto, cabeçalhos compactos e remoção de cartões/comandos redundantes.
+- CAD: árvore pesquisável de objetos/camadas; nomes, transferência de camada, visibilidade, bloqueio e largura persistente do inspetor.
+- Edição por coordenadas ou dimensões, translação/escala, duplicação, medições e undo/redo reais; schema v1 recebe campos opcionais compatíveis.
+- Cursor coalescido por frame; objetos ocultos não entram em SVG/DXF/snap; propriedades passam pelo core e pelo salvamento com revisão.
+- Regressão Node e Electron, capturas reais em duas larguras, gates existentes e validação de Setup/Portable mantidos.
+
 ## [0.7.6] — Lazy React Flow + benchmarks reais (candidata)
 
 - Elimina a importação estática de `@xyflow/react` no shell; nó, aresta, edição e revisão migram para hook React leve independente.
