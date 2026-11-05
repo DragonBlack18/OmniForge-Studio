@@ -52,9 +52,9 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
       fitView fitViewOptions={FIT_VIEW_OPTIONS}
       proOptions={PRO_OPTIONS}
       colorMode="dark" nodesConnectable elementsSelectable>
-      <Background color="#253347" gap={24} size={1}/>
+      <Background color="#2b292e" gap={24} size={1}/>
       <Controls position="bottom-left" showInteractive={false}/>
-      <MiniMap pannable zoomable nodeColor="#327db1" maskColor="rgba(7,14,24,0.72)" position="bottom-right"/>
+      <MiniMap pannable zoomable nodeColor="#8f4753" maskColor="rgba(15,13,17,0.72)" position="bottom-right"/>
     </ReactFlow>
     <div className="canvas-chip">GRAFO / V1 · VALIDAÇÃO ANTES DA EXECUÇÃO</div>
   </div>;

@@ -3,6 +3,11 @@ import { addCadEntity, addCadLayer, cadBounds, cadEntityMetrics, cadStats, delet
 import { NavGlyph } from '../../shared/NavGlyph.jsx';
 import { useCadRecovery } from './useCadRecovery.mjs';
 import './CadWorkbench.css';
+import CadOutliner from './CadOutliner.jsx';
+import CadInspector from './CadInspector.jsx';
+import {createCadPointer} from './cad-pointer.mjs';
+import {CadPointerOverlay,CadCoordinates} from './CadPointer.jsx';
+import { editCadIdentity, editCadLayer, duplicateCadEntity, transformCadEntity, setCadDimensions } from '../../../core/modules/cad/cad-edit.mjs';
 
 const TOOLS = [
   ['select','pointer','Selecionar'],['pan','hand','Mover vista'],['line','line','Linha'],
@@ -10,31 +15,35 @@ const TOOLS = [
 ];
 const MAX_UNDO = 60;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
-const number=x=>Number(x.toFixed(2));
 
-function CadShape({ entity, color, selected, onSelect }) {
+const CadShape = React.memo(function CadShape({ entity, color, selected, onSelect }) {
   const shared={
     'data-entity-id': entity.id, onClick: event=>{event.stopPropagation();onSelect(entity.id);},
-    stroke:selected?'#F4C985':color, strokeWidth:selected?2:1.25, vectorEffect:'non-scaling-stroke',
+    stroke:selected?'#F1CFD3':color, strokeWidth:selected?2:1.25, vectorEffect:'non-scaling-stroke',
     fill:'none', style:{cursor:'pointer'}, pointerEvents:'stroke'
   };
   if(entity.type==='line') return <line x1={entity.a.x} y1={-entity.a.y} x2={entity.b.x} y2={-entity.b.y} {...shared}/>;
   if(entity.type==='rectangle')return <rect x={Math.min(entity.a.x,entity.b.x)} y={-Math.max(entity.a.y,entity.b.y)}
     width={Math.abs(entity.b.x-entity.a.x)} height={Math.abs(entity.b.y-entity.a.y)} {...shared}/>;
   return <circle cx={entity.center.x} cy={-entity.center.y} r={entity.radius} {...shared}/>;
-}
+});
 
 export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const [sketch,setSketch]=useState(initialCadSketch);
   const [revision,setRevision]=useState(null);
   const [dirty,setDirty]=useState(false);
   const [working,setWorking]=useState(false);
+  const [loadError,setLoadError]=useState(false);
+  const operationRef=useRef(false);
+  const [inspectorWidth,setInspectorWidth]=useState(()=>{try{const n=Number(localStorage.getItem('of.cad.inspectorWidth.v1'));return n>=272&&n<=420?n:310;}catch{return 310;}});
+  const resizeRef=useRef(null);
   const [tool,setTool]=useState('select');
   const [layerId,setLayerId]=useState('principal');
   const [selected,setSelected]=useState(null);
   const [from,setFrom]=useState(null);
   const [hover,setHover]=useState(null);
-  const [cursor,setCursor]=useState({x:0,y:0,kind:'grid'});
+  const [pointerStore]=useState(()=>createCadPointer());
+  useEffect(()=>()=>pointerStore.dispose(),[pointerStore]);
   const [status,setStatus]=useState('Abra um projeto para criar um desenho técnico.');
   const [view,setView]=useState({cx:0,cy:0,zoom:4});
   const [grid,setGrid]=useState(5);
@@ -50,10 +59,15 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const viewRef=useRef(view);
   const activeLayer=sketch.layers.find(l=>l.id===layerId);
   const stats=useMemo(()=>cadStats(sketch),[sketch]);
+  const layersById=useMemo(()=>new Map(sketch.layers.map(layer=>[layer.id,layer])),[sketch.layers]);
+  const visibleEntities=useMemo(()=>sketch.entities.filter(e=>e.visible!==false&&layersById.get(e.layerId)?.visible),[sketch.entities,layersById]);
   const selectedEntity=sketch.entities.find(e=>e.id===selected);
   const vb=useMemo(()=>`${view.cx-dimensions.w/(2*view.zoom)} ${-view.cy-dimensions.h/(2*view.zoom)} ${dimensions.w/view.zoom} ${dimensions.h/view.zoom}`,[view,dimensions]);
   const setDirtyFlag=useCallback(value=>{setDirty(value);onDirtyChange?.(value);},[onDirtyChange]);
   const recovery=useCadRecovery({workspace,sketch,revision,dirty});
+  const editBlocked=!workspace||working||loadError||Boolean(recovery.draft);
+  const selectObject=useCallback(id=>{setSelected(id);const item=sketch.entities.find(e=>e.id===id);if(item)setLayerId(item.layerId);setTool('select');setFrom(null);},[sketch.entities]);
+  const selectFromCanvas=useCallback(id=>{if(tool==='select')selectObject(id);},[tool,selectObject]);
 
   useEffect(()=>{viewRef.current=view;},[view]);
   useEffect(()=>{
@@ -75,38 +89,38 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   useEffect(()=>{
     let active=true;
     setSelected(null);setFrom(null);setUndo([]);setRedo([]);setSketch(initialCadSketch());setRevision(null);setDirtyFlag(false);
-    setShowRecoveryJson(false);
+    setShowRecoveryJson(false);setLoadError(false);
     recovery.reset();
     if(!workspace){setStatus('Abra um projeto para habilitar o CAD.');return()=>{active=false;};}
     setWorking(true);
     Promise.all([window.omni.loadCadSketch(),recovery.open(workspace)]).then(([doc])=>{
       if(!active)return;
-      setSketch(doc.sketch);setRevision(doc.revision);setStatus(doc.revision?'Desenho CAD carregado do projeto.':'Novo desenho. Nada foi alterado no disco.');
-    }).catch(e=>{if(active)setStatus(`Não foi possível abrir CAD: ${e.message}`);})
+      setSketch(doc.sketch);setLayerId(doc.sketch.layers[0].id);setRevision(doc.revision);setStatus(doc.revision?'Desenho CAD carregado do projeto.':'Novo desenho. Nada foi alterado no disco.');
+    }).catch(e=>{if(active){setLoadError(true);setStatus(`Não foi possível abrir CAD: ${e.message}`);}})
       .finally(()=>{if(active)setWorking(false);});
     return()=>{active=false;};
   },[workspace,setDirtyFlag,recovery.open,recovery.reset]);
 
   const record=useCallback(next=>{
-    if(working||recovery.draft)return;
+    if(editBlocked||operationRef.current)return;
     setUndo(old=>[...old.slice(-(MAX_UNDO-1)),structuredClone(sketch)]);
     setRedo([]);setSketch(next);setDirtyFlag(true);
-  },[sketch,setDirtyFlag,working,recovery.draft]);
+  },[sketch,setDirtyFlag,editBlocked]);
   const undoOnce=useCallback(()=>{
-    if(working||recovery.draft||!undo.length)return;
+    if(editBlocked||operationRef.current||!undo.length)return;
     setRedo(old=>[...old.slice(-(MAX_UNDO-1)),structuredClone(sketch)]);
     setSketch(undo[undo.length-1]);setUndo(x=>x.slice(0,-1));setSelected(null);setDirtyFlag(true);
-  },[undo,sketch,setDirtyFlag,working,recovery.draft]);
+  },[undo,sketch,setDirtyFlag,editBlocked]);
   const redoOnce=useCallback(()=>{
-    if(working||recovery.draft||!redo.length)return;
+    if(editBlocked||operationRef.current||!redo.length)return;
     setUndo(old=>[...old.slice(-(MAX_UNDO-1)),structuredClone(sketch)]);
     setSketch(redo[redo.length-1]);setRedo(x=>x.slice(0,-1));setSelected(null);setDirtyFlag(true);
-  },[redo,sketch,setDirtyFlag,working,recovery.draft]);
+  },[redo,sketch,setDirtyFlag,editBlocked]);
   const erase=useCallback(()=>{
-    if(working||recovery.draft||!selected)return;
+    if(editBlocked||operationRef.current||!selected)return;
     try{record(deleteCadEntity(sketch,selected));setSelected(null);setStatus('Entidade removida do desenho.');}
     catch(e){setStatus(e.message);}
-  },[selected,sketch,record,working,recovery.draft]);
+  },[selected,sketch,record,editBlocked]);
   useEffect(()=>{
     if(!visible)return;
     const handler=e=>{
@@ -114,6 +128,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();if(e.shiftKey)redoOnce();else undoOnce();}
       else if((e.key==='Delete'||e.key==='Backspace')&&selected){e.preventDefault();erase();}
       else if(e.key==='Escape'){setFrom(null);setSelected(null);setTool('select');}
+      else if(!e.ctrlKey&&!e.metaKey&&!e.altKey){const next={v:'select',g:'pan',l:'line',r:'rectangle',c:'circle'}[e.key.toLowerCase()];if(next){e.preventDefault();setTool(next);setFrom(null);}}
     };
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
@@ -133,7 +148,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       : {x:Number(p.x.toFixed(4)),y:Number(p.y.toFixed(4)),kind:'free'};
   }
   function pointerDown(event) {
-    if(!workspace||working||recovery.draft||event.button===2)return;
+    if(editBlocked||operationRef.current||event.button===2)return;
     if(tool==='pan'||event.button===1){
       event.preventDefault();panRef.current={x:event.clientX,y:event.clientY,initial:viewRef.current};
       event.currentTarget.setPointerCapture(event.pointerId);return;
@@ -156,11 +171,11 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       setView({...initial,cx:initial.cx-(event.clientX-x)/initial.zoom,cy:initial.cy+(event.clientY-y)/initial.zoom});return;
     }
     if(!workspace)return;
-    const p=toSnapped(event);setCursor(p);if(from)setHover(p);
+    const p=toSnapped(event);pointerStore.update(p);if(from)setHover(p);
   }
   function pointerUp(event){
     if(panRef.current){panRef.current=null;return;}
-    if(working||recovery.draft){setFrom(null);setHover(null);return;}
+    if(editBlocked||operationRef.current){setFrom(null);setHover(null);return;}
     if(!from||!workspace||!['line','rectangle','circle'].includes(tool))return;
     const to=toSnapped(event);
     setFrom(null);setHover(null);
@@ -180,8 +195,9 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       return {cx:old.cx+(at.x-old.cx)*factor,cy:old.cy+(at.y-old.cy)*factor,zoom};
     });
   }
-  function fitDrawing(){
-    const bounds=cadBounds(sketch);
+  function fitDrawing(id){
+    const object=typeof id==='string'?sketch.entities.find(e=>e.id===id):null;
+    const bounds=cadBounds(object?{...sketch,entities:[object]}:sketch,{visibleOnly:!object});
     if(!bounds){setView({cx:0,cy:0,zoom:4});return;}
     const w=Math.max(1,bounds.maxX-bounds.minX),h=Math.max(1,bounds.maxY-bounds.minY);
     setView({cx:(bounds.minX+bounds.maxX)/2,cy:(bounds.minY+bounds.maxY)/2,
@@ -189,25 +205,25 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
     setStatus('Vista ajustada à geometria visível.');
   }
   function addLayerFromName(){
-    if(working||recovery.draft)return;
+    if(editBlocked||operationRef.current)return;
     const name=newLayerName.trim();
     if(!name){setStatus('Informe um nome para a nova camada.');return;}
     const id='layer_'+crypto.randomUUID().replaceAll('-','').slice(0,12);
-    const palette=['#61BFE5','#D6AE72','#A9DCA0','#B6A0EB','#E4A5B2'];
+    const palette=['#C8515E','#A6A0A6','#965862','#D08F96','#706C73'];
     try {
       record(addCadLayer(sketch,{id,name,color:palette[sketch.layers.length%palette.length]}));
       setLayerId(id);setNewLayerName('');setStatus('Camada criada: '+name);
     } catch(e){setStatus(e.message);}
   }
   function deleteActiveLayer(){
-    if(working||recovery.draft)return;
+    if(editBlocked||operationRef.current)return;
     try {
       const next=removeCadLayer(sketch,layerId);
       record(next);setLayerId(next.layers[0].id);setStatus('Camada vazia removida.');
     } catch(e){setStatus(e.message);}
   }
   function applyGeometry(){
-    if(!selectedEntity||working||recovery.draft)return;
+    if(!selectedEntity||editBlocked||operationRef.current)return;
     const read=key=>{
       const raw=String(editFields[key]??'').trim().replace(',','.');
       if(!raw||!Number.isFinite(Number(raw)))throw new Error('Informe coordenadas numéricas válidas em mm.');
@@ -220,6 +236,36 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       record(replaceCadEntity(sketch,replacement));
       setStatus('Medidas aplicadas com precisão em milímetros.');
     }catch(e){setStatus(e.message);}
+  }
+  function editIdentity(id,patch){
+    if(editBlocked||operationRef.current)return;
+    try{record(editCadIdentity(sketch,id,patch));if(patch.layerId)setLayerId(patch.layerId);setStatus('Propriedades do objeto atualizadas.');}catch(e){setStatus(e.message);}
+  }
+  function editLayer(id,patch){
+    if(editBlocked||operationRef.current)return;
+    try{record(editCadLayer(sketch,id,patch));setStatus('Camada atualizada.');}catch(e){setStatus(e.message);}
+  }
+  function duplicate(id){
+    if(editBlocked||operationRef.current)return;
+    try{const copyId=crypto.randomUUID();record(duplicateCadEntity(sketch,id,copyId));setSelected(copyId);setStatus('Objeto duplicado com deslocamento de 10 mm.');}catch(e){setStatus(e.message);}
+  }
+  function transform(id,values){
+    if(editBlocked||operationRef.current)return;
+    try{record(transformCadEntity(sketch,id,values));setStatus('Transformação aplicada.');}catch(e){setStatus(e.message);}
+  }
+  function resizeObject(id,values){
+    if(editBlocked||operationRef.current)return;
+    try{record(setCadDimensions(sketch,id,values));setStatus('Dimensões aplicadas.');}catch(e){setStatus(e.message);}
+  }
+  function persistWidth(value){try{localStorage.setItem('of.cad.inspectorWidth.v1',String(value));}catch{}}
+  function resizeStart(event){
+    event.preventDefault();resizeRef.current={x:event.clientX,width:inspectorWidth};event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function resizeMove(event){if(!resizeRef.current)return;setInspectorWidth(clamp(resizeRef.current.width+resizeRef.current.x-event.clientX,272,420));}
+  function resizeEnd(){if(resizeRef.current){resizeRef.current=null;persistWidth(inspectorWidth);}}
+  function resizeKey(event){
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();
+    const next=event.key==='Home'?272:event.key==='End'?420:clamp(inspectorWidth+(event.key==='ArrowLeft'?10:-10),272,420);setInspectorWidth(next);persistWidth(next);
   }
   function restoreCadDraft(){
     if(!workspace || working)return;
@@ -240,15 +286,15 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
     }catch(e){setStatus('Não foi possível descartar rascunho CAD: '+e.message);}
   }
   async function save(){
-    if(!workspace||working)return;
+    if(!workspace||working||loadError||operationRef.current)return;
     if(recovery.draft){setStatus('Resolva o rascunho CAD pendente antes de salvar.');return;}
-    setWorking(true);
+    operationRef.current=true;setWorking(true);
     try{
       await recovery.beforeSave(workspace);
       const result=await window.omni.saveCadSketch(sketch,revision);
       setRevision(result.revision);setDirtyFlag(false);setStatus(`Desenho salvo: ${result.path}`);
       await recovery.onSaved(workspace);
-    }catch(e){setStatus(`Erro ao salvar: ${e.message}`);}finally{setWorking(false);}
+    }catch(e){setStatus(`Erro ao salvar: ${e.message}`);}finally{operationRef.current=false;setWorking(false);}
   }
   useEffect(()=>{
     if(!visible || !workspace)return;
@@ -263,9 +309,9 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   },[visible,workspace,dirty,working,sketch,revision]);
 
   async function importDxf() {
-    if (!workspace || working || recovery.draft) return;
+    if (editBlocked || operationRef.current) return;
     if (dirty && !window.confirm('Importar DXF substitui o esboço atual ainda não salvo. Deseja continuar?')) return;
-    setWorking(true);
+    operationRef.current=true;setWorking(true);
     try {
       const imported = await window.omni.importCadDxf();
       if (!imported) {
@@ -295,33 +341,33 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       setStatus(`DXF importado: ${imported.sourceName} · ${imported.meta.entityCount} entidades · ${units}. Não salvo: use Salvar desenho.`);
     } catch(error) {
       setStatus('Importação DXF recusada: '+error.message);
-    } finally {setWorking(false);}
+    } finally {operationRef.current=false;setWorking(false);}
   }
   async function exportFormat(format){
-    if(!workspace||working)return;
-    setWorking(true);
+    if(!workspace||working||loadError||operationRef.current)return;
+    operationRef.current=true;setWorking(true);
     try{
       const result=await window.omni.exportCadSketch(format,sketch);
       setStatus(`Arquivo ${format.toUpperCase()} real exportado: ${result.relativePath} (${result.bytes} bytes).`);
-    }catch(e){setStatus(`Erro na exportação: ${e.message}`);}finally{setWorking(false);}
+    }catch(e){setStatus(`Erro na exportação: ${e.message}`);}finally{operationRef.current=false;setWorking(false);}
   }
   function toggleLayer(id,key){
     const next={...structuredClone(sketch),layers:sketch.layers.map(layer=>layer.id===id?{...layer,[key]:!layer[key]}:layer)};
     record(next);
   }
-  const layerColor=id=>sketch.layers.find(l=>l.id===id)?.color||'#6CBCEC';
+  const layerColor=id=>sketch.layers.find(l=>l.id===id)?.color||'#C8515E';
   const tip=tool==='line'?'Arraste do ponto inicial ao final para criar uma linha.':tool==='rectangle'?'Arraste para criar um retângulo com dimensões em mm.':tool==='circle'?'Arraste do centro até o raio do círculo.':tool==='pan'?'Arraste o desenho para mover a câmera.':'Clique em uma entidade para selecionar e medir.';
 
   return <div className="cad-workbench" aria-label="OmniForge CAD 2D" data-testid="cad-workbench">
     <header className="cad-topbar">
-      <div className="cad-heading"><span className="cad-eyebrow">ENGENHARIA / DESENHO TÉCNICO</span><strong>CAD Sketch <span>2D</span></strong></div>
-      <div className="cad-context"><span className="cad-online-dot"/>{workspace?workspace.split(/[\\/]/).pop():'Sem projeto'} · mm · <span data-testid="cad-entity-count">{stats.count}</span> entidades {dirty?'• não salvo':''}</div>
+      <div className="cad-heading"><strong>CAD <span>2D</span></strong></div>
+      <div className="cad-context"><span data-testid="cad-entity-count">{stats.count}</span> objetos · mm {dirty?'• não salvo':''}</div>
       <div className="cad-top-actions">
-        <button type="button" disabled={!workspace||working||Boolean(recovery.draft)} onClick={importDxf}
+        <button type="button" disabled={editBlocked} onClick={importDxf}
           className="cad-action cad-import-action" data-testid="cad-import-dxf" title="Importar LINE, CIRCLE e LWPOLYLINE reta do DXF ASCII">Importar DXF</button>
-        <button type="button" disabled={!workspace||!dirty||working||Boolean(recovery.draft)} onClick={save} className="cad-action cad-primary" data-testid="cad-save">Salvar desenho</button>
-        <button type="button" disabled={!workspace||working} onClick={()=>exportFormat('dxf')} className="cad-action">Exportar DXF</button>
-        <button type="button" disabled={!workspace||working} onClick={()=>exportFormat('svg')} className="cad-action">Exportar SVG</button>
+        <button type="button" disabled={editBlocked||!dirty} onClick={save} className="cad-action cad-primary" data-testid="cad-save">Salvar desenho</button>
+        <button type="button" disabled={!workspace||working||loadError} onClick={()=>exportFormat('dxf')} className="cad-action">Exportar DXF</button>
+        <button type="button" disabled={!workspace||working||loadError} onClick={()=>exportFormat('svg')} className="cad-action">Exportar SVG</button>
       </div>
     </header>
     {workspace && (recovery.draft || recovery.error ||
@@ -345,75 +391,44 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       </section>}
     <div className="cad-body">
       <aside className="cad-tools" aria-label="Ferramentas CAD">
-        <span className="cad-label">DESENHAR</span>
-        {TOOLS.map(([id,icon,label])=><button key={id} title={label} aria-label={label} data-testid={`cad-tool-${id}`} className={`cad-tool ${tool===id?'is-active':''}`} onClick={()=>{setTool(id);setFrom(null);}}><NavGlyph name={icon} size={19}/></button>)}
+
+        {TOOLS.map(([id,icon,label])=><button key={id} title={label} aria-label={label} data-testid={`cad-tool-${id}`} className={`cad-tool ${tool===id?'is-active':''}`} disabled={editBlocked} onClick={()=>{setTool(id);setFrom(null);}}><NavGlyph name={icon} size={19}/></button>)}
         <div className="cad-tools-separator"/>
-        <button title="Desfazer" aria-label="Desfazer" disabled={!undo.length} className="cad-tool cad-tool-small" onClick={undoOnce}>↶</button>
-        <button title="Refazer" aria-label="Refazer" disabled={!redo.length} className="cad-tool cad-tool-small" onClick={redoOnce}>↷</button>
-        <button title="Excluir entidade" aria-label="Excluir entidade" disabled={!selected} className="cad-tool cad-tool-small" onClick={erase}>⌫</button>
-        <button title="Ajustar desenho à tela" aria-label="Ajustar desenho à tela" className="cad-tool cad-tool-small" onClick={fitDrawing}>⌖</button>
+        <button title="Desfazer" aria-label="Desfazer" disabled={editBlocked||!undo.length} className="cad-tool cad-tool-small" onClick={undoOnce}><NavGlyph name="undo" size={16}/></button>
+        <button title="Refazer" aria-label="Refazer" disabled={editBlocked||!redo.length} className="cad-tool cad-tool-small" onClick={redoOnce}><NavGlyph name="redo" size={16}/></button>
+        <button title="Excluir entidade" aria-label="Excluir entidade" disabled={editBlocked||!selected||Boolean(selectedEntity?.locked)||Boolean(layersById.get(selectedEntity?.layerId)?.locked)} className="cad-tool cad-tool-small" onClick={erase}><NavGlyph name="trash" size={16}/></button>
+        <button title="Ajustar desenho à tela" aria-label="Ajustar desenho à tela" className="cad-tool cad-tool-small" onClick={()=>fitDrawing()}><NavGlyph name="focus" size={16}/></button>
       </aside>
       <section className="cad-center">
-        {!workspace&&<div className="cad-overlay"><div className="cad-overlay-symbol">▱</div><strong>Nenhum workspace selecionado</strong><p>Abra um projeto para desenhar e armazenar a geometria na pasta .omniforge/cad.</p></div>}
-        <div className="cad-viewport-badge"><span>ESBOÇO 2D</span> · GRADE {grid} mm · {snapEnabled?'SNAP ATIVO':'SNAP LIVRE'}</div>
+        {(!workspace||loadError)&&<div className="cad-overlay"><div className="cad-overlay-symbol">▱</div><strong>{loadError?'Desenho indisponível':'Nenhum projeto aberto'}</strong><p>{loadError?'Reabra o projeto para tentar novamente. O arquivo original foi preservado.':'Abra uma pasta pela barra superior.'}</p></div>}
+        <div className="cad-view-settings"><label>Grade<select aria-label="Espaçamento da grade" value={grid} onChange={e=>setGrid(Number(e.target.value))}>{[1,5,10,25,50].map(n=><option key={n} value={n}>{n} mm</option>)}</select></label><label><input type="checkbox" checked={snapEnabled} onChange={e=>setSnapEnabled(e.target.checked)}/>Snap</label></div>
         <svg ref={svgRef} aria-label="Área de desenho CAD" data-testid="cad-canvas" className={`cad-canvas cad-canvas--${tool}`} role="application"
           viewBox={vb} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{panRef.current=null;setFrom(null);}} onWheel={zoomWheel}>
-          <defs><pattern id="cad-grid" x="0" y="0" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d={`M ${grid} 0 L 0 0 0 ${grid}`} fill="none" stroke="#30444c" strokeWidth={0.65} vectorEffect="non-scaling-stroke"/></pattern></defs>
-          <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="#0f1921"/>
+          <defs><pattern id="cad-grid" x="0" y="0" width={grid} height={grid} patternUnits="userSpaceOnUse"><path d={`M ${grid} 0 L 0 0 0 ${grid}`} fill="none" stroke="#27272b" strokeWidth={0.65} vectorEffect="non-scaling-stroke"/></pattern></defs>
+          <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="#111113"/>
           <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="url(#cad-grid)"/>
-          <line x1="-1000000" x2="1000000" y1="0" y2="0" stroke="#52717a" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
-          <line y1="-1000000" y2="1000000" x1="0" x2="0" stroke="#436386" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
-          {sketch.entities.filter(e=>sketch.layers.find(l=>l.id===e.layerId)?.visible).map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={id=>{if(tool==='select')setSelected(id);}}/>)}
-          {from&&hover&&<g opacity="0.85" pointerEvents="none"><CadShape entity={{id:'preview',type:tool,layerId,a:from,b:hover,center:from,radius:Math.hypot(hover.x-from.x,hover.y-from.y)}} color="#E7C383" selected={false} onSelect={()=>{}}/></g>}
-          {visible&&workspace&&<g pointerEvents="none"><circle cx={cursor.x} cy={-cursor.y} r={4/view.zoom} stroke="#E7C383" fill="none" strokeWidth={1.2} vectorEffect="non-scaling-stroke"/></g>}
+          <line x1="-1000000" x2="1000000" y1="0" y2="0" stroke="#4a3a40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+          <line y1="-1000000" y2="1000000" x1="0" x2="0" stroke="#3b3b40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
+          {visibleEntities.map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={selectFromCanvas}/>)}}
+          {from&&hover&&<g opacity="0.85" pointerEvents="none"><CadShape entity={{id:'preview',type:tool,layerId,a:from,b:hover,center:from,radius:Math.hypot(hover.x-from.x,hover.y-from.y)}} color="#C8515E" selected={false} onSelect={()=>{}}/></g>}
+          {visible&&workspace&&<CadPointerOverlay store={pointerStore} zoom={view.zoom}/>}
         </svg>
         <div className="cad-viewport-help">{tip}</div>
         <div className="cad-viewport-zoom">{Math.round(view.zoom*25)}% <span>· Roda do mouse para zoom</span></div>
       </section>
-      <aside className="cad-properties" aria-label="Propriedades CAD">
-        <div className="cad-property-heading"><span>PROPRIEDADES</span><strong>{selectedEntity?'ENTIDADE':'DOCUMENTO'}</strong></div>
-        {selectedEntity?<div className="cad-property-block"><label>Tipo</label><strong>{selectedEntity.type}</strong><label>Camada</label><strong>{selectedEntity.layerId}</strong><label>Comprimento / perímetro</label><strong>{cadEntityMetrics(selectedEntity).length} mm</strong><label>Área</label><strong>{cadEntityMetrics(selectedEntity).area} mm²</strong><button className="cad-action cad-danger" onClick={erase}>Excluir entidade selecionada</button></div>:
-          <div className="cad-property-block"><label>Unidade</label><strong>Milímetro (mm)</strong><label>Entidades</label><strong>{stats.count}</strong><label>Comprimento visível</label><strong>{stats.totalLength} mm</strong><label>Formato original</label><strong>OmniForge Sketch v1</strong></div>}
-        {selectedEntity && <div className="cad-precision">
-          <div className="cad-precision-title">GEOMETRIA EXATA <span>mm</span></div>
-          <div className="cad-coordinate-grid">
-            {(selectedEntity.type==='circle'
-              ? [['cx','Centro X'],['cy','Centro Y'],['radius','Raio']]
-              : [['ax','X inicial'],['ay','Y inicial'],['bx','X final'],['by','Y final']]
-            ).map(([key,label])=><label key={key}>{label} (mm)
-              <input aria-label={label+' (mm)'} type="number" step="any" value={editFields[key]??''}
-                disabled={working || Boolean(recovery.draft) || sketch.layers.find(l=>l.id===selectedEntity.layerId)?.locked}
-                onChange={e=>setEditFields(fields=>({...fields,[key]:e.target.value}))}/>
-            </label>)}
-          </div>
-          <button type="button" className="cad-action cad-primary cad-full-action" disabled={working || Boolean(recovery.draft) || sketch.layers.find(l=>l.id===selectedEntity.layerId)?.locked}
-            onClick={applyGeometry} data-testid="cad-apply-geometry">Aplicar coordenadas</button>
-        </div>}
-        <div className="cad-property-heading"><span>PRECISÃO / VISTA</span><strong>mm</strong></div>
-        <div className="cad-settings">
-          <label>Espaçamento da grade
-            <select aria-label="Espaçamento da grade" value={grid} onChange={event=>setGrid(Number(event.target.value))}>
-              {[1,5,10,25,50].map(step=><option key={step} value={step}>{step} mm</option>)}
-            </select>
-          </label>
-          <label className="cad-snap-label"><input type="checkbox" checked={snapEnabled} onChange={e=>setSnapEnabled(e.target.checked)}/> Snap para grade e objetos</label>
-          <button className="cad-action cad-fit-action" onClick={fitDrawing}>Ajustar desenho à tela</button>
-        </div>
-        <div className="cad-property-heading"><span>CAMADAS</span><strong>{sketch.layers.length}</strong></div>
-        <div className="cad-layers">{sketch.layers.map(layer=><div className={`cad-layer ${layer.id===layerId?'selected':''}`} key={layer.id}>
-          <button className="cad-layer-pick" onClick={()=>setLayerId(layer.id)} title="Selecionar camada ativa"><i style={{background:layer.color}}/>{layer.name}</button>
-          <button className="cad-layer-eye" title={layer.visible?'Ocultar camada':'Mostrar camada'} onClick={()=>toggleLayer(layer.id,'visible')}>{layer.visible?'◉':'○'}</button>
-          <button className="cad-layer-eye" title={layer.locked?'Desbloquear':'Bloquear'} onClick={()=>toggleLayer(layer.id,'locked')}>{layer.locked?'🔒':'▢'}</button>
-        </div>)}</div>
-        <div className="cad-add-layer">
-          <input type="text" maxLength={60} value={newLayerName} onChange={e=>setNewLayerName(e.target.value)} placeholder="Nova camada" aria-label="Nome da nova camada" onKeyDown={e=>{if(e.key==='Enter')addLayerFromName();}} />
-          <button className="cad-action" onClick={addLayerFromName} disabled={working || Boolean(recovery.draft) || sketch.layers.length>=32}>+ Criar</button>
-        </div>
-        <button className="cad-remove-layer" onClick={deleteActiveLayer} disabled={working || Boolean(recovery.draft) || sketch.layers.length<=1}
-          title="Remove apenas a camada ativa vazia">Remover camada ativa vazia</button>
-        <div className="cad-brief"><strong>Desenho nativo e exportável</strong><p>Geometria 2D real em mm. SVG e DXF R12 são exportados para .omniforge/output. Modelagem 3D paramétrica é o próximo módulo separado.</p></div>
+      <div className="cad-panel-resize" role="separator" tabIndex={0} aria-label="Largura do inspetor CAD" aria-orientation="vertical"
+        aria-valuemin={272} aria-valuemax={420} aria-valuenow={inspectorWidth} onPointerDown={resizeStart} onPointerMove={resizeMove} onPointerUp={resizeEnd} onPointerCancel={resizeEnd} onKeyDown={resizeKey}/>
+      <aside className="cad-properties" style={{width:inspectorWidth,flexBasis:inspectorWidth}}>
+        <CadOutliner sketch={sketch} selected={selected} layerId={layerId} disabled={editBlocked}
+          onSelect={selectObject} onLayer={id=>{setLayerId(id);setSelected(null);}}
+          onEntityFlag={(id,key,value)=>editIdentity(id,{[key]:value})} onLayerFlag={(id,key,value)=>editLayer(id,{[key]:value})}/>
+        <CadInspector sketch={sketch} selected={selected} layerId={layerId} disabled={editBlocked}
+          editFields={editFields} setEditFields={setEditFields} onGeometry={applyGeometry} onIdentity={editIdentity}
+          onTransform={transform} onDimensions={resizeObject} onDuplicate={duplicate} onFocus={fitDrawing} onLayerEdit={editLayer}
+          newLayerName={newLayerName} setNewLayerName={setNewLayerName} onAddLayer={addLayerFromName}
+          onRemoveLayer={deleteActiveLayer} stats={stats}/>
       </aside>
     </div>
-    <footer className="cad-status" role="status"><span>{status}</span><span>X {number(cursor.x)} · Y {number(cursor.y)} mm · {cursor.kind==='object'?'SNAP OBJETO':cursor.kind==='grid'?'GRADE':'LIVRE'}</span></footer>
+    <footer className="cad-status" role="status"><span>{status}</span><CadCoordinates store={pointerStore}/></footer>
   </div>;
 }

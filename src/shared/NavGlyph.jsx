@@ -1,6 +1,17 @@
 import React from 'react';
 // Small, original line icon set; no runtime icon library or remote asset dependency.
 const SHAPES = {
+  eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+  'eye-off':'M3 3l18 18 M2 12s3-7 10-7c2 0 4 1 6 3 M22 12s-3 7-10 7c-4 0-7-3-10-7',
+  lock:'M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0v3 M12 14v3',
+  unlock:'M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0 M12 14v3',
+  duplicate:'M8 8h13v13H8z M16 5V3H3v13h2',
+  undo:'M8 5 3 10l5 5 M3 10h12a6 6 0 0 1 0 12',
+  redo:'M16 5l5 5-5 5 M21 10H9a6 6 0 0 0 0 12',
+  trash:'M4 6h16 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7',
+  focus:'M9 3H3v6 M15 3h6v6 M3 15v6h6 M21 15v6h-6 M8 12h8 M12 8v8',
+  move:'M12 2v20 M2 12h20 M8 6l4-4 4 4 M8 18l4 4 4-4 M6 8l-4 4 4 4 M18 8l4 4-4 4',
+
   home: 'm3 10 9-7 9 7 M5 9v11h14V9 M9 20v-7h6v7',
   workflow: 'M6 3v6 M6 15v6 M18 3v6 M18 15v6 M6 9h12 M6 15h12 M3 9h6v6H3z M15 9h6v6h-6z',
   cad: 'M4 3h16v18H4z M4 8h16 M9 8v13 M12 12h5l-5 5z',

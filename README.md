@@ -1,6 +1,6 @@
 # OmniForge Studio
 
-**v0.7.6 — Isolamento do runtime React Flow e benchmark de startup (candidata em validação)** · Plataforma desktop experimental para automação visual, edição de código, integração local de projetos e **CAD Sketch 2D**.
+**v0.7.7 — Studio UX: navegação única, preto/vermelho e inspetor CAD (candidata em validação)** · Aplicação desktop local para código, automação e desenho 2D.
 
 **v0.7.6:** estado leve de automação preservado ao alternar CAD/IDE, runtime React Flow carregado apenas ao abrir o canvas, proteção de edição concorrente ao salvar, orçamento menor de JS inicial e benchmarks reais do Electron no Windows. Sem modificar dados originais. [Detalhes técnicos](docs/LAZY_FLOW_PERFORMANCE_V076.md).
 
@@ -9,6 +9,10 @@
 **v0.7.4:** CAD 2D com checkpoint isolado no perfil local, restauração explícita, inspeção JSON de conflitos e proteção por revisão SHA-256. A recuperação **não sobrescreve** o desenho original e requer salvar manualmente. Detalhes: [docs/CAD_RECOVERY_V074.md](docs/CAD_RECOVERY_V074.md).
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
+
+## Studio UX
+
+Navegação global única, superfícies neutras com acento vermelho, editor sem cartões repetidos e CAD com árvore de objetos, propriedades, dimensões, transformações, bloqueios e undo/redo. [Decisões visuais, fontes e testes](docs/STUDIO_UX_V077.md).
 
 ## Recursos que realmente funcionam
 
