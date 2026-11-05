@@ -1,0 +1,13 @@
+.runtime-diagnostics-overlay{position:fixed;inset:0;z-index:1250;background:#070709bd;display:grid;place-items:center;padding:24px}
+.runtime-diagnostics{display:flex;flex-direction:column;width:min(650px,100%);max-height:85vh;background:#17171b;color:#d7d7df;border:1px solid #414148;border-radius:9px;box-shadow:0 18px 70px #0009;overflow:hidden}
+.runtime-diagnostics header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #37373f;padding:17px 22px}
+.runtime-diagnostics header small{font:10px Consolas,monospace;letter-spacing:.12em;color:#aeb0b9}
+.runtime-diagnostics h2{font-size:18px;margin:7px 0 0}.runtime-diagnostics h3{font-size:12px;margin:22px 0 9px;color:#e0c4c8}
+.runtime-diagnostics button{border:1px solid #4b3c42;background:#252128;color:#e7e3e5;border-radius:5px;padding:8px 12px;font-size:11px;cursor:pointer}
+.runtime-diagnostics button:hover{border-color:#a65b68;background:#39242d}.runtime-diagnostics button:focus-visible{outline:2px solid #ca7786;outline-offset:2px}
+.runtime-diagnostics button:disabled{opacity:.45;cursor:default}.runtime-diagnostics header button{font-size:20px;line-height:1;padding:5px 9px}
+.runtime-diagnostics-body{overflow:auto;padding:7px 22px 20px}.runtime-diagnostics dl{margin:10px 0}.runtime-diagnostics dl>div{display:flex;justify-content:space-between;gap:20px;padding:9px 0;border-bottom:1px solid #2a2a32;font-size:11px}
+.runtime-diagnostics dt{color:#adaeb9}.runtime-diagnostics dd{margin:0;text-align:right;color:#e6e5eb}.runtime-diagnostics p{font-size:11px;line-height:1.65;color:#babac5}
+.runtime-diagnostics dd.runtime-ok{color:#cbd9d1}.runtime-diagnostics dd.runtime-warning{color:#e1b891}.runtime-diagnostics .runtime-note{color:#9899a6;margin:17px 0 0}
+.runtime-diagnostics footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;border-top:1px solid #37373f;padding:12px 18px}
+.runtime-diagnostics footer span{flex:1;min-width:0;font-size:11px;color:#bfc0ca}

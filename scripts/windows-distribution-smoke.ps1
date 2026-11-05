@@ -45,6 +45,8 @@ $installed = @(Get-ChildItem -LiteralPath $installBase -Recurse -Filter 'OmniFor
 if ($installed.Count -ne 1) { throw "Instalação inesperada: $($installed.Count) executáveis encontrados." }
 # Executa um fluxo verdadeiro pelo worker dentro de resources/app.asar, usando
 # o EXE instalado (não o Node do runner); não toca dados reais do usuário.
+& node scripts/verify-packaged-security.mjs $installed[0].FullName
+if ($LASTEXITCODE -ne 0) { throw 'Protecoes do executavel instalado divergentes.' }
 & node scripts/packaged-worker-smoke.mjs $installed[0].FullName
 if ($LASTEXITCODE -ne 0) { throw 'Worker supervisionado do app instalado falhou no teste E2E.' }
 Test-WindowCloses $installed[0].FullName 'Setup instalado'

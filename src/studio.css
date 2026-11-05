@@ -25,3 +25,5 @@ body{min-width:960px;background:var(--of-bg)}.app-shell{min-height:600px;backgro
 @media(prefers-reduced-motion:reduce){.app-shell *{scroll-behavior:auto;transition:none!important}}
 
 .flow-protection{color:var(--of-subtle);font:10px inherit;margin-left:8px;white-space:nowrap}
+
+.statusbar .runtime-diagnostics-trigger{background:none;border:0;color:inherit;font:inherit;padding:0;cursor:pointer}.statusbar .runtime-diagnostics-trigger:focus-visible{outline:1px solid #c46777;outline-offset:3px}

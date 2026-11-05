@@ -1,3 +1,13 @@
+## v0.8.0 — Fundação de produção (candidata)
+
+Segurança nativa centralizada, proteção de gravações, diagnóstico local sem conteúdo dos projetos,
+instalação de dependências fixada por lockfile e verificação dos fuses no binário real.
+A interface e os formatos da v0.7.9 são preservados. Consulte
+[PRODUCTION_FOUNDATION_V080.md](docs/PRODUCTION_FOUNDATION_V080.md) para contratos, testes e pendências antes de declarar estabilidade.
+
+Build local: `npm ci`, `npm run verify:release`, `npm test`, `npm run build`.
+Os instaladores Windows são construídos e testados no CI. Nenhuma assinatura digital ou ausência universal de defeitos é prometida.
+
 # OmniForge Studio
 
 **v0.7.9 — autoria de fluxos e recuperação protegida, integradas**

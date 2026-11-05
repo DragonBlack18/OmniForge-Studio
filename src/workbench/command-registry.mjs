@@ -15,6 +15,8 @@ export const NAV_COMMANDS = Object.freeze(NAV_GROUPS.flatMap(group =>
 ));
 
 const ACTIONS = Object.freeze([
+  {id:'action:runtime-diagnostics',kind:'action',action:'runtime-diagnostics',title:'Diagnóstico local',
+    detail:'SUPORTE',icon:'terminal',searchText:'diagnostico suporte versao seguranca runtime'},
   {id:'action:open-project', kind:'action', action:'open-project', title:'Abrir projeto local',
     detail:'WORKSPACE', icon:'folder', searchText:'abrir projeto workspace pasta local'},
   {id:'action:toggle-nav', kind:'action', action:'toggle-nav', title:'Recolher ou expandir navegação',
