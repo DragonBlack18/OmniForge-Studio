@@ -193,11 +193,11 @@ try {
   await page.getByText('Biblioteca de fluxos', { exact:true }).waitFor();
   assert.equal(await page.getByRole('button',{name:'Usar modelo',exact:true}).count(),WORKFLOW_TEMPLATES.length);
   for(const template of WORKFLOW_TEMPLATES){
-    const card=page.locator('article').filter({has:page.getByRole('heading',{name:template.label,exact:true})});
+    const card=page.locator('article').filter({has:page.getByText(template.label,{exact:true})});
     assert.equal(await card.count(),1,`Modelo registrado deve aparecer uma vez: ${template.id}`);
   }
   await page.evaluate(() => { window.confirm = () => true; });
-  await page.locator('article').filter({has:page.getByRole('heading',{name:'Normalizar texto',exact:true})})
+  await page.locator('article').filter({has:page.getByText('Normalizar texto',{exact:true})})
     .getByRole('button',{name:'Usar modelo',exact:true}).click();
   await page.getByText('Modelo carregado: Normalizar texto.',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Validar',exact:true}).click();
