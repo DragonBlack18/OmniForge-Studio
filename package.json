@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
@@ -39,7 +39,8 @@
     "smoke:native-security": "node scripts/smoke-native-security.mjs",
     "verify:release": "node scripts/verify-release-contract.mjs",
     "verify:packaged-security": "node scripts/verify-packaged-security.mjs",
-    "release:manifest": "node scripts/release-manifest.mjs"
+    "release:manifest": "node scripts/release-manifest.mjs",
+    "smoke:layout": "node scripts/smoke-layout.mjs"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",

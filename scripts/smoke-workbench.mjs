@@ -66,6 +66,10 @@ try {
   await page.reload();
   await page.getByTestId('primary-sidebar').waitFor();
   assert.equal(await page.getByTestId('activity-rail').count(),0);
+  // Initial Home is its own profile; reopening the project restores its own layout.
+  assert.doesNotMatch(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
+  await page.getByRole('button',{name:'Abrir projeto'}).click();
+  await page.getByText('Projeto aberto:',{exact:false}).waitFor();
   assert.match(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
   // Repeated immediate dismissals exercise focus on a newly mounted lazy
   // dialog, not just the already-loaded/warm palette from earlier commands.
@@ -80,6 +84,7 @@ try {
   }
   await page.keyboard.press('Control+b');
 
+  await page.getByTestId('primary-sidebar').getByRole('button',{name:'Visão geral',exact:true}).click();
   phase='capture real workbench layout';
   await fs.mkdir(path.join(root,'smoke-artifacts'),{recursive:true});
   await page.getByTestId('workspace-overview').waitFor();

@@ -15,6 +15,11 @@ export const NAV_COMMANDS = Object.freeze(NAV_GROUPS.flatMap(group =>
 ));
 
 const ACTIONS = Object.freeze([
+  {id:'action:layout-focus',kind:'action',action:'layout-focus',title:'Alternar modo de foco',detail:'LAYOUT · Ctrl+Shift+F11',icon:'focus',searchText:'layout focar editor foco maximizar restaurar',modes:['canvas','code','cad']},
+  {id:'action:layout-reset',kind:'action',action:'layout-reset',title:'Restaurar layout deste projeto',detail:'LAYOUT',icon:'panel',searchText:'layout restaurar padrao paineis disposicao'},
+  {id:'action:layout-balanced',kind:'action',action:'layout-balanced',title:'Layout equilibrado',detail:'LAYOUT',icon:'panel',searchText:'layout equilibrado padrao paineis'},
+  {id:'action:layout-wide',kind:'action',action:'layout-wide',title:'Layout com área ampla',detail:'LAYOUT',icon:'panel',searchText:'layout area ampla espacosa paineis'},
+  {id:'action:layout-cad-inspector',kind:'action',action:'layout-cad-inspector',title:'Alternar inspetor CAD',detail:'LAYOUT · CAD',icon:'panel',searchText:'layout propriedades inspetor cad',modes:['cad']},
   {id:'action:runtime-diagnostics',kind:'action',action:'runtime-diagnostics',title:'Diagnóstico local',
     detail:'SUPORTE',icon:'terminal',searchText:'diagnostico suporte versao seguranca runtime'},
   {id:'action:open-project', kind:'action', action:'open-project', title:'Abrir projeto local',

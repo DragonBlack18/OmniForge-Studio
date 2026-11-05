@@ -4,7 +4,7 @@ import {NavGlyph} from '../../shared/NavGlyph.jsx';
 import './FlowAuthoring.css';
 
 export default function FlowInspector({selected,graph,projects,extensions,validation,lastRun,running,liveSteps,
-  busy,tabRequest,onConfig,onSelect,onRename}){
+  busy,tabRequest,onConfig,onSelect,onRename,style}){
   const [tab,setTab]=useState('properties');
   const [query,setQuery]=useState('');
   const [name,setName]=useState(graph.name);
@@ -14,7 +14,7 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
   const normalize=text=>String(text).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const rows=graph.nodes.filter(n=>normalize(n.id+' '+NODE_CATALOG[n.type]?.label+' '+n.type).includes(normalize(query)));
   const choose=id=>{onSelect(id);setTab('properties');};
-  return <aside className="inspector flow-inspector" aria-label="Inspetor de automações">
+  return <aside id="workbench-flow-inspector" style={style} className="inspector flow-inspector" aria-label="Inspetor de automações">
     <div role="tablist" aria-label="Painel do fluxo" className="flow-inspector-tabs">
       {[['properties','Propriedades'],['outline','Estrutura'],['diagnostics','Diagnóstico']].map(([id,label])=>
         <button type="button" role="tab" key={id} aria-selected={tab===id} onClick={()=>setTab(id)}>{label}</button>)}

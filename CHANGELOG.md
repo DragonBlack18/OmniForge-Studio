@@ -1,3 +1,12 @@
+## [0.8.1] — Áreas de trabalho por projeto (candidata)
+
+- Painéis redimensionáveis por mouse/teclado: navegação, biblioteca/explorador, inspetor de automações e CAD.
+- Layouts Equilibrado/Área ampla/Inspeção e foco transitório, sem segundo menu de navegação nem descarte do buffer do editor.
+- Persistência local limitada por UUID e módulo, legado não destrutivo, corrupção/quota tratadas e restauração seletiva.
+- Adaptação ao tamanho da janela sem sobrescrever preferência; restauração exata ao ampliar.
+- Suíte específica de modelo e Electron, com screenshots de CAD/automações/Monaco e verificação dos arquivos originais.
+- Mesmas dependências e fronteiras de segurança da v0.8.0. Pré-lançamento sem assinatura; não é certificação de produção estável.
+
 ## [0.8.0] — Native security and release foundation (candidate)
 
 - Central native IPC boundary, bounded payloads/concurrency and reserved cancellation capacity.

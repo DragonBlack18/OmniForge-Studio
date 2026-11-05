@@ -1,4 +1,8 @@
 import { getLanguage } from './editor-language.mjs';
+import { useWorkbenchLayout } from './layout/useWorkbenchLayout.mjs';
+import LayoutControls from './layout/LayoutControls.jsx';
+import PanelResizer from '../shared/PanelResizer.jsx';
+import { WIDTHS } from './layout/layout-model.mjs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFlowRecovery } from '../modules/automation/useFlowRecovery.mjs';
 const FlowRecoveryNotice = React.lazy(() => import('../modules/automation/FlowRecoveryNotice.jsx'));
@@ -37,21 +41,14 @@ const CATEGORY_NAV_ICONS = {Gatilhos:'workflow',Lógica:'workflow',Dados:'code',
 const DEFAULT = exampleFlow();
 const ModuleLoading = ({label='ferramenta'}) => <div className="module-loading" role="status">Carregando {label}...</div>;
 
-function readUiPreference(key, fallback) {
-  try { const saved=window.localStorage.getItem(key);return saved===null?fallback:saved==='1'; }
-  catch { return fallback; }
-}
 export default function AppShell() {
   const [mode, setMode] = useState('home');
   const currentModule = findWorkbenchModule(mode);
   const [cadEverOpened,setCadEverOpened] = useState(false);
   const [sideMode, setSideMode] = useState('catalog');
   useEffect(() => { if(mode==='cad') setCadEverOpened(true); }, [mode]);
-  const [navigationCollapsed, setNavigationCollapsed] = useState(()=>readUiPreference('of.navCollapsed',false));
   const [paletteScope,setPaletteScope] = useState(null);
   const [diagnosticsOpen,setDiagnosticsOpen] = useState(false);
-  const [utilityOpen, setUtilityOpen] = useState(()=>readUiPreference('of.utilityOpen',true));
-  const [inspectorOpen, setInspectorOpen] = useState(()=>readUiPreference('of.inspectorOpen',true));
   const [fileQuery, setFileQuery] = useState('');
   const [collapsedFolders, setCollapsedFolders] = useState(()=>new Set());
   const catalogSearchRef=useRef(null);
@@ -59,6 +56,13 @@ export default function AppShell() {
   const [catalogCategory, setCatalogCategory] = useState('Todas');
   const [workspace, setWorkspace] = useState('');
   const [activeProjectId, setActiveProjectId] = useState(null);
+  const layout=useWorkbenchLayout(activeProjectId,mode);
+  const {effective:panels}=layout;
+  const utilityOpen=layout.preferences[mode]?.contextOpen??true;
+  const inspectorOpen=layout.preferences.canvas.inspectorOpen;
+  const setNavigationCollapsed=value=>layout.set('navigationCollapsed',value);
+  const setUtilityOpen=value=>layout.setForMode(mode==='code'?'code':'canvas','contextOpen',value);
+  const setInspectorOpen=value=>layout.setForMode('canvas','inspectorOpen',value);
   const [projects, setProjects] = useState([]);
   const [extensions, setExtensions] = useState([]);
   const [schedules, setSchedules] = useState([]);
@@ -108,14 +112,6 @@ export default function AppShell() {
   const visibleCatalogCount = Object.values(catalogGroups).reduce((sum, items)=>sum+items.length,0);
   const visibleFiles=useMemo(()=>visibleFileEntries(files,{query:fileQuery,collapsedPaths:collapsedFolders}),[files,fileQuery,collapsedFolders]);
   const workbenchCommands=useMemo(()=>buildWorkbenchCommands(files,workspace),[files,workspace]);
-  useEffect(()=>{
-    try {
-      window.localStorage.setItem('of.navCollapsed',navigationCollapsed?'1':'0');
-      window.localStorage.setItem('of.utilityOpen',utilityOpen?'1':'0');
-      window.localStorage.setItem('of.inspectorOpen',inspectorOpen?'1':'0');
-    } catch { /* renderer storage may be unavailable */ }
-  },[navigationCollapsed,utilityOpen,inspectorOpen]);
-
   // The native Electron close handler owns the prompt. Never prevent beforeunload
   // from a renderer: Electron can silently cancel every attempt to close.
   useEffect(() => {
@@ -174,7 +170,7 @@ export default function AppShell() {
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
     setCreateKind(null); setCreatePath(''); setEditorJump(null);
     setEditorPosition({line:1,column:1});
-    setFileQuery(''); setCollapsedFolders(new Set()); setSideMode('catalog'); setUtilityOpen(true);
+    setFileQuery(''); setCollapsedFolders(new Set()); setSideMode('catalog');
     setLastRun(null); setValidation(null);
     setHistory(await window.omni.listRunHistory());
     setSelectedHistory(null);
@@ -306,7 +302,7 @@ export default function AppShell() {
     if(busy || !flowEditAllowed())return;
     if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
     const copy=structuredClone(template.flow);
-    applyFlowTemplate(copy);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
+    applyFlowTemplate(copy);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');
     notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
   };
 
@@ -318,7 +314,7 @@ export default function AppShell() {
     next.config={...next.config,...extraConfig};
     setNodes(previous => [...previous, toUiNodes({ nodes: [next] })[0]]);
     setSelectedId(id);
-    setMode('canvas');setSideMode('catalog');setUtilityOpen(true);setInspectorOpen(true);
+    setMode('canvas');setSideMode('catalog');setInspectorOpen(true);
     notify('Bloco adicionado. Conecte as portas antes de executar.');
   };
 
@@ -421,7 +417,7 @@ export default function AppShell() {
     fileContentRef.current = loaded.content;
     setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision); setDirty(false);
     setEditorJump(null); setEditorPosition({line:1,column:1});
-    setMode('code');setSideMode('files');setUtilityOpen(true); notify(`Arquivo aberto: ${relative}`);
+    setMode('code');setSideMode('files'); notify(`Arquivo aberto: ${relative}`);
   });
 
   const openSearchHit = hit => execute(async () => {
@@ -432,7 +428,7 @@ export default function AppShell() {
     setFileName(hit.path); setFileContent(loaded.content); setFileRevision(loaded.revision);
     setDirty(false); setEditorJump({path:hit.path,line:hit.line,column:hit.column});
     setEditorPosition({line:hit.line,column:hit.column});
-    setMode('code'); setSideMode('files'); setUtilityOpen(true);
+    setMode('code'); setSideMode('files');
     notify('Resultado aberto: ' + hit.path + ' · linha ' + hit.line);
   });
 
@@ -498,8 +494,8 @@ export default function AppShell() {
     if(nextMode==='history'){openHistory();return;}
     if(nextMode==='schedules')refreshSchedules().catch(err=>notify('Agendamentos: '+err.message));
     setMode(nextMode);
-    if(nextMode==='code'){setSideMode('files');setUtilityOpen(true);}
-    else if(nextMode==='canvas'){setSideMode('catalog');setUtilityOpen(true);}
+    if(nextMode==='code'){setSideMode('files');}
+    else if(nextMode==='canvas'){setSideMode('catalog');}
   };
   const executePaletteCommand = command => {
     if (command.kind === 'navigate') navigate(command.mode);
@@ -507,6 +503,11 @@ export default function AppShell() {
     else if (command.kind === 'action') {
       if (command.action === 'runtime-diagnostics') setDiagnosticsOpen(true);
       else if (command.action === 'open-project') openWorkspace();
+      else if (command.action === 'layout-focus') layout.toggleFocus();
+      else if (command.action === 'layout-reset') layout.reset();
+      else if (command.action === 'layout-balanced') layout.preset('balanced');
+      else if (command.action === 'layout-wide') layout.preset('wide');
+      else if (command.action === 'layout-cad-inspector') layout.setForMode('cad','inspectorOpen',value=>!value);
       else if (command.action === 'toggle-nav') setNavigationCollapsed(value=>!value);
       else if (command.action === 'toggle-context' && (mode==='code'||mode==='canvas'))
         setUtilityOpen(value=>!value);
@@ -521,6 +522,9 @@ export default function AppShell() {
   });
   useEffect(()=>{
     const handleShortcut=event=>{
+      if((event.ctrlKey||event.metaKey)&&event.shiftKey&&!event.altKey&&event.key==='F11'&&['canvas','code','cad'].includes(mode)) {
+        event.preventDefault();if(!event.repeat)layout.toggleFocus();return;
+      }
       if(event.key==='F1' && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault();setPaletteScope('all');return;
       }
@@ -535,7 +539,7 @@ export default function AppShell() {
       if(key==='b'){event.preventDefault();setNavigationCollapsed(value=>!value);}
       else if(key==='k'){
         event.preventDefault();
-        setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
+        setMode('canvas');setSideMode('catalog');layout.exitFocus();layout.setForMode('canvas','contextOpen',true);
         requestAnimationFrame(()=>catalogSearchRef.current?.focus());
       }else if(key==='s'){
         // Never open Chromium's Save Page dialog in the desktop application.
@@ -548,10 +552,10 @@ export default function AppShell() {
     };
     window.addEventListener('keydown',handleShortcut);
     return ()=>window.removeEventListener('keydown',handleShortcut);
-  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,fileContent,fileRevision,flowRevision]);
+  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,fileContent,fileRevision,flowRevision,layout]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${layout.focus?'layout-focus':''}`} data-layout-scope={layout.scope} data-layout-mode={mode}>
       <header className="topbar topbar--refined">
         <div className="brand-lockup">
           <span className="brand-logo" aria-hidden="true"><span className="brand-logo__glyph">O<span>F</span></span></span>
@@ -566,6 +570,7 @@ export default function AppShell() {
           <small>{currentModule.group}</small><strong>{currentModule.label}</strong>
         </div>
         <div className="topbar-spacer"/>
+        <LayoutControls layout={layout} mode={mode} hasWorkspace={Boolean(workspace)}/>
         <button type="button" className="button button--outline topbar-commands"
           aria-label="Abrir paleta de comandos" title="Paleta de comandos · Ctrl+Shift+P"
           data-testid="command-palette-open" onClick={()=>setPaletteScope('all')}>
@@ -575,11 +580,13 @@ export default function AppShell() {
         {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty||flowRecovery.locked} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
       </header>
 
-      <div className="workspace-layout">
-        <NavigationSidebar mode={mode} collapsed={navigationCollapsed} onCollapse={()=>setNavigationCollapsed(value=>!value)}
+      <div className="workspace-layout" ref={layout.containerRef}>
+        <NavigationSidebar mode={mode} collapsed={panels.navigationCollapsed} width={panels.navigationWidth} onCollapse={()=>setNavigationCollapsed(!panels.navigationCollapsed)}
           onNavigate={navigate} onOpenProject={openWorkspace} workspace={workspace} projectsCount={projects.length} busy={busy}/>
+        {!layout.focus&&!panels.navigationCollapsed&&<PanelResizer key={layout.scope+':navigation'} label="Largura da navegação" controls="workbench-navigation"
+          value={panels.navigationWidth} {...WIDTHS.navigation} defaultValue={WIDTHS.navigation.default} {...layout.resize('navigationWidth')}/>}
 
-        {(mode==='canvas'||mode==='code') && utilityOpen && <aside className="sidebar sidebar--contextual" aria-label="Painel de ferramentas" data-testid="context-sidebar">
+        {(mode==='canvas'||mode==='code') && utilityOpen && <aside className="sidebar sidebar--contextual" aria-label="Painel de ferramentas" data-testid="context-sidebar" id="workbench-context" style={{width:panels.contextWidth,flexBasis:panels.contextWidth,display:panels.contextVisible?undefined:'none'}}>
           <div className="sidebar-heading">
             <div><small>FERRAMENTAS</small><strong>{sideMode==='catalog'?'Biblioteca de blocos':'Explorador'}</strong></div>
             <button type="button" title="Ocultar painel de ferramentas" aria-label="Ocultar painel de ferramentas"
@@ -659,10 +666,15 @@ export default function AppShell() {
           <div className="sidebar-footer"><span>CTRL + K</span><span>Buscar blocos</span></div>
         </aside>}
 
-        <main className="main-panel">
+        {(mode==='canvas'||mode==='code')&&panels.contextVisible&&<PanelResizer key={layout.scope+':'+mode+':context'} label="Largura do painel de ferramentas" controls="workbench-context"
+          value={panels.contextWidth} {...WIDTHS.context} defaultValue={WIDTHS.context.default} {...layout.resize('contextWidth')}/>}
+        <main className="main-panel" id="workbench-editor">
           {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={navigate} onOpenProject={openWorkspace} flowDirty={flowDirty} cadDirty={cadDirty} lastRun={lastRun}/>}
           {mode==='search' && <ModuleErrorBoundary label="Busca no projeto"><React.Suspense fallback={<ModuleLoading label="busca"/>}><WorkspaceSearch workspace={workspace} busy={busy} onOpenResult={openSearchHit}/></React.Suspense></ModuleErrorBoundary>}
-          {(cadEverOpened || mode==='cad') && <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><ModuleErrorBoundary key={workspace || '__none__'} label="CAD 2D"><React.Suspense fallback={<ModuleLoading label="CAD"/>}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}/></React.Suspense></ModuleErrorBoundary></div>}
+          {(cadEverOpened || mode==='cad') && <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><ModuleErrorBoundary key={workspace || '__none__'} label="CAD 2D"><React.Suspense fallback={<ModuleLoading label="CAD"/>}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}
+              inspectorOpen={mode==='cad'?panels.inspectorVisible:layout.preferences.cad.inspectorOpen}
+              inspectorWidth={mode==='cad'&&panels.inspectorWidth?panels.inspectorWidth:layout.preferences.cad.inspectorWidth}
+              inspectorResize={layout.resize('inspectorWidth')} resizeKey={layout.scope+':cad'}/></React.Suspense></ModuleErrorBoundary></div>}
           {mode === 'canvas' && (
             <>
               <div className="main-toolbar">
@@ -884,7 +896,9 @@ export default function AppShell() {
           )}
         </main>
 
-        {mode==='canvas' && inspectorOpen && <FlowInspector
+        {mode==='canvas'&&panels.inspectorVisible&&<PanelResizer key={layout.scope+':canvas:inspector'} label="Largura do inspetor de automações" controls="workbench-flow-inspector"
+          direction={-1} value={panels.inspectorWidth} {...WIDTHS.inspector} defaultValue={WIDTHS.inspector.default} {...layout.resize('inspectorWidth')}/>}
+        {mode==='canvas' && inspectorOpen && <FlowInspector style={{width:panels.inspectorWidth,flexBasis:panels.inspectorWidth,display:panels.inspectorVisible?undefined:'none'}}
           selected={selected} graph={graph} projects={projects} extensions={extensions}
           validation={validation} lastRun={lastRun} running={running} liveSteps={liveSteps}
           busy={busy || flowRecovery.locked} tabRequest={flowTab} onConfig={changeConfig} onSelect={selectFlowNode}

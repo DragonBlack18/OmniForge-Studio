@@ -40,6 +40,18 @@ jobs:
         run: npm run build
       - name: Verificar bundle inicial e divisão de módulos
         run: npm run budget:bundle
+      - name: Workspace layout and real screenshots v0.8.1
+        run: npm run smoke:layout
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Workspace-Layout-V081
+          path: |
+            smoke-artifacts/layout-*-v081.png
+            smoke-artifacts/layout-v081-results.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Native security and private diagnostics acceptance
         run: npm run smoke:native-security
         timeout-minutes: 5

@@ -1,0 +1,31 @@
+/* v0.8.1: presentation-only workspaces, preserving document/editor component identity. */
+.panel-resizer{width:6px;flex:0 0 6px;align-self:stretch;background:#18181b;position:relative;cursor:col-resize;touch-action:none;user-select:none;outline:none;z-index:2}
+.panel-resizer::after{content:'';position:absolute;inset:0 2px;background:#343037;transition:background .1s}
+.panel-resizer:hover::after,.panel-resizer:focus-visible::after,.panel-resizer:active::after{background:var(--of-accent)}
+.panel-resizer:focus-visible{box-shadow:inset 0 0 0 1px var(--of-focus)}
+.app-shell .workspace-layout>.primary-nav,.app-shell .workspace-layout>.sidebar--contextual,.app-shell .workspace-layout>.inspector{transition:none;min-width:0}
+.app-shell .workspace-layout>.inspector{position:relative;inset:auto;max-width:none;box-shadow:none;flex-shrink:0;z-index:auto}
+.app-shell .main-panel{min-width:0;overflow:hidden}
+.app-shell .main-toolbar{height:auto;min-height:49px;flex:0 0 auto;flex-wrap:wrap;padding:7px 12px}
+.app-shell .toolbar-actions{flex-wrap:wrap;gap:5px}
+.primary-nav__filter{width:auto;flex:1}
+.app-shell .layout-control{position:relative;display:flex;align-items:center;gap:6px}
+.app-shell .layout-trigger{min-width:31px;gap:5px;background:transparent;display:flex;align-items:center}
+.app-shell .layout-focus-exit{border-color:#65404a;background:#302025;color:#f0dce1;white-space:nowrap}
+.layout-popover{position:absolute;right:0;top:35px;width:292px;z-index:80;background:#1c1c20;border:1px solid #48424a;border-radius:5px;box-shadow:0 12px 28px #0007;color:var(--of-ink);padding:0;font-size:11px}
+.layout-popover header{padding:13px 14px;border-bottom:1px solid var(--of-border)}
+.layout-popover strong{font-size:12px;font-weight:600}.layout-popover small{display:block;margin-top:5px;color:var(--of-muted);font-size:10px;line-height:1.5}
+.layout-presets{display:flex;gap:5px;padding:12px 12px 8px}
+.layout-presets button{flex:1;border:1px solid #48424a;background:#282429;border-radius:3px;padding:7px 4px;color:var(--of-ink);font-size:10px;cursor:pointer}
+.layout-presets button:hover{border-color:var(--of-accent);background:#35262d}
+.layout-options{padding:3px 12px 10px;display:flex;flex-direction:column;gap:4px}
+.layout-options label{display:flex;align-items:center;gap:8px;min-height:28px;cursor:pointer}
+.layout-options input{margin:0;width:13px;height:13px}
+.layout-option{display:flex;align-items:center;justify-content:space-between;width:100%;padding:7px 0;border:0;background:none;color:var(--of-ink);font-size:11px;cursor:pointer}
+.layout-option kbd{font:10px Consolas,monospace;color:var(--of-muted)}
+.layout-popover footer{padding:10px 13px 12px;border-top:1px solid var(--of-border)}
+.layout-popover footer button{border:0;background:none;color:#e9a7b0;padding:2px 0;font-size:11px;cursor:pointer;text-align:left}
+.app-shell.layout-focus .workspace-layout>.primary-nav,.app-shell.layout-focus .workspace-layout>.sidebar--contextual,.app-shell.layout-focus .workspace-layout>.inspector{display:none!important}
+.app-shell .cad-properties[hidden]{display:none}.app-shell .cad-properties{max-width:none;flex-shrink:0}
+@media(max-width:1100px){.app-shell .layout-trigger span{display:none}.app-shell .topbar--refined{gap:8px}.app-shell .topbar-workspace{max-width:180px}}
+@media(prefers-reduced-motion:reduce){.panel-resizer::after{transition:none}}
