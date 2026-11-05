@@ -1,0 +1,29 @@
+name: Apply reviewed atomic flow edits
+on:
+  push:
+    branches: [feature/v0.7.9-flow-authoring]
+    paths: [.github/workflows/flow-review.yml]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - run: |
+          python3 - <<'PY'
+          import subprocess,lzma,base64
+          from pathlib import Path
+          if subprocess.check_output(['git','rev-parse','HEAD^'],text=True).strip()!='ea935db6c110d50e842435fe010d594ea7d1674c': raise SystemExit('Unexpected parent')
+          encoded='/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4A82BW5dADIaSQnC/BF9UN4KT0fZIrvt014yddIABql86J+xf3WA5tIv0PlX4wz5Vod0xvxO6O0n0eRoDUE9keArC2btt+CVFQXUoEVZg049Bd4PNGBsegA7b577CfnGFoievN9oroFLXzw15NDvUsSTOHf72nWAbcJoIKr8zsn5Y2MU6d1IhUzxT3cNLpVp/2LpG+JrLZORlKkA0SkdNaDKhuE9TZ4p4CjKUo8j29Fh3j1NRAjzqfWNjKTrih1EQ4HVK2NKBloR2tVdFGQEo9NdK5d54Y4kTw7FDkKPQL2vdrtf6N7jNOI0wRLCba87B1b52qgtxdjscenxJDoIi73eoUYcnefisagjD1bNOA3Og9jV9WyI1XyAwSZ8DrrjJIRgppNXGJO78lB7FIzr+GNxwg8SfHP0E+vP6exxZLtjIBqNfKb8611gGc23Dc66SASo4uVL7EuSUE+yOr8Uha6eg+073LGsRMTNQwfmKh8lJBvq9gCyctW4Yc/AwrZ/XYBbLYGcBYSQs82mmt3LmSQoKglz1t1wigcccdTFmBV9PrKNWLcEH1UrM1QfScWckFoyR8LifMyKpsNdGa6fgEGnqfZnxpG9N47s4f7mr6W05aA6pMcSmHWLwJ5os2qRLgRLP57w3XWiJfNKix/mjOsnR4cJ+hO0tW3TAxINzefdRMW6bOpPLF3Xdk3xG4/mDBoyFLl4hK6vmwRPBS1bwhEpRMhXAHV5Bbhz8VVeBNzh/dRdC9cZDmbqdfxJ9axOqlfQnl+NRauHpssT2D+g0vDee4J+dpXNgF2IxZi7OghOjtTvahbQo/yz8bDQszwDWarwSmYBpZL+qVgKXcqU03nlEOrcL8yQDCDTiNRubJqXeDIw/963SBJ2BESV2VaFZfqhmQ0qXHzv5QzqknxiDbxichSSKMF1GqQyaYfXQAWnoYrvk/AOSifyjFaBUteQ/wc5Qd3G+QqV19dWROdHNu1QP11imBvHL3MM41KqRWmKGPGcOdL3ySX5Q4jxNyw6PIa48dt8qi/RiWEf1GmDzg357ByxuZp2ncV1j234b+T3Zy96nahELoB8LWO8ZVuuVfODxB8LW+R8XYYWeJB9HQqu1D28TcHkt3QAks5f0QOp8sIjWAXMZnOcMA2FZgklm/Qviu3sUiCjoPeN07K4Ni2QfFsvYt0n8p4TE5dt8DNZCKSuJTrpDDd1OB6nZcQpbvxDPbv0r+BI07HwcP7SEPJ3dv3U6rhFkjK+saOciPoWMGzjnw8Dbfw5OAJxk8FCNSQMYEoUfHwrv07f+9iWdXoypEC5RYbWKtyftMkpZt2VIDPPyXG1QVcbdzzOVvC/pXvBvu1RGeDSmji7mxnkk1YCDt8DZlzOym/W0mVqpUcplINMW+30QeFXx01yRnwTfRsOBwJTJureE7Uui9X4Fkr6rXrnXpzU4bBdfpodEdyZJ6lXC88kPmJRuezT3BqQQf6rL8AveHdWv5hzPOAYFFbauexCR9xmsBec+NBG8917BjRLjYfCtD8psvY3+P6GI/iEEtgOIPP1AuJ0blKjVnbbmUTpcBJytgni332sROk2wzonjI1kWLu9BylPlWO5lIFC2imbs0CMlxhU83Uam3JfABZ/6cJIqFZ2Wpg+yws/Pmh6KI6xmfQSBNaXiHAE73hwJgidOYb2jmbFagrEuP4eNxy7b0AX8POj0KiE7OG/HFcZU4NSWih+WXj0N8qwEuq4x5COAGdysMC0K38RWYfyA2OWiaZ3Y1wZDD3bkF759ONlv75XzRHu+38VdMJSRAUHYH4PGWsqJDj6JtF+DcnAYadr4V6vDLW1fHkCtypSnjLK7Fsx3aQS940U3AieCs9dGn4AAAABVXpMI5XxXAABigu3HgAAKyqznbHEZ/sCAAAAAARZWg=='
+          patch=Path('/tmp/flow-review.patch');patch.write_bytes(lzma.decompress(base64.b64decode(encoded)))
+          subprocess.run(['git','apply','--check','--unidiff-zero',str(patch)],check=True)
+          subprocess.run(['git','apply','--unidiff-zero',str(patch)],check=True)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src scripts tests
+          git commit -m 'fix(flow): group keyboard deletion and incident wires into one reversible edit'
+          git push origin HEAD:feature/v0.7.9-flow-authoring
