@@ -98,7 +98,7 @@ test('leitura local JSON funciona com arquivo válido e bloqueia symlinks',async
 
 test('templates oficiais validam e executam sem dados simulados',async t=>{
   const {WORKFLOW_TEMPLATES}=await import('../core/templates.mjs');
-  assert.equal(WORKFLOW_TEMPLATES.length,6);
+  assert.equal(WORKFLOW_TEMPLATES.length,9);
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'omni-templates-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const { initialCadSketch, makeCadEntity, addCadEntity } = await import('../core/cad2d.mjs');
   const { saveCadDocument } = await import('../core/cad-store.mjs');

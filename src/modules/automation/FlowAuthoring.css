@@ -1,0 +1,32 @@
+.flow-inspector{display:flex;flex-direction:column;min-width:260px}
+.flow-inspector-tabs{display:flex;flex:none;border-bottom:1px solid var(--of-border);padding:0 8px;gap:1px;height:38px}
+.flow-inspector-tabs button{flex:1;min-width:0;border:0;border-bottom:2px solid transparent;background:none;color:var(--of-muted);font-size:10px;padding:0 7px}
+.flow-inspector-tabs button[aria-selected=true]{color:var(--of-ink);border-bottom-color:var(--of-accent)}
+.flow-inspector-scroll{overflow:auto;min-height:0;flex:1;scrollbar-width:thin;scrollbar-color:var(--of-border-strong) transparent}
+.flow-inspector .inspector-section{border:0;padding:16px}.flow-inspector .inspector-section h3{font-size:14px;margin:0 0 6px}
+.flow-inspector .inspector-section p{font-size:11px;line-height:1.6;color:var(--of-muted)}
+.flow-fields{border:0;padding:0;margin:18px 0 0;min-width:0}.flow-fields:disabled{opacity:.6}
+.flow-object-id{display:block;color:var(--of-subtle);font-size:10px;overflow:hidden;text-overflow:ellipsis}
+.flow-port-contract{border-top:1px solid var(--of-border);margin-top:20px;padding:12px 0;font-size:10px;color:var(--of-muted)}
+.flow-port-contract summary{cursor:pointer;color:var(--of-ink);font-size:11px;margin-bottom:10px}
+.flow-port-contract div{padding:6px 0;display:flex;gap:7px}.flow-port-contract small{margin-left:auto;color:var(--of-subtle)}
+.flow-outline-search{display:flex;align-items:center;gap:7px;padding:10px;margin:0 6px;border-bottom:1px solid var(--of-border);color:var(--of-muted)}
+.flow-outline-search input{width:100%;min-width:0;background:transparent;border:0;color:var(--of-ink);font-size:11px;outline:none;padding:3px}
+.flow-outline-count{padding:10px 16px;font-size:10px;color:var(--of-subtle)}
+.flow-outline-row{display:flex;align-items:center;gap:9px;width:calc(100% - 12px);margin:2px 6px;padding:9px 10px;background:none;border:1px solid transparent;border-radius:4px;color:var(--of-muted);text-align:left;font-size:11px}
+.flow-outline-row>span{flex:1;min-width:0}.flow-outline-row small{display:block;overflow:hidden;text-overflow:ellipsis;font-size:9px;color:var(--of-subtle);margin-top:3px}
+.flow-outline-row:hover,.flow-outline-row.is-active{background:var(--of-accent-soft);border-color:var(--of-border);color:var(--of-ink)}
+.flow-diagnostic{display:flex;flex-direction:column;gap:5px;width:100%;margin-top:7px;padding:10px;text-align:left;background:var(--of-elevated);border:1px solid var(--of-border);border-radius:4px;color:var(--of-ink);font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.flow-diagnostic small{color:var(--of-accent)}.flow-diagnostic:disabled{cursor:default;opacity:1}
+.flow-panel-empty{color:var(--of-subtle);padding:16px;font-size:11px;line-height:1.6}
+.flow-execution-row{display:flex;flex-wrap:wrap;gap:8px;background:none;border:0;border-bottom:1px solid var(--of-border);width:100%;text-align:left;padding:10px 0;color:var(--of-muted);font-size:10px}
+.flow-execution-row strong{flex:1;overflow:hidden;text-overflow:ellipsis}.flow-execution-row p{flex-basis:100%;margin:2px 0;font-size:10px;overflow-wrap:anywhere}
+.flow-edit-tools{display:flex;align-items:center;gap:3px;height:33px;flex:none;padding:0 10px;background:var(--of-panel);border-bottom:1px solid var(--of-border)}
+.flow-edit-tools button{display:grid;place-items:center;width:27px;height:25px;flex:none;border:0;border-radius:3px;background:none;color:var(--of-muted)}
+.flow-edit-tools button:hover:not(:disabled){background:var(--of-elevated);color:var(--of-ink)}.flow-edit-tools button:disabled{opacity:.3}
+.flow-edit-tools button:focus-visible,.flow-inspector button:focus-visible{outline:1px solid var(--of-focus)}
+.flow-document-name{flex:1;min-width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;color:var(--of-muted);margin-right:8px}
+.flow-edit-tools>small{font:9px Consolas,monospace;color:var(--of-subtle);margin-left:6px;white-space:nowrap}
+.graph-node--issue{border-color:#b85e66!important}.graph-node__state{position:absolute;right:8px;top:8px;font-size:9px;color:var(--of-muted);padding:2px 4px;border-radius:3px;background:var(--of-panel)}
+.graph-node__state--FAIL,.graph-node__state--issue{color:#f09aa1}.graph-node__state--PASS{color:#9bc5ac}
+@media(max-width:1300px){.flow-inspector{width:270px;flex-basis:270px}.flow-edit-tools>small{display:none}}

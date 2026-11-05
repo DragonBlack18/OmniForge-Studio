@@ -1,3 +1,11 @@
+## [0.7.9] — Autoria de fluxos e diagnóstico (candidata)
+
+- Histórico de fluxo com transações de arraste/digitação, quotas, duplicação, remoção estrutural, organização e preservação do nome.
+- Conexões inválidas bloqueadas antes da inserção; diagnóstico por bloco e status de execução no canvas.
+- Inspetor contextual com propriedades, estrutura pesquisável e diagnóstico; filtro no único navegador global.
+- Oito blocos locais e três modelos reais de preparação, agrupamento e totalização de registros.
+- Testes de edição e execução com JSON real, regresão dos módulos e distribuição Windows condicionadas ao CI.
+
 ## [0.7.8] — CAD Toolkit: operações geométricas precisas (candidata)
 
 - Rotação de linha/círculo e retângulo nos ângulos compatíveis com o schema 2D, com pivô local/global; espelhamento X/Y.

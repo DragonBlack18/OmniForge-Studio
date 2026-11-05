@@ -1,5 +1,10 @@
 # OmniForge Studio
 
+**v0.7.9 — autoria de fluxos, diagnóstico e ferramentas de dados (candidata)**
+
+Navegação única pesquisável; desfazer/refazer, duplicar, excluir com conexões, organizar grafo, busca de blocos no fluxo, diagnóstico contextual e oito novas operações locais. [Arquitetura, testes e limites](docs/FLOW_AUTHORING_V079.md).
+
+
 **v0.7.8 — CAD Toolkit: geometria técnica e medições (candidata em validação)** · Aplicação desktop local para código, automação e desenho 2D.
 
 **v0.7.6:** estado leve de automação preservado ao alternar CAD/IDE, runtime React Flow carregado apenas ao abrir o canvas, proteção de edição concorrente ao salvar, orçamento menor de JS inicial e benchmarks reais do Electron no Windows. Sem modificar dados originais. [Detalhes técnicos](docs/LAZY_FLOW_PERFORMANCE_V076.md).
