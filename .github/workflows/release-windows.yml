@@ -31,13 +31,24 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path scripts/windows-distribution-smoke.ps1).Path, [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -ne 0) { throw ($errors | Out-String) }
       - name: Dependencias do projeto
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
+      - name: Verify locked release contract
+        run: npm run verify:release
       - name: Testes do motor
         run: npm test
       - name: Build da interface
         run: npm run build
       - name: Verificar bundle inicial e divisão de módulos
         run: npm run budget:bundle
+      - name: Native security and private diagnostics acceptance
+        run: npm run smoke:native-security
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Native-Diagnostics-V080
+          path: smoke-artifacts/native-diagnostics-v080.png
+          if-no-files-found: warn
       - name: Unified authoring and recovery acceptance
         run: npm run smoke:flow-integration
         timeout-minutes: 5
@@ -115,6 +126,10 @@ jobs:
         timeout-minutes: 5
       - name: Gerar instalador e portatil
         run: npx electron-builder --win nsis portable --x64 --publish never
+      - name: Verify hardening in packaged executable
+        run: npm run verify:packaged-security
+      - name: Artifact and dependency provenance
+        run: npm run release:manifest
       - name: Teste real Portable + NSIS no Windows
         shell: pwsh
         run: ./scripts/windows-distribution-smoke.ps1
@@ -159,7 +174,7 @@ jobs:
           - Funcionalidades ainda experimentais: uso local, sem controle de processos industriais.
           "@
           $notes | Set-Content -Path release/RELEASE_NOTES.md -Encoding utf8
-          & gh release create $tag $setup $portable release/SHA256SUMS.txt --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "OmniForge Studio $tag (Windows)" --notes-file release/RELEASE_NOTES.md --prerelease
+          & gh release create $tag $setup $portable release/SHA256SUMS.txt release/RELEASE-MANIFEST.json release/DEPENDENCIES.json release/PACKAGED-SECURITY.json --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "OmniForge Studio $tag (Windows)" --notes-file release/RELEASE_NOTES.md --prerelease
           if ($LASTEXITCODE -ne 0) { throw "Falha ao publicar os executaveis no GitHub Releases" }
       - uses: actions/upload-artifact@v4
         if: always()
@@ -177,5 +192,8 @@ jobs:
           path: |
             release/*.exe
             release/SHA256SUMS.txt
+            release/RELEASE-MANIFEST.json
+            release/DEPENDENCIES.json
+            release/PACKAGED-SECURITY.json
           if-no-files-found: warn
           retention-days: 14

@@ -26,8 +26,10 @@ jobs:
         with:
           node-version: '22'
       - name: Instalar dependências em ambiente reproduzível
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
         timeout-minutes: 8
+      - name: Verify locked release contract
+        run: npm run verify:release
       - name: Testes Node com limite de duração
         run: npm test
         timeout-minutes: 6
@@ -41,7 +43,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+      - name: Verify locked release contract
+        run: npm run verify:release
       - run: npm run build
       - run: npm run budget:bundle
       - name: Archive tested source and resolved dependency lock
@@ -75,9 +79,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
+      - name: Verify locked release contract
+        run: npm run verify:release
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Native security and private diagnostics acceptance
+        run: npm run smoke:native-security
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Native-Diagnostics-V080
+          path: smoke-artifacts/native-diagnostics-v080.png
+          if-no-files-found: warn
       - name: Unified authoring and recovery acceptance
         run: npm run smoke:flow-integration
         timeout-minutes: 5
