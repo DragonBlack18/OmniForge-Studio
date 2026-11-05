@@ -14,6 +14,7 @@ export { summarizeLocalHttpNodes } from './modules/integrations/http.mjs';
 export { summarizeProjectCalls } from './modules/integrations/capabilities.mjs';
 
 const loaders = Object.freeze({
+  flowRecovery: () => import('./modules/automation/flow-recovery.mjs'),
   cadStore: () => import('./modules/cad/cad-store.mjs'),
   cadRecovery: () => import('./modules/cad/cad-recovery.mjs'),
   cadFile: () => import('./modules/cad/cad-import-file.mjs'),
@@ -30,6 +31,9 @@ const loaders = Object.freeze({
   supervisor: () => import('./supervisor.mjs')
 });
 
+export const readFlowDraft = (...args) => loaders.flowRecovery().then(m => m.readFlowDraft(...args));
+export const writeFlowDraft = (...args) => loaders.flowRecovery().then(m => m.writeFlowDraft(...args));
+export const discardFlowDraft = (...args) => loaders.flowRecovery().then(m => m.discardFlowDraft(...args));
 export const readCadDraft = (...args) => loaders.cadRecovery().then(module => module.readCadDraft(...args));
 export const writeCadDraft = (...args) => loaders.cadRecovery().then(module => module.writeCadDraft(...args));
 export const discardCadDraft = (...args) => loaders.cadRecovery().then(module => module.discardCadDraft(...args));

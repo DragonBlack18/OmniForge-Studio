@@ -1,14 +1,10 @@
 # OmniForge Studio
 
-**v0.7.8 — CAD Toolkit: geometria técnica e medições (candidata em validação)** · Aplicação desktop local para código, automação e desenho 2D.
+**v0.7.9 — Recuperação protegida de fluxos**
 
-**v0.7.6:** estado leve de automação preservado ao alternar CAD/IDE, runtime React Flow carregado apenas ao abrir o canvas, proteção de edição concorrente ao salvar, orçamento menor de JS inicial e benchmarks reais do Electron no Windows. Sem modificar dados originais. [Detalhes técnicos](docs/LAZY_FLOW_PERFORMANCE_V076.md).
+Aplicação desktop local para código, automações supervisionadas e desenho técnico 2D. Navegação única, tema grafite/vermelho e ferramentas separadas por domínio.
 
-**v0.7.5:** Barra de atividades por domínio, tela inicial operacional (sem dashboard), paleta de comandos Ctrl+Shift+P/F1, quick-open Ctrl+P de arquivos reais do workspace, ícones SVG leves e Monaco adaptativo para arquivos grandes. Nenhuma engine externa foi misturada ao código. [Especificação técnica e plano de integração](docs/TECHNICAL_WORKBENCH_V075.md).
-
-**v0.7.4:** CAD 2D com checkpoint isolado no perfil local, restauração explícita, inspeção JSON de conflitos e proteção por revisão SHA-256. A recuperação **não sobrescreve** o desenho original e requer salvar manualmente. Detalhes: [docs/CAD_RECOVERY_V074.md](docs/CAD_RECOVERY_V074.md).
-
-**v0.7.8:** novas operações reais do CAD 2D: rotação, espelhamento, paralela, matriz retangular e medição entre dois pontos. Disponíveis em um único inspetor contextual, preservando navegação única e tema grafite/vermelho. [Especificação técnica](docs/CAD_TOOLKIT_V078.md).
+Esta versão acrescenta cópias locais cifradas das alterações do fluxo no Windows, restauração manual, inspeção de conflitos e descarte confirmado. Salvar e executar continuam explícitos. [Contrato e limites](docs/FLOW_RECOVERY_V079.md) · [Histórico de versões](CHANGELOG.md).
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 

@@ -31,6 +31,7 @@ function finite(value) {
   return value;
 }
 function boundedInt(value, lo, hi, name) {
+  if(typeof value==='string'&&!value.trim())err(`${name} não pode ficar vazio.`);
   const n = Number(value);
   if (!Number.isInteger(n) || n < lo || n > hi) err(`${name} deve ficar entre ${lo} e ${hi}.`);
   return n;
@@ -66,7 +67,60 @@ function assertOutput(value) {
   if (byteCount(JSON.stringify(value)) > MAX_RESULT) err('Resultado do bloco excede 2 MB.');
   return value;
 }
+function fieldList(value) {
+  if(typeof value!=='string')err('Lista de campos inválida.');
+  const fields=value.split(',').map(x=>x.trim());
+  if(!fields.length||fields.length>64||fields.some(x=>!/^[$A-Z_a-z][\w$]*$/.test(x)||FORBIDDEN.has(x)))
+    err('Use de 1 a 64 nomes de campo simples, separados por vírgula.');
+  if(new Set(fields).size!==fields.length)err('Lista de campos duplicada.');
+  return fields;
+}
+function mapping(value) {
+  const result=readJSON(value);
+  if(!object(result)||!Object.keys(result).length||Object.keys(result).length>32)err('Mapeamento precisa de 1 a 32 campos.');
+  for(const [key,source] of Object.entries(result)){
+    if(fieldList(key).length!==1)err('Destino precisa ser um nome simples.');if(typeof source!=='string')err('Cada origem precisa ser um caminho JSON.');
+    readPath({},source);
+  }
+  return result;
+}
+
 const defs = [
+  // v0.7.9: bounded, declarative data operations; no arbitrary code.
+  ['data.project','Dados','Selecionar propriedades','Mantém somente os campos indicados de um objeto ou lista de objetos.',
+    [['fields','Campos separados por vírgula','text','id,nome']],(v,c)=>{
+      const fields=fieldList(c.fields);
+      const project=item=>{if(!object(item))err('Cada item precisa ser um objeto.');return Object.fromEntries(fields.filter(k=>Object.hasOwn(item,k)).map(k=>[k,item[k]]));};
+      return Array.isArray(v)?array(v).map(project):project(v);
+    }],
+  ['data.mapFields','Dados','Mapear registros','Cria campos por caminhos JSON, sem expressões ou scripts.',
+    [['mapping','Destino: caminho de origem (JSON)','json','{"codigo":"id"}']],(v,c)=>{
+      const map=mapping(c.mapping);
+      return array(v).map(item=>Object.fromEntries(Object.entries(map).map(([key,source])=>[key,requiredPath(item,source)])));
+    }],
+  ['data.groupBy','Dados','Agrupar registros','Agrupa uma lista por campo simples, preservando os itens e tipos de chave.',
+    [['path','Campo de agrupamento','text','categoria']],(v,c)=>{
+      const groups=new Map();for(const item of array(v)){
+        const key=requiredPath(item,c.path);
+        if(key!==null&&!['string','number','boolean'].includes(typeof key))err('Chave de grupo precisa ser um valor simples.');
+        if(typeof key==='number')finite(key);
+        const token=JSON.stringify(key);if(!groups.has(token))groups.set(token,{key,items:[]});groups.get(token).items.push(item);
+      }return [...groups.values()];
+    }],
+  ['data.sumBy','Matemática','Somar campo da lista','Soma um campo numérico de cada registro; não converte textos silenciosamente.',
+    [['path','Campo numérico','text','valor']],(v,c)=>array(v).reduce((sum,item)=>finite(sum+finite(requiredPath(item,c.path))),0)],
+  ['data.chunk','Dados','Dividir em lotes','Divide uma lista em grupos limitados, sem executar tarefas automaticamente.',
+    [['size','Itens por lote','text','100']],(v,c)=>{const a=array(v),size=boundedInt(c.size,1,1000,'Itens por lote'),out=[];for(let i=0;i<a.length;i+=size)out.push(a.slice(i,i+size));return out;}],
+  ['logic.requireType','Lógica','Validar tipo','Interrompe o fluxo antes da próxima etapa quando o tipo é inesperado.',
+    [['expected','Tipo esperado','select','object','object','array','string','number','boolean','null']],(v,c)=>{
+      const type=v===null?'null':Array.isArray(v)?'array':typeof v;
+      if(type!==c.expected)err('Tipo recebido: '+type+'. Esperado: '+c.expected+'.');return v;
+    }],
+  ['text.substring','Texto','Extrair trecho','Extrai caracteres Unicode por início e quantidade.',
+    [['start','Início','text','0'],['count','Quantidade','text','20']],(v,c)=>[...text(v)].slice(boundedInt(c.start,0,2000000,'Início'),boundedInt(c.start,0,2000000,'Início')+boundedInt(c.count,0,2000000,'Quantidade')).join('')],
+  ['math.clamp','Matemática','Limitar valor','Restringe um número ao intervalo configurado.',
+    [['min','Mínimo','text','0'],['max','Máximo','text','100']],(v,c)=>Math.max(Number(c.min),Math.min(Number(c.max),finite(v)))],
+
   // Logic and branching
   ['logic.pass', 'Lógica', 'Continuar', 'Mantém os dados sem alterações.', [], v => v],
   ['logic.assert', 'Lógica', 'Verificar condição', 'Falha o fluxo caso a condição não seja verdadeira.', [['path','Campo','text','venda.id'], ['operator','Operador','select','eq','eq','ne','gt','gte','lt','lte','exists','contains'],['value','Comparar com (JSON)','json','1001']], (v,c) => comparison(v,c) ? v : err('Condição não atendida.')],
@@ -156,11 +210,20 @@ export function validatePureNode(node) {
   }
   if(node.type==='math.round')boundedInt(node.config.digits,0,12,'Casas decimais');
   if(node.type==='data.slice') {boundedInt(node.config.start,0,10000,'Início');boundedInt(node.config.count,0,10000,'Quantidade');}
+  if(node.type==='data.project')fieldList(node.config.fields);
+  if(node.type==='data.mapFields')mapping(node.config.mapping);
+  if(['data.sumBy','data.groupBy'].includes(node.type))readPath({},node.config.path);
+  if(node.type==='data.chunk')boundedInt(node.config.size,1,1000,'Itens por lote');
+  if(node.type==='text.substring'){boundedInt(node.config.start,0,2000000,'Início');boundedInt(node.config.count,0,2000000,'Quantidade');}
+  if(node.type==='math.clamp'){
+    if(!node.config.min.trim()||!node.config.max.trim()||!Number.isFinite(Number(node.config.min))||!Number.isFinite(Number(node.config.max))||Number(node.config.min)>Number(node.config.max))err('Intervalo numérico inválido.');
+  }
   if(node.type==='date.addDays')boundedInt(node.config.days,-36500,36500,'Dias');
 }
 export async function executePureNode(type,input,config) {
   const definition=defs.find(d=>d[0]===type);
   if(!definition)err('Executor de transformação indisponível.');
+  validatePureNode({type,config});
   return assertOutput(await definition[5](input,config));
 }
 export function pureNodeCount() { return defs.length; }

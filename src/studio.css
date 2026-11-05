@@ -23,3 +23,5 @@ body{min-width:960px;background:var(--of-bg)}.app-shell{min-height:600px;backgro
 .app-shell .file-entry--selected{background:var(--of-accent-soft);color:var(--of-ink);border-color:#65303b}
 @media(max-width:1200px){.app-shell .topbar-current{display:none}.app-shell .sidebar--contextual{width:205px;flex-basis:205px}.app-shell .inspector{width:250px;flex-basis:250px}}
 @media(prefers-reduced-motion:reduce){.app-shell *{scroll-behavior:auto;transition:none!important}}
+
+.flow-protection{color:var(--of-subtle);font:10px inherit;margin-left:8px;white-space:nowrap}

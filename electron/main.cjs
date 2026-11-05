@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, session, powerMonitor } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, net, shell, session, powerMonitor, safeStorage } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
@@ -456,6 +456,9 @@ async function initializeIpc() {
     }
     return current;
   };
+  require('./modules/flow-recovery-ipc.cjs').installFlowRecoveryIpc({
+    register, core, safeStorage, getProfile:() => app.getPath('userData'), pinnedWorkspace:pinnedDraftWorkspace
+  });
   register('readCadDraft', claimed =>
     core.readCadDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed)));
   register('writeCadDraft', (claimed, sketch, baseRevision, expectedDraftRevision) =>
