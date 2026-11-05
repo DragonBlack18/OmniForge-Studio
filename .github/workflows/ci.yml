@@ -50,17 +50,21 @@ jobs:
           REVIEWED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-          mkdir -p .ci-artifacts
-          git archive --format=zip HEAD -o .ci-artifacts/source.zip
-          cp package-lock.json .ci-artifacts/tested-package-lock.json
+          mkdir -p ci-artifacts
+          git archive --format=zip HEAD -o ci-artifacts/source.zip
+          cp package-lock.json ci-artifacts/tested-package-lock.json
           printf 'checked_commit=%s\nchecked_tree=%s\nreviewed_head=%s\nnode=%s\nnpm=%s\n' \
             "$(git rev-parse HEAD)" "$(git rev-parse HEAD^{tree})" "$REVIEWED_HEAD" \
-            "$(node --version)" "$(npm --version)" > .ci-artifacts/PROVENANCE.txt
-          (cd .ci-artifacts && sha256sum source.zip tested-package-lock.json > SHA256SUMS.txt)
+            "$(node --version)" "$(npm --version)" > ci-artifacts/PROVENANCE.txt
+          (cd ci-artifacts && sha256sum source.zip tested-package-lock.json > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: OmniForge-Reviewed-Source
-          path: .ci-artifacts/*
+          path: |
+            ci-artifacts/source.zip
+            ci-artifacts/tested-package-lock.json
+            ci-artifacts/PROVENANCE.txt
+            ci-artifacts/SHA256SUMS.txt
           retention-days: 14
           if-no-files-found: error
   desktop-windows-smoke:
