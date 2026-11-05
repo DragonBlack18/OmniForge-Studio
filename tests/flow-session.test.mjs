@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { exampleFlow } from '../core/modules/automation/catalog.mjs';
 import { toUiNodes, toFlowDocument,
-  hasPersistentNodeChange, hasPersistentEdgeChange } from '../src/modules/automation/useFlowSession.mjs';
+  hasPersistentNodeChange, hasPersistentEdgeChange } from '../src/modules/automation/flow-session-store.mjs';
 
 test('flow model is serialized without dependency on React Flow renderer', () => {
   const original = exampleFlow();
