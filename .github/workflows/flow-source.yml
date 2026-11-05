@@ -1,0 +1,18 @@
+name: Flow authoring source snapshot
+on:
+  push:
+    branches: [feature/v0.7.9-flow-authoring]
+    paths: [.github/workflows/flow-source.yml]
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: git archive --format=zip --output=omniforge-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OmniForge-source-v079-baseline
+          path: omniforge-source.zip
+          retention-days: 3
