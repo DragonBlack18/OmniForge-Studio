@@ -72,3 +72,6 @@ Os conceitos foram adaptados ao tema grafite/vermelho e ao navegador único exis
 Não há garantia de que qualquer lógica arbitrária seja válida. Dados externos, permissões, entrada com tipo errado e falhas de processo/disco/rede continuam possíveis: a aplicação precisa recusá-los ou mostrá-los, não reportar PASS falso.
 
 Histórico desta versão é de sessão, não recuperação de fluxo após crash. Não adiciona loops, paralelismo, depurador passo a passo, CAD 3D, plugins arbitrários ou conectores externos sem aprovação. Os executáveis continuam sem assinatura digital e a plataforma é experimental.
+
+## Integração
+Consulte `INTEGRATION_V079.md`: contrato conjunto, restauração reversível, limites e gates.

@@ -85,11 +85,20 @@ try {
   assert.equal(JSON.parse(await page.getByLabel('JSON do fluxo recuperável').inputValue()).nodes.length,4);
   await fs.mkdir(path.join(root,'smoke-artifacts'),{recursive:true});
   await page.screenshot({path:path.join(root,'smoke-artifacts','flow-recovery-v079.png')});
+  assert.equal(await page.getByTestId('flow-duplicate').isDisabled(),true);
+  assert.equal(await page.getByTestId('flow-arrange').isDisabled(),true);
   await page.getByTestId('flow-restore-draft').click();
   await page.getByText('Fluxo restaurado no editor.',{exact:false}).waitFor();
   assert.equal(await page.locator('.react-flow__node').count(),4);
   assert.deepEqual(await fs.readFile(FLOW),initialBytes);
   assert.notEqual(await draft(),null);
+  phase='restoration participates in the same undo/redo history';
+  await page.getByTestId('flow-undo').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.react-flow__node').length===3);
+  await page.getByTestId('flow-redo').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.react-flow__node').length===4);
+  assert.deepEqual(await fs.readFile(FLOW),initialBytes);
+  assert.deepEqual(await page.evaluate(()=>window.omni.listRunHistory()),[]);
 
   phase='explicit save persists restored flow then clears only its checkpoint';
   await page.getByRole('button',{name:'Salvar fluxo',exact:true}).click();

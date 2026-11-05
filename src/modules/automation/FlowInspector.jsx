@@ -65,9 +65,9 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
           <span>{d.message}</span>{d.nodeId&&<small>Ir para {d.nodeId}</small>}</button>)}
         {validation.warnings.map((m,i)=><p key={i} className="log-muted">{m}</p>)}
       </>}
-      {(running?liveSteps:lastRun?.steps||[]).map((step,i)=><button type="button" key={i} className="flow-execution-row" onClick={()=>choose(step.nodeId)}>
+      {(running?liveSteps:lastRun?.steps||[]).map((step,i)=><button type="button" key={i} className="flow-execution-row" onClick={()=>choose(step.nodeId||step.id)}>
         <span className={step.status==='PASS'?'log-success':step.status==='FAIL'?'log-error':'log-muted'}>{step.status}</span>
-        <strong>{step.nodeId}</strong><small>{step.elapsedMs} ms</small>{step.message&&<p>{step.message}</p>}</button>)}
+        <strong>{step.nodeId||step.id}</strong><small>{step.elapsedMs} ms</small>{step.message&&<p>{step.message}</p>}</button>)}
       {lastRun&&<><div className="run-divider">{lastRun.dryRun?'SIMULAÇÃO':'EXECUÇÃO REAL'} · {lastRun.ok?'PASS':'FAIL'}</div>
         {(lastRun.artifacts||[]).map((a,i)=><p key={i} className="log-muted">{a.simulated?'Seria gravado':'Gravado'}: {a.relativePath}</p>)}
         {lastRun.error&&<p className="log-error">{lastRun.error}</p>}

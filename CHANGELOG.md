@@ -1,3 +1,9 @@
+## [0.7.9] — Autoria e recuperação integradas (candidata)
+
+- Histórico reversível, diagnóstico contextual e oito operações locais de dados.
+- Recuperação protegida Windows no mesmo store, restauração reversível e nenhuma execução automática.
+- Contratos e gates combinados; validação ainda em andamento.
+
 ## [0.7.8] — CAD Toolkit: operações geométricas precisas (candidata)
 
 - Rotação de linha/círculo e retângulo nos ângulos compatíveis com o schema 2D, com pivô local/global; espelhamento X/Y.

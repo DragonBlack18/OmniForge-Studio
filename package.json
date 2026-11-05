@@ -33,6 +33,7 @@
     "budget:bundle": "node scripts/check-bundle-budget.mjs",
     "smoke:studio": "node scripts/smoke-studio.mjs",
     "smoke:cad-toolkit": "node scripts/smoke-cad-toolkit.mjs",
+    "smoke:flow-authoring": "node scripts/smoke-flow-authoring.mjs",
     "smoke:flow-recovery": "node scripts/smoke-flow-recovery.mjs"
   },
   "devDependencies": {

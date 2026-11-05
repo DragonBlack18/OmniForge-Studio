@@ -83,10 +83,20 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
     },
     rename(value){const clean=String(value).trim();if(!clean||clean.length>120)throw Error('Use um nome de 1 a 120 caracteres.');commit(nodes,edges,{newName:clean,groupKey:'name'});},
     applyTemplate(flow){commit(toUiNodes(flow),structuredClone(flow.edges),{newName:flow.name||name});selectedId=nodes[0]?.id||null;emit();},
-    replaceDocument(flow,revision,dirty=false){
+    replaceDocument(flow,revision,dirty=false,protect=dirty){
       nodes=toUiNodes(flow);edges=structuredClone(flow.edges);name=flow.name||'Fluxo principal';selectedId=nodes[0]?.id||null;
-      flowRevision=revision;flowDirty=dirty;documentEpoch++;editEpoch=dirty?1:0;past=[];future=[];group=null;
+      flowRevision=revision;flowDirty=dirty;documentEpoch++;editEpoch=protect?1:0;past=[];future=[];group=null;
       savedKey=dirty?null:JSON.stringify(doc());emit();
+    },
+    restoreDocument(flow,revision){
+      if(revision!==flowRevision)throw Error('Revisão de restauração divergente.');
+      // Restoration is a reversible document operation, not a new competing state.
+      // Preserve savedKey/revision so undo can return to the original on disk.
+      group=null;
+      commit(toUiNodes(flow),structuredClone(flow.edges),{newName:flow.name||name});
+      selectedId=nodes[0]?.id||null;documentEpoch++;
+      // Even an identical restored graph must not inherit an earlier save lease.
+      emit();
     },
     captureSaveToken(){group=null;return {document:documentEpoch,edit:editEpoch,key:JSON.stringify(doc())};},
     markSaved(token,revision){

@@ -48,7 +48,7 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
   },[instance,focusRequest]);
   const displayNodes=React.useMemo(()=>{
     const issues=new Map(diagnostics.filter(d=>d.nodeId).map(d=>[d.nodeId,d.message]));
-    const execution=new Map(runSteps.map(s=>[s.nodeId,s.status]));
+    const execution=new Map(runSteps.map(s=>[s.nodeId||s.id,s.status]));
     return nodes.map(n=>({...n,data:{...n.data,issue:issues.get(n.id),execution:execution.get(n.id)}}));
   },[nodes,diagnostics,runSteps]);
   const valid=React.useCallback(connection=>checkFlowConnection(graph,connection).valid,[graph]);

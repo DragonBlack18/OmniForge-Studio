@@ -126,3 +126,6 @@ como backup universal. O arquivo original salvo segue portável como antes.
 CAD 3D, novos formatos e editor multi-documento não fazem parte desta etapa.
 Execuções de agendamentos anteriormente autorizados têm seu ciclo independente;
 ler/restaurar um checkpoint não as inicia nem as reconfigura.
+
+## Integração
+Consulte `INTEGRATION_V079.md`: contrato conjunto, restauração reversível, limites e gates.
