@@ -29,7 +29,11 @@ export default function RuntimeDiagnostics({ onClose }) {
   const exportReport=async()=>{
     setWorking(true);
     try {const result=await window.omni.exportRuntimeDiagnostics();if(alive.current)setStatus(result.saved?'Relatório exportado.':'Exportação cancelada.');}
-    catch(e){if(alive.current)setStatus(e?.message||'Falha ao exportar o relatório.');}
+    catch(e){
+      if(alive.current)setStatus(String(e?.message||'').includes('O arquivo já existe.')
+        ? 'O arquivo já existe. Escolha outro nome; nada foi sobrescrito.'
+        : 'Não foi possível exportar. Selecione um novo arquivo JSON em uma pasta acessível.');
+    }
     finally {if(alive.current)setWorking(false);}
   };
   return <div className="runtime-diagnostics-overlay" onMouseDown={e=>{if(e.target===e.currentTarget)onClose();}}>

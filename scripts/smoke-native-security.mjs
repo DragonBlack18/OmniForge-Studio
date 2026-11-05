@@ -17,6 +17,7 @@ try {
     env:{...process.env,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:profile,ELECTRON_RENDERER_URL:''}});
   page=await app.firstWindow({timeout:45_000});page.setDefaultTimeout(20_000);
   page.on('pageerror',e=>errors.push(e.message));
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,900));
   await page.getByTestId('workspace-overview').waitFor();
   assert.equal(path.normalize(await app.evaluate(({app})=>app.getPath('userData'))).toLowerCase(),path.normalize(profile).toLowerCase());
   phase='native policy and protected document';
@@ -44,8 +45,11 @@ try {
   assert.equal(exported.application.version,'0.8.0');
   assert.ok(!bytes.includes(lab)&&!bytes.includes('OMNIFORGE_E2E'));
   await page.getByRole('button',{name:'Exportar JSON',exact:true}).click();
-  await page.getByText('O arquivo já existe.',{exact:false}).waitFor();
+  await page.getByText('O arquivo já existe. Escolha outro nome; nada foi sobrescrito.',{exact:true}).waitFor();
+  assert.ok(!(await page.getByRole('dialog',{name:'Diagnóstico local',exact:true}).textContent()).includes('Error invoking'));
   assert.equal(await fs.readFile(reportFile,'utf8'),bytes);
+  await page.getByRole('button',{name:'Atualizar',exact:true}).click();
+  await page.getByText('O arquivo já existe. Escolha outro nome; nada foi sobrescrito.',{exact:true}).waitFor({state:'detached'});
   await fs.mkdir(path.join(root,'smoke-artifacts'),{recursive:true});
   await page.screenshot({path:path.join(root,'smoke-artifacts','native-diagnostics-v080.png')});
   await page.getByRole('button',{name:'Fechar diagnóstico',exact:true}).click();
