@@ -36,3 +36,9 @@
 @media(max-width:1120px){.cad-topbar{gap:8px}.cad-context{font-size:9px}.cad-top-actions{gap:4px}.cad-action{padding:5px 7px}.cad-viewport-help{max-width:60%}}
 
 .cad-tree-fold[aria-expanded="true"] svg{transform:rotate(90deg)}
+
+/* CAD tools v0.7.8 — no extra global sidebar. */
+.cad-canvas--measure{cursor:crosshair}
+.cad-measure-summary{position:absolute;top:44px;left:11px;max-width:min(380px,70%);border:1px solid #6d4650;background:#1b161bdc;border-radius:4px;padding:7px 10px;font:600 11px Consolas,monospace;color:#f2c8ce;pointer-events:none}
+.cad-measure-summary span{display:block;margin-top:4px;font-size:10px;color:#b8a9b0;font-weight:400}
+.cad-technical-operations .cad-property-form{gap:9px}.cad-technical-operations .cad-inline-note{margin:0;line-height:1.5}.cad-technical-operations .cad-fields-grid{row-gap:9px}

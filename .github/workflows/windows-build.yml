@@ -34,6 +34,9 @@ jobs:
       - name: Studio UX and CAD inspector regression
         run: npm run smoke:studio
         timeout-minutes: 5
+      - name: CAD Toolkit v0.7.8 real geometry regression
+        run: npm run smoke:cad-toolkit
+        timeout-minutes: 5
       - uses: actions/upload-artifact@v4
         if: always()
         with:

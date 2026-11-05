@@ -8,10 +8,12 @@ import CadInspector from './CadInspector.jsx';
 import {createCadPointer} from './cad-pointer.mjs';
 import {CadPointerOverlay,CadCoordinates} from './CadPointer.jsx';
 import { editCadIdentity, editCadLayer, duplicateCadEntity, transformCadEntity, setCadDimensions } from '../../../core/modules/cad/cad-edit.mjs';
+import { rotateCadEntity,mirrorCadEntity,offsetCadLine,arrayCadEntity,measureCadPoints } from '../../../core/modules/cad/cad-toolkit.mjs';
 
 const TOOLS = [
   ['select','pointer','Selecionar'],['pan','hand','Mover vista'],['line','line','Linha'],
-  ['rectangle','rectangle','Retângulo'],['circle','circle','Círculo']
+  ['rectangle','rectangle','Retângulo'],['circle','circle','Círculo'],
+  ['measure','ruler','Medir distância']
 ];
 const MAX_UNDO = 60;
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -42,6 +44,8 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const [selected,setSelected]=useState(null);
   const [from,setFrom]=useState(null);
   const [hover,setHover]=useState(null);
+  const [measureStart,setMeasureStart]=useState(null);
+  const [measureEnd,setMeasureEnd]=useState(null);
   const [pointerStore]=useState(()=>createCadPointer());
   useEffect(()=>()=>pointerStore.dispose(),[pointerStore]);
   const [status,setStatus]=useState('Abra um projeto para criar um desenho técnico.');
@@ -66,7 +70,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const setDirtyFlag=useCallback(value=>{setDirty(value);onDirtyChange?.(value);},[onDirtyChange]);
   const recovery=useCadRecovery({workspace,sketch,revision,dirty});
   const editBlocked=!workspace||working||loadError||Boolean(recovery.draft);
-  const selectObject=useCallback(id=>{setSelected(id);const item=sketch.entities.find(e=>e.id===id);if(item)setLayerId(item.layerId);setTool('select');setFrom(null);},[sketch.entities]);
+  const selectObject=useCallback(id=>{setSelected(id);const item=sketch.entities.find(e=>e.id===id);if(item)setLayerId(item.layerId);setTool('select');setFrom(null);setMeasureStart(null);setMeasureEnd(null);},[sketch.entities]);
   const selectFromCanvas=useCallback(id=>{if(tool==='select')selectObject(id);},[tool,selectObject]);
 
   // Undo may remove the active layer. Keep selection references in the restored document.
@@ -93,7 +97,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   },[workspace]);
   useEffect(()=>{
     let active=true;
-    setSelected(null);setFrom(null);setUndo([]);setRedo([]);setSketch(initialCadSketch());setRevision(null);setDirtyFlag(false);
+    setSelected(null);setFrom(null);setMeasureStart(null);setMeasureEnd(null);setUndo([]);setRedo([]);setSketch(initialCadSketch());setRevision(null);setDirtyFlag(false);
     setShowRecoveryJson(false);setLoadError(false);
     recovery.reset();
     if(!workspace){setStatus('Abra um projeto para habilitar o CAD.');return()=>{active=false;};}
@@ -132,8 +136,8 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       if(/input|textarea|select/i.test(e.target?.tagName||''))return;
       if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();if(e.shiftKey)redoOnce();else undoOnce();}
       else if((e.key==='Delete'||e.key==='Backspace')&&selected){e.preventDefault();erase();}
-      else if(e.key==='Escape'){setFrom(null);setSelected(null);setTool('select');}
-      else if(!e.ctrlKey&&!e.metaKey&&!e.altKey){const next={v:'select',g:'pan',l:'line',r:'rectangle',c:'circle'}[e.key.toLowerCase()];if(next){e.preventDefault();setTool(next);setFrom(null);}}
+      else if(e.key==='Escape'){setFrom(null);setSelected(null);setMeasureStart(null);setMeasureEnd(null);setTool('select');}
+      else if(!e.ctrlKey&&!e.metaKey&&!e.altKey){const next={v:'select',g:'pan',l:'line',r:'rectangle',c:'circle',d:'measure'}[e.key.toLowerCase()];if(next){e.preventDefault();setTool(next);setFrom(null);setMeasureStart(null);setMeasureEnd(null);}}
     };
     window.addEventListener('keydown',handler);
     return()=>window.removeEventListener('keydown',handler);
@@ -162,6 +166,13 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       if(!event.target.closest?.('[data-entity-id]'))setSelected(null);
       return;
     }
+    if(tool==='measure'){
+      const p=toSnapped(event);
+      if(!measureStart||measureEnd){setMeasureStart(p);setMeasureEnd(null);setHover(null);setStatus('Medir: selecione o segundo ponto.');}
+      else {const m=measureCadPoints(measureStart,p);setMeasureEnd(p);
+        setStatus(`Distância ${m.distance} mm · ΔX ${m.dx} · ΔY ${m.dy} · ${m.angle}°`);}
+      return;
+    }
     if(activeLayer?.locked || !activeLayer?.visible){
       setStatus('A camada ativa está bloqueada ou oculta. Desbloqueie e mostre para desenhar.');
       return;
@@ -176,7 +187,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       setView({...initial,cx:initial.cx-(event.clientX-x)/initial.zoom,cy:initial.cy+(event.clientY-y)/initial.zoom});return;
     }
     if(!workspace)return;
-    const p=toSnapped(event);pointerStore.update(p);if(from)setHover(p);
+    const p=toSnapped(event);pointerStore.update(p);if(from||(tool==='measure'&&measureStart&&!measureEnd))setHover(p);
   }
   function pointerUp(event){
     if(panRef.current){panRef.current=null;return;}
@@ -261,6 +272,23 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   function resizeObject(id,values){
     if(editBlocked||operationRef.current)return;
     try{record(setCadDimensions(sketch,id,values));setStatus('Dimensões aplicadas.');}catch(e){setStatus(e.message);}
+  }
+  function technicalOperation(kind,id,values){
+    if(editBlocked||operationRef.current)return;
+    try{
+      let next,selectedCopy=null;
+      if(kind==='rotate')next=rotateCadEntity(sketch,id,values);
+      else if(kind==='mirror')next=mirrorCadEntity(sketch,id,values);
+      else if(kind==='offset'){selectedCopy=crypto.randomUUID();next=offsetCadLine(sketch,id,selectedCopy,values);}
+      else if(kind==='array'){next=arrayCadEntity(sketch,id,values,()=>crypto.randomUUID());selectedCopy=next.entities.at(-1)?.id;}
+      else throw new Error('Operação CAD desconhecida.');
+      if(!selectedCopy && JSON.stringify(next.entities.find(e=>e.id===id))===JSON.stringify(sketch.entities.find(e=>e.id===id))){
+        setStatus('A operação não alterou a geometria.');return;
+      }
+      record(next);if(selectedCopy)setSelected(selectedCopy);
+      const labels={rotate:'Rotação',mirror:'Espelhamento',offset:'Paralela',array:'Matriz'};
+      setStatus(labels[kind]+' aplicada em geometria real; use Salvar desenho para persistir.');
+    }catch(e){setStatus('Operação recusada: '+e.message);}
   }
   function persistWidth(value){try{localStorage.setItem('of.cad.inspectorWidth.v1',String(value));}catch{}}
   function resizeStart(event){
@@ -361,7 +389,9 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
     record(next);
   }
   const layerColor=id=>sketch.layers.find(l=>l.id===id)?.color||'#C8515E';
-  const tip=tool==='line'?'Arraste do ponto inicial ao final para criar uma linha.':tool==='rectangle'?'Arraste para criar um retângulo com dimensões em mm.':tool==='circle'?'Arraste do centro até o raio do círculo.':tool==='pan'?'Arraste o desenho para mover a câmera.':'Clique em uma entidade para selecionar e medir.';
+  const tip=tool==='line'?'Arraste do ponto inicial ao final para criar uma linha.':tool==='rectangle'?'Arraste para criar um retângulo com dimensões em mm.':tool==='circle'?'Arraste do centro até o raio do círculo.':tool==='measure'?'Clique em dois pontos para medir a distância (sem alterar o desenho).':tool==='pan'?'Arraste o desenho para mover a câmera.':'Clique em uma entidade para selecionar e medir.';
+  const measureTarget=measureEnd||(tool==='measure'?hover:null);
+  const measurement=measureStart&&measureTarget?measureCadPoints(measureStart,measureTarget):null;
 
   return <div className="cad-workbench" aria-label="OmniForge CAD 2D" data-testid="cad-workbench">
     <header className="cad-topbar">
@@ -397,7 +427,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
     <div className="cad-body">
       <aside className="cad-tools" aria-label="Ferramentas CAD">
 
-        {TOOLS.map(([id,icon,label])=><button key={id} title={label} aria-label={label} data-testid={`cad-tool-${id}`} className={`cad-tool ${tool===id?'is-active':''}`} disabled={editBlocked} onClick={()=>{setTool(id);setFrom(null);}}><NavGlyph name={icon} size={19}/></button>)}
+        {TOOLS.map(([id,icon,label])=><button key={id} title={label} aria-label={label} data-testid={`cad-tool-${id}`} className={`cad-tool ${tool===id?'is-active':''}`} disabled={editBlocked} onClick={()=>{setTool(id);setFrom(null);setHover(null);setMeasureStart(null);setMeasureEnd(null);}}><NavGlyph name={icon} size={19}/></button>)}
         <div className="cad-tools-separator"/>
         <button title="Desfazer" aria-label="Desfazer" disabled={editBlocked||!undo.length} className="cad-tool cad-tool-small" onClick={undoOnce}><NavGlyph name="undo" size={16}/></button>
         <button title="Refazer" aria-label="Refazer" disabled={editBlocked||!redo.length} className="cad-tool cad-tool-small" onClick={redoOnce}><NavGlyph name="redo" size={16}/></button>
@@ -416,8 +446,18 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
           <line y1="-1000000" y2="1000000" x1="0" x2="0" stroke="#3b3b40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
           {visibleEntities.map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={selectFromCanvas}/>)}
           {from&&hover&&<g opacity="0.85" pointerEvents="none"><CadShape entity={{id:'preview',type:tool,layerId,a:from,b:hover,center:from,radius:Math.hypot(hover.x-from.x,hover.y-from.y)}} color="#C8515E" selected={false} onSelect={()=>{}}/></g>}
+          {measureStart&&measureTarget&&<g pointerEvents="none" data-testid="cad-measure-overlay">
+            <line x1={measureStart.x} y1={-measureStart.y} x2={measureTarget.x} y2={-measureTarget.y}
+              stroke="#e6b9c0" strokeWidth={1.5/view.zoom} strokeDasharray={`${5/view.zoom} ${3/view.zoom}`}/>
+            {[[measureStart.x,-measureStart.y],[measureTarget.x,-measureTarget.y]].map(([x,y],i)=><circle key={i} cx={x} cy={y} r={3/view.zoom} fill="#e6b9c0"/>)}
+            <text x={(measureStart.x+measureTarget.x)/2} y={-(measureStart.y+measureTarget.y)/2-8/view.zoom}
+              fill="#f5d7dc" fontSize={11/view.zoom} textAnchor="middle">{measurement.distance} mm</text>
+          </g>}
           {visible&&workspace&&<CadPointerOverlay store={pointerStore} zoom={view.zoom}/>}
         </svg>
+        {measurement&&<div className="cad-measure-summary" data-testid="cad-measure-result">
+          {measurement.distance} mm <span>ΔX {measurement.dx} · ΔY {measurement.dy} · {measurement.angle}°</span>
+        </div>}
         <div className="cad-viewport-help">{tip}</div>
         <div className="cad-viewport-zoom">{Math.round(view.zoom*25)}% <span>· Roda do mouse para zoom</span></div>
       </section>
@@ -429,7 +469,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
           onEntityFlag={(id,key,value)=>editIdentity(id,{[key]:value})} onLayerFlag={(id,key,value)=>editLayer(id,{[key]:value})}/>
         <CadInspector sketch={sketch} selected={selected} layerId={layerId} disabled={editBlocked}
           editFields={editFields} setEditFields={setEditFields} onGeometry={applyGeometry} onIdentity={editIdentity}
-          onTransform={transform} onDimensions={resizeObject} onDuplicate={duplicate} onFocus={fitDrawing} onLayerEdit={editLayer}
+          onTransform={transform} onDimensions={resizeObject} onDuplicate={duplicate} onToolkit={technicalOperation} onFocus={fitDrawing} onLayerEdit={editLayer}
           newLayerName={newLayerName} setNewLayerName={setNewLayerName} onAddLayer={addLayerFromName}
           onRemoveLayer={deleteActiveLayer} stats={stats}/>
       </aside>
