@@ -67,10 +67,17 @@ try {
   await page.getByTestId('primary-sidebar').waitFor();
   assert.equal(await page.getByTestId('activity-rail').count(),0);
   assert.match(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
-  await page.keyboard.press('F1');
-  await page.getByRole('dialog',{name:'Paleta de comandos'}).waitFor();
-  await page.keyboard.press('Escape');
-  assert.equal(await page.getByTestId('command-palette').count(),0);
+  // Repeated immediate dismissals exercise focus on a newly mounted lazy
+  // dialog, not just the already-loaded/warm palette from earlier commands.
+  for (let attempt=0;attempt<6;attempt++) {
+    await page.keyboard.press('F1');
+    await page.getByRole('dialog',{name:'Paleta de comandos'}).waitFor();
+    assert.equal(await page.getByRole('searchbox',{name:'Pesquisar comandos'})
+      .evaluate(element=>element===document.activeElement),true,
+      'A paleta deve receber foco antes de ficar visível.');
+    await page.keyboard.press('Escape');
+    await page.getByTestId('command-palette').waitFor({state:'detached',timeout:3000});
+  }
   await page.keyboard.press('Control+b');
 
   phase='capture real workbench layout';
@@ -82,6 +89,10 @@ try {
   phase='pass';
 } catch(error) {
   console.error('[WORKBENCH E2E] phase='+phase,error);
+  if(page) {
+    await fs.mkdir(path.join(root,'smoke-artifacts'),{recursive:true});
+    await page.screenshot({path:path.join(root,'smoke-artifacts','workbench-failure.png')}).catch(()=>{});
+  }
   process.exitCode=1;
 } finally {
   if(app) {
