@@ -534,7 +534,7 @@ export default function AppShell() {
           <NavGlyph name="terminal" size={15}/><span>Comandos</span><kbd>Ctrl⇧P</kbd>
         </button>
         <button disabled={busy} type="button" onClick={openWorkspace} className="button button--outline topbar-open"><NavGlyph name="folder" size={16}/> Abrir projeto</button>
-        {(mode==='canvas'||flowDirty) && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
+        {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
       </header>
 
       <div className="workspace-layout">

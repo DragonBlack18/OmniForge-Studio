@@ -69,6 +69,11 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
   const selectObject=useCallback(id=>{setSelected(id);const item=sketch.entities.find(e=>e.id===id);if(item)setLayerId(item.layerId);setTool('select');setFrom(null);},[sketch.entities]);
   const selectFromCanvas=useCallback(id=>{if(tool==='select')selectObject(id);},[tool,selectObject]);
 
+  // Undo may remove the active layer. Keep selection references in the restored document.
+  useEffect(()=>{
+    if(!sketch.layers.some(layer=>layer.id===layerId))setLayerId(sketch.layers[0].id);
+    if(selected&&!sketch.entities.some(entity=>entity.id===selected))setSelected(null);
+  },[sketch.layers,sketch.entities,layerId,selected]);
   useEffect(()=>{viewRef.current=view;},[view]);
   useEffect(()=>{
     if(!selectedEntity){setEditFields({});return;}

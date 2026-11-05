@@ -1,9 +1,11 @@
-import React,{useEffect,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {cadEntityMetrics} from '../../../core/modules/cad/cad2d.mjs';
 import {cadEntityLabel,cadGeometrySummary,CAD_TYPE_LABELS} from '../../../core/modules/cad/cad-edit.mjs';
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
 const fmt=n=>Number(n.toFixed(4)).toLocaleString('pt-BR',{maximumFractionDigits:4});
 export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDuplicate,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
+  const panelRef=useRef(null);
+  useEffect(()=>{if(panelRef.current)panelRef.current.scrollTop=0;},[selected]);
   const entity=sketch.entities.find(e=>e.id===selected);
   const layer=sketch.layers.find(l=>l.id===layerId);
   const objectLayer=sketch.layers.find(l=>l.id===entity?.layerId);
@@ -30,7 +32,7 @@ export default function CadInspector({sketch,selected,layerId,disabled,editField
   };
   const measures=entity?cadEntityMetrics(entity):null;
   const geometry=entity?cadGeometrySummary(entity):null;
-  return <section className="cad-inspection" aria-label="Propriedades CAD">
+  return <section ref={panelRef} className="cad-inspection" aria-label="Propriedades CAD">
     <header className="cad-section-heading"><span>Propriedades</span><small>{entity?CAD_TYPE_LABELS[entity.type]:'Documento'}</small></header>
     {entity?<>
       <div className="cad-property-form">

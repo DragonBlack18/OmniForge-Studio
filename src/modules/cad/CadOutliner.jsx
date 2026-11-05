@@ -9,9 +9,10 @@ export default React.memo(function CadOutliner({sketch,selected,layerId,disabled
   const grouped=useMemo(()=>{
     const q=query.toLocaleLowerCase('pt-BR').trim();
     const groups=new Map(sketch.layers.map(l=>[l.id,[]]));
+    const layerNames=new Map(sketch.layers.map(l=>[l.id,l.name]));
     sketch.entities.forEach((entity,index)=>{
       const name=cadEntityLabel(entity,index);
-      if(!q||`${name} ${entity.id}`.toLocaleLowerCase('pt-BR').includes(q))groups.get(entity.layerId)?.push({entity,name});
+      if(!q||`${name} ${entity.id} ${layerNames.get(entity.layerId)||''}`.toLocaleLowerCase('pt-BR').includes(q))groups.get(entity.layerId)?.push({entity,name});
     });return groups;
   },[sketch,query]);
   const keyDown=e=>{
