@@ -89,13 +89,13 @@ try {
   await app.evaluate(()=>{globalThis.__exitConsent({response:0});});
   await waitForPageState(page, async()=> !(await window.omni.runtimeDiagnostics()).operations.closing);
   assert.equal(page.isClosed(),false);
-  const process=app.process();
+  const childProcess=app.process();
   await app.evaluate(({dialog,BrowserWindow})=>{
     dialog.showMessageBox=async()=>({response:1});
     BrowserWindow.getAllWindows()[0].close();
   });
-  await waitForState(()=>process.exitCode!==null,{timeout:12_000,description:'encerramento nativo confirmado'});
-  assert.equal(process.exitCode,0);
+  await waitForState(()=>childProcess.exitCode!==null,{timeout:12_000,description:'encerramento nativo confirmado'});
+  assert.equal(childProcess.exitCode,0);
   app=null;
   assert.deepEqual(await fs.readdir(workspace),[]);
   assert.deepEqual(errors,[]);
