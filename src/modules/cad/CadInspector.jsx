@@ -2,8 +2,9 @@ import React,{useEffect,useRef,useState} from 'react';
 import {cadEntityMetrics} from '../../../core/modules/cad/cad2d.mjs';
 import {cadEntityLabel,cadGeometrySummary,CAD_TYPE_LABELS} from '../../../core/modules/cad/cad-edit.mjs';
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
+import CadOperations from './CadOperations.jsx';
 const fmt=n=>Number(n.toFixed(4)).toLocaleString('pt-BR',{maximumFractionDigits:4});
-export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDuplicate,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
+export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDuplicate,onToolkit,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
   const panelRef=useRef(null);
   useEffect(()=>{if(panelRef.current)panelRef.current.scrollTop=0;},[selected]);
   const entity=sketch.entities.find(e=>e.id===selected);
@@ -61,6 +62,7 @@ export default function CadInspector({sketch,selected,layerId,disabled,editField
           {[['dx','Deslocamento X (mm)'],['dy','Deslocamento Y (mm)'],['scale','Escala uniforme']].map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" step="any" disabled={locked} value={transform[key]} onChange={e=>setTransform(old=>({...old,[key]:e.target.value}))}/></label>)}
         </div><p className="cad-inline-note">Escala a partir do centro do objeto.</p><button type="submit" disabled={locked}>Aplicar transformação</button></form>
       </details>
+      <CadOperations key={entity.id} entity={entity} disabled={locked} onApply={onToolkit}/>
       <details className="cad-property-section" open><summary>Medições</summary><dl className="cad-measurements">
         <dt>{entity.type==='line'?'Comprimento':'Perímetro'}</dt><dd data-testid="cad-measure-length">{fmt(measures.length)} mm</dd>
         {entity.type!=='line'&&<><dt>Área</dt><dd>{fmt(measures.area)} mm²</dd></>}

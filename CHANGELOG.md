@@ -1,3 +1,11 @@
+## [0.7.8] — CAD Toolkit: operações geométricas precisas (candidata)
+
+- Rotação de linha/círculo e retângulo nos ângulos compatíveis com o schema 2D, com pivô local/global; espelhamento X/Y.
+- Cópia paralela de linha por distância e matriz retangular de objetos (até 64 cópias por transação), com ID único e undo único.
+- Medição não destrutiva por dois cliques na vista (distância, ΔX, ΔY, ângulo), sem arquivo novo.
+- Operações numéricas concentradas em seção recolhível do inspetor, mantendo interface grafite/vermelho e menu global único.
+- Tests Node, Electron real, regressão e empacotamento NSIS/Portable como gates de publicação.
+
 ## [0.7.7] — Studio UX e propriedades CAD (candidata)
 
 - Remove o trilho global de navegação duplicado; preserva destinos e atalhos em um único menu.
