@@ -45,6 +45,7 @@ try{
   await page.getByTestId('flow-diagnostic').filter({hasText:copy}).first().click();await page.getByRole('tabpanel',{name:'Propriedades do fluxo'}).waitFor();
   assert.match(await page.locator('.flow-object-id').textContent(),new RegExp(copy));
   await page.getByTestId('flow-fit').click();
+  await page.waitForTimeout(220); // Bound the explicit 180ms viewport transition before mouse coordinates.
   phase='native wire connection and duplicate-input rejection';
   await connect('selecionar',copy);
   await page.waitForFunction(()=>document.querySelectorAll('.react-flow__edge').length===3);
@@ -52,7 +53,7 @@ try{
   await page.getByTestId('flow-undo').click();assert.equal(await page.locator('.react-flow__edge').count(),2);
   phase='delete + undo restores incident edges as one operation';
   await page.getByTestId('flow-delete').click();await count(3);await page.getByTestId('flow-undo').click();await count(4);await page.getByTestId('flow-redo').click();await count(3);
-  await select('selecionar');await page.getByTestId('flow-delete').click();await count(2);assert.equal(await page.locator('.react-flow__edge').count(),0);
+  await select('selecionar');await page.keyboard.press('Delete');await count(2);assert.equal(await page.locator('.react-flow__edge').count(),0);
   await page.getByTestId('flow-undo').click();await count(3);assert.equal(await page.locator('.react-flow__edge').count(),2);
   phase='auto arrange and outline navigation do not write to disk';
   await page.getByTestId('flow-arrange').click();

@@ -73,7 +73,7 @@ export default function AppShell() {
     nodes, setNodes, edges, setEdges, graph, selectedId, setSelectedId,
     flowRevision, flowDirty, handleNodesChange, handleEdgesChange,
     captureSaveToken, markSaved, replaceDocument, canUndo, canRedo, undo, redo,
-    deleteSelected, duplicateSelected, rename, editEpoch, applyTemplate: applyFlowTemplate
+    deleteSelected, deleteElements, duplicateSelected, rename, editEpoch, applyTemplate: applyFlowTemplate
   } = useFlowSession(DEFAULT);
   const [validation, setValidation] = useState(null);
   const [flowTab,setFlowTab]=useState(null);
@@ -684,7 +684,7 @@ export default function AppShell() {
                 <FlowCanvas nodes={nodes} edges={edges} onNodesChange={handleNodesChange}
                   onEdgesChange={handleEdgesChange} onConnect={onConnect} locked={busy}
                   graph={graph} diagnostics={validation?.diagnostics} runSteps={running?liveSteps:lastRun?.steps}
-                  focusRequest={flowFocus}
+                  focusRequest={flowFocus} onDeleteElements={deleteElements}
                   onNodeClick={(_event,node)=>{setSelectedId(node.id);setInspectorOpen(true);setFlowTab({tab:'properties',at:Date.now()});}}
                   onPaneClick={()=>setSelectedId(null)}/>
               </React.Suspense></ModuleErrorBoundary>

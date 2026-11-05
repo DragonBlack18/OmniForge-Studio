@@ -121,3 +121,16 @@ test('new templates execute and persist actual JSON with failures stopping downs
   const r=await runFlow(fail,{workspace:root,dryRun:false});assert.equal(r.ok,false);assert.equal(r.stage,'execution');
   await assert.rejects(fs.stat(path.join(root,'.omniforge/output/must-not-exist.json')),{code:'ENOENT'});
 });
+
+// React Flow sends node/edge deletion together through onBeforeDelete.
+test('keyboard multi-delete commits nodes and independent selected wires atomically',()=>{
+  const initial=exampleFlow(),session=createFlowSession(initial);
+  session.replaceDocument(initial,'base');
+  session.deleteElements({nodes:[{id:'gravar'}],edges:[{id:'e1'}]});
+  assert.equal(session.getSnapshot().nodes.length,2);
+  assert.equal(session.getSnapshot().edges.length,0);
+  session.undo();
+  assert.deepEqual(session.getSnapshot().graph,initial);
+  assert.equal(session.getSnapshot().flowDirty,false);
+  assert.equal(session.getSnapshot().canUndo,false);
+});

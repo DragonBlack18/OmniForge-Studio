@@ -71,6 +71,10 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
     },
     undo:()=>travel(past,future),redo:()=>travel(future,past),
     deleteSelected(){if(selectedId)commit(nodes.filter(n=>n.id!==selectedId),edges);},
+    deleteElements({nodes:removedNodes=[],edges:removedEdges=[]}={}){
+      const nodeIds=new Set(removedNodes.map(n=>n.id)),edgeIds=new Set(removedEdges.map(e=>e.id));
+      commit(nodes.filter(n=>!nodeIds.has(n.id)),edges.filter(e=>!edgeIds.has(e.id)));
+    },
     duplicateSelected(id){
       const found=nodes.find(n=>n.id===selectedId);if(!found)return;
       if(nodes.some(n=>n.id===id))throw Error('Identificador já utilizado.');

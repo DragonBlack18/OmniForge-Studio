@@ -40,7 +40,7 @@ const PRO_OPTIONS = Object.freeze({ hideAttribution: false });
 
 const EMPTY=[];
 export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick,
-  graph,locked=false,diagnostics=EMPTY,runSteps=EMPTY,focusRequest }) {
+  graph,locked=false,diagnostics=EMPTY,runSteps=EMPTY,focusRequest,onDeleteElements }) {
   const [instance,setInstance]=React.useState(null);
   React.useEffect(()=>{
     if(!instance||!focusRequest)return;
@@ -60,9 +60,13 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
     {if(!locked)onEdgesChange(changes, applyEdgeChanges);}, [onEdgesChange,locked]);
   const handleConnect = React.useCallback(connection =>
     onConnect(connection, addEdge), [onConnect]);
+  const beforeDelete=React.useCallback(async selection=>{
+    if(!locked)onDeleteElements(selection);
+    return false; // Session already committed nodes and wires as one operation.
+  },[locked,onDeleteElements]);
   return <div className="canvas-wrap">
     <ReactFlow nodes={displayNodes} edges={edges} nodeTypes={NODE_TYPES} onInit={setInstance}
-      isValidConnection={valid} nodesDraggable={!locked} deleteKeyCode={locked?null:['Backspace','Delete']}
+      onBeforeDelete={beforeDelete} isValidConnection={valid} nodesDraggable={!locked} deleteKeyCode={locked?null:['Backspace','Delete']}
       onNodesChange={handleNodes} onEdgesChange={handleEdges}
       onConnect={handleConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
       fitView fitViewOptions={FIT_VIEW_OPTIONS}
