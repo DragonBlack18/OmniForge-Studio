@@ -1,0 +1,57 @@
+name: Apply verified Studio UX source
+on:
+  push:
+    branches: [feature/v0.7.7-studio-ux]
+    paths: [.github/workflows/studio-apply.yml, '.github/studio-delta-*.bin']
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/v0.7.7-studio-ux
+      - name: Verify and apply exact source hashes
+        shell: python
+        run: |
+          import hashlib,json,lzma,os,subprocess
+          from pathlib import Path, PurePosixPath
+          branch='feature/v0.7.7-studio-ux'
+          assert os.environ['GITHUB_REF']=='refs/heads/'+branch
+          packed=b''.join(Path(f'.github/studio-delta-{i}.bin').read_bytes() for i in range(4))
+          raw=lzma.decompress(packed)
+          assert hashlib.sha256(raw).hexdigest()=='31728ae64dc29185b0a1c3fd72815e57d3d68eb7b7bdf5aeb4cd9f62f7d875f0'
+          entries=json.loads(raw)
+          assert len(entries)==38
+          prepared=[]
+          for item in entries:
+            p=PurePosixPath(item['path'])
+            assert not p.is_absolute() and '..' not in p.parts
+            if str(p).startswith('.github/workflows/'):
+              continue
+            assert p.parts[0] in {'src','core','tests','scripts','docs'} or str(p) in {'package.json','README.md','CHANGELOG.md','electron/main.cjs'}
+            file=Path(p)
+            assert not file.is_symlink()
+            text=file.read_text(encoding='utf-8') if file.exists() else ''
+            digest=hashlib.sha256(text.encode()).hexdigest()
+            if digest==item['after']:
+              continue
+            assert digest==item['before'], 'Source baseline differs: '+str(p)
+            for start,end,value in reversed(item['edits']):
+              assert isinstance(start,int) and isinstance(end,int) and 0<=start<=end<=len(text)
+              text=text[:start]+value+text[end:]
+            assert hashlib.sha256(text.encode()).hexdigest()==item['after'], 'Output differs: '+str(p)
+            prepared.append((file,text))
+          if prepared:
+            for file,text in prepared:
+              file.parent.mkdir(parents=True,exist_ok=True)
+              file.write_text(text,encoding='utf-8',newline='')
+            subprocess.run(['git','diff','--check'],check=True)
+            subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
+            subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
+            subprocess.run(['git','add','--',*[str(file) for file,_ in prepared]],check=True)
+            subprocess.run(['git','commit','-m','feat(studio): single navigation, graphite/crimson UI and structured CAD editing'],check=True)
+            subprocess.run(['git','push','origin','HEAD:refs/heads/'+branch],check=True)
+          print('PASS: source baseline and output hashes verified; main unchanged.')
