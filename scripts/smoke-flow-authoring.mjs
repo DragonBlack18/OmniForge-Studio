@@ -14,6 +14,12 @@ let app,page,phase='boot';
 const errors=[];
 const watchdog=setTimeout(()=>{console.error('[FLOW AUTHORING] watchdog',phase);process.exit(1);},180000);watchdog.unref();
 const nodes=()=>page.locator('.react-flow__node');
+// Restored nodes must be measured before React Flow can paint their edges.
+// Wait for the actual rendered wires; do not assert on an intermediate frame.
+async function edgeCount(expected){
+  await page.waitForFunction(n=>document.querySelectorAll('.react-flow__edge').length===n,expected,{timeout:5000});
+  assert.equal(await page.locator('.react-flow__edge').count(),expected);
+}
 async function count(expected){await page.waitForFunction(n=>document.querySelectorAll('.react-flow__node').length===n,expected);}
 async function nav(name){await page.getByTestId('primary-sidebar').getByRole('button',{name,exact:true}).click();}
 async function select(id){await page.locator('.react-flow__node[data-id="'+id+'"]').click();}
@@ -49,12 +55,12 @@ try{
   phase='native wire connection and duplicate-input rejection';
   await connect('selecionar',copy);
   await page.waitForFunction(()=>document.querySelectorAll('.react-flow__edge').length===3);
-  await connect('inicio',copy);assert.equal(await page.locator('.react-flow__edge').count(),3);
-  await page.getByTestId('flow-undo').click();assert.equal(await page.locator('.react-flow__edge').count(),2);
+  await connect('inicio',copy);await edgeCount(3);
+  await page.getByTestId('flow-undo').click();await edgeCount(2);
   phase='delete + undo restores incident edges as one operation';
   await page.getByTestId('flow-delete').click();await count(3);await page.getByTestId('flow-undo').click();await count(4);await page.getByTestId('flow-redo').click();await count(3);
-  await select('selecionar');await page.keyboard.press('Delete');await count(2);assert.equal(await page.locator('.react-flow__edge').count(),0);
-  await page.getByTestId('flow-undo').click();await count(3);assert.equal(await page.locator('.react-flow__edge').count(),2);
+  await select('selecionar');await page.keyboard.press('Delete');await count(2);await edgeCount(0);
+  await page.getByTestId('flow-undo').click();await count(3);await edgeCount(2);
   phase='auto arrange and outline navigation do not write to disk';
   await page.getByTestId('flow-arrange').click();
   await page.getByRole('tab',{name:'Estrutura',exact:true}).click();await page.getByLabel('Localizar bloco no fluxo').fill('gravar');
