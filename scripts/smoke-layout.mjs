@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {_electron as electron} from 'playwright-core';
+import {waitForPageState} from './lib/wait-for-state.mjs';
 import {exampleFlow} from '../core/modules/automation/catalog.mjs';
 import {saveFlow} from '../core/modules/workspace/workspace.mjs';
 import {initialCadSketch,makeCadEntity,addCadEntity} from '../core/modules/cad/cad2d.mjs';
@@ -110,9 +111,14 @@ try {
  assert.equal(await page.getByTestId('editor-position').evaluate(el=>getComputedStyle(el).fontSize),'10px');
  await page.locator('.monaco-editor').first().click();await page.keyboard.press('Control+End');await page.keyboard.type('\n// revisao local');
  const saveFile=page.getByRole('button',{name:'Salvar arquivo',exact:true});await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(el=>el.textContent==='Salvar arquivo'&&!el.disabled));
+ phase='Monaco actual checkpoint before focus';
+ await waitForPageState(page,async({root,expected})=>(await window.omni.readEditorDraft(root,'materiais.js'))?.content===expected,
+   {root:await fs.realpath(a),expected:code+'\n// revisao local'},{timeout:20000,description:'texto integral no rascunho real antes do foco'});
+ phase='Monaco focus preserves actual buffer';
  await page.evaluate(()=>{window.__layoutMonacoElement=document.querySelector('.monaco-editor');});
  await page.keyboard.press('Control+Shift+F11');await page.getByTestId('layout-exit-focus').waitFor();await page.getByTestId('layout-exit-focus').click();assert.equal(await saveFile.isEnabled(),true);
  assert.equal(await page.evaluate(()=>window.__layoutMonacoElement===document.querySelector('.monaco-editor')),true,'Foco não deve remontar Monaco.');
+ await page.waitForFunction(()=>/revisao[\s\u00a0]+local/.test(document.querySelector('.monaco-editor .view-lines')?.innerText||''));
  assert.match(await page.locator('.monaco-editor .view-lines').first().innerText(),/revisao[\s\u00a0]+local/);
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1280,800));await page.waitForFunction(()=>innerWidth<=1280);await snapshot('code-1280');
  assert.equal(await fs.readFile(path.join(a,'materiais.js'),'utf8'),code);
@@ -142,5 +148,15 @@ try {
    checks:['pointer-resize','keyboard-resize','escape-cancels-gesture','scope-isolation','native-process-restart','focus-no-remount','graph-undo','CAD-unsaved-properties','Monaco-unsaved-source','reset-selected-scope','source-bytes-unchanged'],
    screenshotData:'Local test fixtures, not user projects; captured from real Electron.'},null,2)+'\n');
  console.log('PASS v0.8.1 layouts: real pointer/keyboard, two projects, process restart, focus, graph/CAD/Monaco retention, original files unchanged.');
-} catch(error){console.error('[LAYOUT] phase='+phase,error);process.exitCode=1;if(page)await page.screenshot({path:path.join(artifacts,'layout-failure-v081.png')}).catch(()=>{});}
+} catch(error){
+ console.error('[LAYOUT] phase='+phase,error);process.exitCode=1;
+ if(page){
+   if(phase.startsWith('Monaco')) {
+     const observation=await page.evaluate(async root=>({visible:document.querySelector('.monaco-editor .view-lines')?.innerText,
+       checkpoint:await window.omni.readEditorDraft(root,'materiais.js')}),await fs.realpath(a)).catch(e=>({error:e.message}));
+     console.error('[LAYOUT] disposable-fixture editor observation',JSON.stringify(observation));
+   }
+   await page.screenshot({path:path.join(artifacts,'layout-failure-v081.png')}).catch(()=>{});
+ }
+}
 finally{await stop();await fs.rm(lab,{recursive:true,force:true}).catch(()=>{});clearTimeout(watchdog);process.exit(process.exitCode||0);}
