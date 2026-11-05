@@ -111,6 +111,7 @@ try {
  await page.getByText('Projeto aberto:',{exact:false}).waitFor();
  await page.getByRole('button',{name:'CAD Sketch 2D'}).click();
  await page.getByTestId('cad-workbench').waitFor();
+ await page.waitForFunction(()=>document.querySelectorAll('[data-testid="cad-object-entry"]').length===8);
  assert.equal(await page.getByTestId('cad-object-entry').count(),8);
  assert.deepEqual(await fs.readFile(CAD),savedBytes);
  assert.deepEqual(await fs.readFile(input),originalInput);
