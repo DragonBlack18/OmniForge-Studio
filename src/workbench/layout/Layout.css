@@ -1,3 +1,4 @@
+@import './EditorChrome.css';
 /* v0.8.1: presentation-only workspaces, preserving document/editor component identity. */
 .panel-resizer{width:6px;flex:0 0 6px;align-self:stretch;background:#18181b;position:relative;cursor:col-resize;touch-action:none;user-select:none;outline:none;z-index:2}
 .panel-resizer::after{content:'';position:absolute;inset:0 2px;background:#343037;transition:background .1s}

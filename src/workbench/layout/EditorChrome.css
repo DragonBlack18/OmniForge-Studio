@@ -1,0 +1,15 @@
+/* Shell-owned editor controls must work before the lazy Search module is opened. */
+.workspace-file-actions{display:flex;gap:6px;margin:2px 0 10px}
+.workspace-file-actions button{flex:1;min-width:0;padding:7px 4px;background:#272429;color:var(--of-ink);font-size:10px;line-height:1.4;border:1px solid var(--of-border);border-radius:3px;cursor:pointer}
+.workspace-file-actions button:hover:not(:disabled){background:#36282e;border-color:var(--of-accent)}
+.workspace-file-actions button:focus-visible,.workspace-create-form button:focus-visible{outline:1px solid var(--of-focus);outline-offset:2px}
+.workspace-create-form{padding:10px;margin-bottom:12px;background:#201d22;border:1px solid var(--of-border);border-radius:4px;display:flex;flex-direction:column;gap:9px}
+.workspace-create-form label{font-size:10px;color:var(--of-muted);display:flex;flex-direction:column;gap:7px}
+.workspace-create-form input{width:100%;box-sizing:border-box;background:#141316;border:1px solid #4c454d;border-radius:3px;color:var(--of-ink);padding:8px;font:11px Consolas,monospace;outline:0}
+.workspace-create-form input:focus{border-color:var(--of-focus)}
+.workspace-create-form__actions{display:flex;gap:6px}
+.workspace-create-form__actions button{font-size:10px;padding:7px;flex:1;min-width:0;border-radius:3px;cursor:pointer}
+.workspace-create-form__actions button[type=submit]{background:var(--of-accent);color:#fff;border:1px solid #ac5262}
+.workspace-create-form__actions button[type=button]{background:#282429;color:var(--of-ink);border:1px solid var(--of-border)}
+.workspace-editor-position{font:10px ui-monospace,Consolas,monospace;color:var(--of-muted);border:1px solid var(--of-border);border-radius:3px;padding:6px 8px;white-space:nowrap}
+.app-shell[data-layout-mode="code"] .sidebar-footer{display:none}
