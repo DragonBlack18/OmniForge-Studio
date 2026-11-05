@@ -409,7 +409,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
           <rect x="-1000000" y="-1000000" width="2000000" height="2000000" fill="url(#cad-grid)"/>
           <line x1="-1000000" x2="1000000" y1="0" y2="0" stroke="#4a3a40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
           <line y1="-1000000" y2="1000000" x1="0" x2="0" stroke="#3b3b40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
-          {visibleEntities.map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={selectFromCanvas}/>)}}
+          {visibleEntities.map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={selectFromCanvas}/>)}
           {from&&hover&&<g opacity="0.85" pointerEvents="none"><CadShape entity={{id:'preview',type:tool,layerId,a:from,b:hover,center:from,radius:Math.hypot(hover.x-from.x,hover.y-from.y)}} color="#C8515E" selected={false} onSelect={()=>{}}/></g>}
           {visible&&workspace&&<CadPointerOverlay store={pointerStore} zoom={view.zoom}/>}
         </svg>
