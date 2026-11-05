@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Apply checked patch
+      - name: Apply checked product patch
         shell: bash
         run: |
           set -euo pipefail
@@ -20,9 +20,9 @@ jobs:
           cat .github/recovery.patch.{0,1,2,3} > "$RUNNER_TEMP/recovery.patch.xz"
           echo "ceb900e6e8aae9c6102e5d640f35bb8a5c26d13bb9e625accfda8cc172795843  $RUNNER_TEMP/recovery.patch.xz" | sha256sum -c -
           xz -dc "$RUNNER_TEMP/recovery.patch.xz" > "$RUNNER_TEMP/recovery.patch"
-          git apply --check "$RUNNER_TEMP/recovery.patch"
-          git apply --index "$RUNNER_TEMP/recovery.patch"
-          git rm .github/recovery.patch.0 .github/recovery.patch.1 .github/recovery.patch.2 .github/recovery.patch.3 .github/workflows/apply-reviewed-recovery.yml
+          git apply --check --exclude='.github/workflows/*' "$RUNNER_TEMP/recovery.patch"
+          git apply --index --exclude='.github/workflows/*' "$RUNNER_TEMP/recovery.patch"
+          git rm .github/recovery.patch.0 .github/recovery.patch.1 .github/recovery.patch.2 .github/recovery.patch.3
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git diff --cached --check
