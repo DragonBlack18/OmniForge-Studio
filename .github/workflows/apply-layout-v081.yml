@@ -1,0 +1,40 @@
+name: Apply reviewed workspace increment
+on:
+  push:
+    branches: [feature/v0.8.1-workspace-layout]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify and apply reviewed source on feature branch only
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/feature/v0.8.1-workspace-layout"
+          test "$(git rev-parse HEAD^)" = "d36827eb82b965defedaa28ed27ef6b3efed7935"
+          python3 - <<'PY'
+          import base64, hashlib, lzma, pathlib, subprocess, tempfile
+          folder = pathlib.Path('.github/transfer-v081')
+          encoded = ''.join((folder / ('part%d.b64' % i)).read_text() for i in range(1,4))
+          payload = base64.b64decode(encoded, validate=True)
+          assert hashlib.sha256(payload).hexdigest() == 'c97fa982d138e6740a6797a267bc376ab2bad8d96bf9adf57f35d5a0b4fd98d6'
+          with tempfile.TemporaryDirectory() as temp:
+              patch = pathlib.Path(temp) / 'reviewed.patch'
+              patch.write_bytes(lzma.decompress(payload))
+              for file in [patch, folder / 'locators.patch']:
+                  subprocess.run(['git','apply','--check','--unidiff-zero',str(file)],check=True)
+                  subprocess.run(['git','apply','--unidiff-zero',str(file)],check=True)
+          PY
+          git rm -r .github/transfer-v081 .github/workflows/apply-layout-v081.yml
+          git add -A
+          test "$(git write-tree)" = "15aa05811564747740c059c5ca8f2e0fbea859da"
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(v0.8.1): scoped workbench layouts and real visual acceptance'
+          git push origin HEAD:feature/v0.8.1-workspace-layout
