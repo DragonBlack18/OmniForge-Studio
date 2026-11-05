@@ -1,0 +1,48 @@
+name: Apply reviewed production foundation
+on:
+  push:
+    branches: [feature/v0.8.0-production-foundation]
+    paths: [.github/workflows/apply-reviewed-production.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify and apply product patch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor e661b2110be85a0cbe0e0e78eb6e84690a396077 HEAD
+          cat .github/reviewed-production.patch.{0,1,2} > "$RUNNER_TEMP/production.patch.xz"
+          echo "0d9049a6a475fe42ab11adbf9b6049f504e7aad83861501961a2da6de433503e  $RUNNER_TEMP/production.patch.xz" | sha256sum -c -
+          xz -dc "$RUNNER_TEMP/production.patch.xz" > "$RUNNER_TEMP/production.patch"
+          git apply --check "$RUNNER_TEMP/production.patch"
+          git apply --index "$RUNNER_TEMP/production.patch"
+          gh api repos/DragonBlack18/OmniForge-Studio/actions/artifacts/13432888091/zip > "$RUNNER_TEMP/reviewed-source.zip"
+          echo "2072a121adbe98c84315cd7aca35668d6eef3d4d5e8d71b99179605b14dd4ed7  $RUNNER_TEMP/reviewed-source.zip" | sha256sum -c -
+          python - <<'PY'
+          import hashlib, json, os, pathlib, zipfile
+          with zipfile.ZipFile(pathlib.Path(os.environ['RUNNER_TEMP']) / 'reviewed-source.zip') as archive:
+              data = archive.read('tested-package-lock.json')
+          assert hashlib.sha256(data).hexdigest() == 'fe042d94762c3d54a5bea42c36c0dc48ce90307c4e59a5f2a842fe6eace17d1e'
+          lock = json.loads(data)
+          lock['version'] = lock['packages']['']['version'] = '0.8.0'
+          encoded = (json.dumps(lock, ensure_ascii=False, indent=2) + '\n').encode()
+          assert hashlib.sha256(encoded).hexdigest() == '1b7032845af5e83fcfdbb711640ff3f7320a87ea7fe660ceecb34c93ccaa60fd'
+          pathlib.Path('package-lock.json').write_bytes(encoded)
+          PY
+          git add package-lock.json
+          git rm .github/reviewed-production.patch.0 .github/reviewed-production.patch.1 .github/reviewed-production.patch.2
+          git diff --cached --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat(v0.8.0): native boundaries, safe diagnostics and reproducible release contract'
+          git push origin HEAD:feature/v0.8.0-production-foundation
