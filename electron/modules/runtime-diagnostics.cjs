@@ -2,7 +2,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const CODES = new Set(['ipc-denied','payload-denied','ipc-busy','permission-denied',
-  'download-denied','navigation-denied','renderer-gone','renderer-unresponsive','renderer-responsive']);
+  'download-denied','navigation-denied','renderer-gone','renderer-unresponsive','renderer-responsive','close-blocked','close-cancelled','close-approved','close-error']);
 // This store accepts only event codes, never errors, paths, contents, commands or tokens.
 function createDiagnostics({ version, versions, packaged, platform = process.platform,
   arch = process.arch, clock = Date.now, memory = process.memoryUsage }) {
@@ -18,7 +18,7 @@ function createDiagnostics({ version, versions, packaged, platform = process.pla
     },
     snapshot({ preferences = {}, operations = {}, recoveryAvailable = false } = {}) {
       const active = {};
-      for (const key of ['save','cad','registry','execution','task','schedulePrompt','unsaved']) active[key] = operations[key] === true;
+      for (const key of ['save','cad','registry','execution','task','schedulePrompt','taskPrompt','closing','diagnosticExport','unsaved']) active[key] = operations[key] === true;
       return {
         schemaVersion: 1, generatedAt: new Date(clock()).toISOString(),
         application: { name: 'OmniForge Studio', version, packaged: Boolean(packaged), channel: 'experimental' },

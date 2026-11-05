@@ -56,7 +56,7 @@ function assertPayload(args) {
   }
   return true;
 }
-function createBoundary({ getWindow, devUrl = null, record = () => {} }) {
+function createBoundary({ getWindow, devUrl = null, record = () => {}, isClosing = () => false }) {
   let dataPending = 0, controlPending = 0;
   return async function invoke(name, action, event, args) {
     try { assertSender(event, getWindow(), devUrl); }
@@ -64,6 +64,7 @@ function createBoundary({ getWindow, devUrl = null, record = () => {} }) {
     try { assertPayload(args); }
     catch (e) { record('payload-denied'); throw e; }
     const control = CONTROL.has(name);
+    if (!control && isClosing()) throw Error('Fechamento em andamento. Cancele a saída antes de iniciar outra operação.');
     if ((control ? controlPending >= 12 : dataPending >= 32)) {
       record('ipc-busy'); throw Error('Muitas operações simultâneas. Tente novamente após a conclusão.');
     }
@@ -78,7 +79,7 @@ function installSessionPolicy(ses, record = () => {}) {
   ses.setDevicePermissionHandler(() => false);
   ses.on('will-download', event => { event.preventDefault(); record('download-denied'); });
 }
-function commitInProgress(state) { return Boolean(state.save || state.cad || state.registry); }
+function commitInProgress(state) { return Boolean(state.save || state.cad || state.registry || state.taskPrompt || state.schedulePrompt || state.diagnosticExport); }
 function assertCanExecute(state) {
   if (commitInProgress(state) || state.execution || state.task || state.schedulePrompt)
     throw Error('Conclua a operação atual antes de executar um fluxo.');

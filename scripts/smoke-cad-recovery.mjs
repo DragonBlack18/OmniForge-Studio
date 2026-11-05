@@ -1,3 +1,4 @@
+import { waitForPageState } from './lib/wait-for-state.mjs';
 /** Real Electron CAD recovery: renderer crash reload, non-destructive restore and external conflict. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -67,7 +68,7 @@ try{
   assert.equal(await page.getByTestId('cad-save').isEnabled(),true);
   await page.getByTestId('cad-save').click();
   await page.getByText('Desenho salvo:',{exact:false}).waitFor();
-  await page.waitForFunction(async()=>{
+  await waitForPageState(page, async()=>{
     const projects=await window.omni.listProjects();
     return (await window.omni.readCadDraft(projects[0].path))===null;
   });

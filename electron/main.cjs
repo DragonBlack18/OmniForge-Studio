@@ -4,6 +4,7 @@ const path = require('node:path');
 const os = require('node:os');
 const { pathToFileURL } = require('node:url');
 const security = require('./security/boundary.cjs');
+const { createCloseController } = require('./security/close-controller.cjs');
 const { PRODUCTION_CSP, resolveResource } = require('./security/protocol.cjs');
 const { createDiagnostics, exportDiagnostics } = require('./modules/runtime-diagnostics.cjs');
 
@@ -12,31 +13,29 @@ protocol.registerSchemesAsPrivileged([{
 }]);
 
 let mainWindow;
+let closeController = null;
 let workspaceRoot = null;
 let executionInProgress = false;
 let activeRunController = null;
-let exitAfterRun = false;
 let saveInProgress = false;
 let workspaceSearchInProgress = false;
 let registryMutationInProgress = false;
 let cadMutationInProgress = false;
 let activeProjectId = null;
 let hasUnsavedChanges = false;
-let exitPromptOpen = false;
-let userApprovedExit = false;
 let scheduleService = null;
 let scheduleReady = false;
 let schedulePromptOpen = false;
 let projectTaskController = null;
-let exitAfterTask = false;
 let diagnosticExportInProgress = false;
 const projectRoot = path.resolve(__dirname, '..');
 const devUrl = security.developmentUrl(app.isPackaged, process.env.ELECTRON_RENDERER_URL);
 const isDevelopment = Boolean(devUrl);
 const diagnostics = createDiagnostics({ version: app.getVersion(), versions: process.versions, packaged: app.isPackaged });
-const nativeBoundary = security.createBoundary({ getWindow: () => mainWindow, devUrl, record: diagnostics.record });
+const nativeBoundary = security.createBoundary({ getWindow: () => mainWindow, devUrl, record: diagnostics.record, isClosing: () => closeController?.isBusy() === true });
 const operationState = () => ({ save: saveInProgress, cad: cadMutationInProgress, registry: registryMutationInProgress,
-  execution: executionInProgress, task: Boolean(projectTaskController?.isActive()), schedulePrompt: schedulePromptOpen, unsaved: hasUnsavedChanges });
+  execution: executionInProgress, task: Boolean(projectTaskController?.isActive()), schedulePrompt: schedulePromptOpen, taskPrompt: projectTaskController?.isPending() === true,
+  closing: closeController?.isBusy() === true, diagnosticExport: diagnosticExportInProgress, unsaved: hasUnsavedChanges });
 function diagnosticSnapshot() {
   return diagnostics.snapshot({ preferences: mainWindow?.webContents.getLastWebPreferences(), operations: operationState(),
     recoveryAvailable: process.platform === 'win32' && safeStorage.isEncryptionAvailable() });
@@ -81,14 +80,8 @@ async function initializeIpc() {
     getUserData:() => app.getPath('userData'),
     getWindow:() => mainWindow,
     isHostBusy:() => Boolean(executionInProgress || saveInProgress ||
-      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen),
-    onFinished:() => {
-      if (exitAfterTask) {
-        exitAfterTask = false;
-        userApprovedExit = true;
-        setImmediate(() => app.quit());
-      }
-    }
+      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen || closeController?.isBusy()),
+    onFinished:() => closeController?.workFinished()
   });
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
   register('runtimeDiagnostics', () => diagnosticSnapshot());
@@ -253,7 +246,7 @@ async function initializeIpc() {
     userData:catalogDataRoot,
     acquireSlot:()=>{
       if(executionInProgress||saveInProgress||cadMutationInProgress||
-         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive())return null;
+         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive()||closeController?.isBusy())return null;
       executionInProgress=true;
       activeRunController=new AbortController();
       return activeRunController;
@@ -261,10 +254,7 @@ async function initializeIpc() {
     releaseSlot:controller=>{
       if(activeRunController!==controller)return;
       executionInProgress=false;activeRunController=null;
-      if(exitAfterRun){
-        exitAfterRun=false;userApprovedExit=true;
-        setImmediate(()=>app.quit());
-      }
+      closeController?.workFinished();
     },
     onChange:event=>{
       if(mainWindow && !mainWindow.isDestroyed())
@@ -494,8 +484,8 @@ async function initializeIpc() {
   });
   register('saveFlow', async (flow, expectedRevision) => {
     if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive()) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
-    saveInProgress = true;
     const root = requireWorkspace();
+    saveInProgress = true;
     try { return await core.saveFlow(root, flow, expectedRevision); }
     finally { saveInProgress = false; }
   });
@@ -547,11 +537,7 @@ async function initializeIpc() {
     finally {
       executionInProgress = false;
       activeRunController = null;
-      if (exitAfterRun) {
-        exitAfterRun = false;
-        userApprovedExit = true;
-        setImmediate(() => app.quit());
-      }
+      closeController?.workFinished();
     }
   });
   register('openDeveloper', () => shell.openExternal('https://github.com/DragonBlack18'));
@@ -585,55 +571,21 @@ async function createWindow() {
       webSecurity: true
     }
   });
-  // Electron does not display the browser's beforeunload confirmation. Preventing
-  // beforeunload in the renderer can trap both Setup and Portable indefinitely.
-  // Handle close natively, once, including the system X button and Alt+F4.
-  mainWindow.on('close', event => {
-    if (userApprovedExit || mainWindow.isDestroyed()) return;
-    // Never approve a quit that can interrupt a file/registry commit.
-    if (security.commitInProgress(operationState())) {
-      event.preventDefault();
-      if (!exitPromptOpen) {
-        exitPromptOpen = true;
-        dialog.showMessageBox(mainWindow, { type: 'info', title: 'Operação em andamento',
-          message: 'Conclua a gravação ou a operação aberta antes de fechar.',
-          detail: 'O fechamento foi bloqueado para preservar os dados.', buttons: ['Voltar'], noLink: true
-        }).catch(() => {}).finally(() => { exitPromptOpen = false; });
-      }
-      return;
-    }
-    if (!(hasUnsavedChanges || executionInProgress || saveInProgress || cadMutationInProgress || projectTaskController?.isActive())) return;
-    event.preventDefault();
-    if (exitPromptOpen) return;
-    exitPromptOpen = true;
-    const isExecuting = executionInProgress || saveInProgress || cadMutationInProgress || projectTaskController?.isActive();
-    dialog.showMessageBox(mainWindow, {
-      type: 'warning',
-      title: 'Fechar OmniForge Studio',
-      message: isExecuting ? 'Há uma operação em andamento.' : 'Existem alterações não salvas.',
-      detail: 'Se sair agora, as alterações não salvas serão descartadas. Os dados já gravados continuarão no projeto.',
-      buttons: ['Continuar no programa', 'Sair sem salvar'],
-      defaultId: 0, cancelId: 0, noLink: true
-    }).then(answer => {
-      if (answer.response !== 1 || !mainWindow || mainWindow.isDestroyed()) return;
-      if (executionInProgress && activeRunController) {
-        // Workflow cancellation is recorded before closing.
-        exitAfterRun = true;
-        activeRunController.abort();
-      } else if (projectTaskController?.isActive()) {
-        exitAfterTask = true;
-        if (!projectTaskController.cancel()) {
-          exitAfterTask = false;
-          userApprovedExit = true;
-          app.quit();
-        }
-      } else {
-        userApprovedExit = true;
-        app.quit();
-      }
-    }).catch(() => {}).finally(() => { exitPromptOpen = false; });
+  const ownedWindow = mainWindow;
+  closeController?.dispose();
+  const ownedClose = createCloseController({
+    getState: operationState, isAlive: () => !ownedWindow.isDestroyed(),
+    prompt: options => dialog.showMessageBox(ownedWindow, options),
+    quit: () => app.quit(), cancelFlow: () => activeRunController?.abort(),
+    cancelTask: () => projectTaskController?.cancel(), record: diagnostics.record
   });
-  mainWindow.on('closed', () => { scheduleService?.stop(); projectTaskController?.cancel(); mainWindow = null; hasUnsavedChanges = false; });
+  closeController = ownedClose;
+  ownedWindow.on('close', ownedClose.handleClose);
+  ownedWindow.on('closed', () => {
+    ownedClose.dispose();
+    scheduleService?.stop(); projectTaskController?.cancel();
+    if (mainWindow === ownedWindow) { mainWindow = null; closeController = null; hasUnsavedChanges = false; }
+  });
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-attach-webview', event => event.preventDefault());
@@ -674,7 +626,6 @@ app.whenReady().then(async () => {
   dialog.showErrorBox('Erro ao iniciar OmniForge', String(error.message));
   app.quit();
 });
-app.on('before-quit', () => { projectTaskController?.cancel(); });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow().then(()=>{ if(scheduleReady) scheduleService?.start(); }); });
 }

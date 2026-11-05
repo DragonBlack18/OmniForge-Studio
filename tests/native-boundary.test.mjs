@@ -95,3 +95,13 @@ test('custom protocol rejects traversal, credentials, ports, alternate methods a
   assert.doesNotMatch(PRODUCTION_CSP,/127\.0\.0\.1|unsafe-eval|https?:/);
   assert.match(PRODUCTION_CSP,/form-action 'none'/);
 });
+
+test('closing rejects new operations while keeping diagnostic/cancel control lane alive', async()=>{
+  const {window,event}=fixture();let closing=true,calls=0;
+  const invoke=createBoundary({getWindow:()=>window,isClosing:()=>closing});
+  await assert.rejects(invoke('saveFlow',()=>calls++,event,[]),/Fechamento/);
+  assert.equal(calls,0);
+  assert.equal(await invoke('runtimeDiagnostics',()=>true,event,[]),true);
+  assert.equal(await invoke('cancelFlow',()=>true,event,[]),true);
+  closing=false;assert.equal(await invoke('saveFlow',()=>42,event,[]),42);
+});

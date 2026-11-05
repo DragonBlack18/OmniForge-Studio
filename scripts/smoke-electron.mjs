@@ -1,3 +1,4 @@
+import { waitForPageState, waitForState } from './lib/wait-for-state.mjs';
 /** Windows gate: boots the production renderer in a real Electron process. */
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
@@ -274,10 +275,15 @@ try {
   // rather than silently trapping the renderer through beforeunload.
   await page.evaluate(() => window.omni.setUnsavedChanges(true));
   await client.evaluate(({ dialog, BrowserWindow }) => {
-    dialog.showMessageBox = async () => ({ response: 0 });
+    globalThis.__closeDecisionCount = 0;
+    dialog.showMessageBox = async (_window, options) => {
+      if (options.title !== 'Fechar OmniForge Studio') throw Error('Diálogo de saída inesperado.');
+      globalThis.__closeDecisionCount++; return { response: 0 };
+    };
     BrowserWindow.getAllWindows()[0].close();
   });
-  await page.waitForTimeout(250);
+  await waitForState(() => client.evaluate(() => globalThis.__closeDecisionCount === 1));
+  await waitForPageState(page, async () => !(await window.omni.runtimeDiagnostics()).operations.closing);
   assert.equal(page.isClosed(), false, 'Cancelar deve manter a janela aberta.');
   const nativeProcess = client.process();
   const exited = new Promise((resolve, reject) => {
@@ -286,9 +292,12 @@ try {
     nativeProcess.once('exit', code => { clearTimeout(timer); resolve(code); });
   });
   await client.evaluate(({ dialog, BrowserWindow }) => {
-    dialog.showMessageBox = async () => ({ response: 1 });
+    dialog.showMessageBox = async (_window, options) => {
+      if (options.title !== 'Fechar OmniForge Studio') throw Error('Diálogo de saída inesperado.');
+      return { response: 1 };
+    };
     BrowserWindow.getAllWindows()[0].close();
-  }).catch(() => {});
+  });
   await exited;
   client = null;
   // Restart after an unsaved CAD edit: the previously saved one-entity
@@ -303,10 +312,11 @@ try {
 } catch (error) {
   if (client) {
     try {
+      await fs.mkdir(path.join(process.cwd(),'smoke-artifacts'),{recursive:true});
       // Bound screenshot capture: a crashed Chromium renderer must never hang CI.
       const pages = client.windows();
       if (pages.length) await Promise.race([
-        pages[0].screenshot({path:path.join(process.cwd(),'smoke-failure.png')}).catch(()=>{}),
+        pages[0].screenshot({path:path.join(process.cwd(),'smoke-artifacts','smoke-failure.png')}).catch(()=>{}),
         new Promise(resolve=>setTimeout(resolve,2500))
       ]);
     } catch { /* never hide the original error */ }

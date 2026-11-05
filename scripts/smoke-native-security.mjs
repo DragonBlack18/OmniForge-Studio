@@ -1,3 +1,4 @@
+import { waitForPageState, waitForState } from './lib/wait-for-state.mjs';
 /** Real Electron security and diagnostics E2E, isolated profile and disposable files. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -28,6 +29,9 @@ try {
   assert.equal(await page.evaluate(async()=> (await fetch('omni://app/secret%3Adata')).status),403);
   await assert.rejects(page.evaluate(()=>window.omni.setUnsavedChanges('界'.repeat(740_000))),/Payload/);
   assert.equal(await page.evaluate(()=>window.omni.setUnsavedChanges(false)),true);
+  phase='invalid save releases native mutex';
+  await assert.rejects(page.evaluate(() => window.omni.saveFlow({},null)),/Abra uma pasta/);
+  assert.equal((await page.evaluate(() => window.omni.runtimeDiagnostics())).operations.save,false);
   phase='permission checks';
   const permissions=await page.evaluate(async()=>{
     const result={};for(const name of ['geolocation','notifications','camera','microphone']){
@@ -60,13 +64,39 @@ try {
     dialog.showMessageBox=async()=>({response:0});
   });
   await page.evaluate(()=>{window.__choosing=window.omni.selectWorkspace();});
-  await page.waitForFunction(async()=> (await window.omni.runtimeDiagnostics()).operations.registry);
+  await waitForPageState(page, async()=> (await window.omni.runtimeDiagnostics()).operations.registry);
   await assert.rejects(page.evaluate(()=>window.omni.executeFlow({},false)),/operação atual/);
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());
   assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length),1);
   await app.evaluate(()=>{globalThis.__omniPendingChooser({canceled:true,filePaths:[]});delete globalThis.__omniPendingChooser;});
   await page.evaluate(()=>window.__choosing);
-  await page.waitForFunction(async()=> !(await window.omni.runtimeDiagnostics()).operations.registry);
+  await waitForPageState(page, async()=> !(await window.omni.runtimeDiagnostics()).operations.registry);
+  await waitForPageState(page, async()=> !(await window.omni.runtimeDiagnostics()).operations.closing);
+  phase='delayed exit consent and immediate re-close';
+  await page.evaluate(()=>window.omni.setUnsavedChanges(true));
+  await app.evaluate(({dialog,BrowserWindow})=>{
+    globalThis.__exitConsent=null; globalThis.__exitCalls=0;
+    dialog.showMessageBox=(_window,options)=>{
+      if(options.title!=='Fechar OmniForge Studio')throw Error('Esperava confirmação de saída.');
+      globalThis.__exitCalls++;
+      return new Promise(resolve=>{globalThis.__exitConsent=resolve;});
+    };
+    const w=BrowserWindow.getAllWindows()[0];w.close();w.close();
+  });
+  await waitForState(()=>app.evaluate(()=>typeof globalThis.__exitConsent==='function'));
+  assert.equal(await app.evaluate(()=>globalThis.__exitCalls),1,'Reentrância não duplica diálogo.');
+  await assert.rejects(page.evaluate(()=>window.omni.selectWorkspace()),/Fechamento em andamento/);
+  await app.evaluate(()=>{globalThis.__exitConsent({response:0});});
+  await waitForPageState(page, async()=> !(await window.omni.runtimeDiagnostics()).operations.closing);
+  assert.equal(page.isClosed(),false);
+  const process=app.process();
+  await app.evaluate(({dialog,BrowserWindow})=>{
+    dialog.showMessageBox=async()=>({response:1});
+    BrowserWindow.getAllWindows()[0].close();
+  });
+  await waitForState(()=>process.exitCode!==null,{timeout:12_000,description:'encerramento nativo confirmado'});
+  assert.equal(process.exitCode,0);
+  app=null;
   assert.deepEqual(await fs.readdir(workspace),[]);
   assert.deepEqual(errors,[]);
   console.log('PASS native security: real IPC quota, CSP, permissions, privacy, export, operation exclusion and close guard.');
