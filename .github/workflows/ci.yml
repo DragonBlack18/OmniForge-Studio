@@ -44,6 +44,29 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Archive tested source and resolved dependency lock
+        shell: bash
+        env:
+          REVIEWED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p ci-artifacts
+          git archive --format=zip HEAD -o ci-artifacts/source.zip
+          cp package-lock.json ci-artifacts/tested-package-lock.json
+          printf 'checked_commit=%s\nchecked_tree=%s\nreviewed_head=%s\nnode=%s\nnpm=%s\n' \
+            "$(git rev-parse HEAD)" "$(git rev-parse HEAD^{tree})" "$REVIEWED_HEAD" \
+            "$(node --version)" "$(npm --version)" > ci-artifacts/PROVENANCE.txt
+          (cd ci-artifacts && sha256sum source.zip tested-package-lock.json > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OmniForge-Reviewed-Source
+          path: |
+            ci-artifacts/source.zip
+            ci-artifacts/tested-package-lock.json
+            ci-artifacts/PROVENANCE.txt
+            ci-artifacts/SHA256SUMS.txt
+          retention-days: 14
+          if-no-files-found: error
   desktop-windows-smoke:
     name: Windows production Electron smoke
     runs-on: windows-latest
@@ -55,12 +78,39 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Unified authoring and recovery acceptance
+        run: npm run smoke:flow-integration
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Unified-Flow-Preview
+          path: smoke-artifacts/flow-unified-*.png
+          if-no-files-found: warn
+      - name: Encrypted flow recovery and process restart
+        run: npm run smoke:flow-recovery
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Flow-Recovery-Preview
+          path: smoke-artifacts/flow-recovery-*.png
+          if-no-files-found: warn
       - name: Studio UX and CAD inspector regression
         run: npm run smoke:studio
         timeout-minutes: 5
       - name: CAD Toolkit v0.7.8 real geometry regression
         run: npm run smoke:cad-toolkit
         timeout-minutes: 5
+      - name: Flow authoring v0.7.9 real editing and execution
+        run: npm run smoke:flow-authoring
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Flow-Authoring-Preview
+          path: smoke-artifacts/flow-authoring-*
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:

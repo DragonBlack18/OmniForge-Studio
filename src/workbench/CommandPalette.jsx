@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { searchWorkbenchCommands } from './command-registry.mjs';
 import { NavGlyph } from '../shared/NavGlyph.jsx';
 import './CommandPalette.css';
@@ -17,14 +17,15 @@ export default function CommandPalette({
     scope, mode, hasWorkspace, limit:35
   }),[commands,query,scope,mode,hasWorkspace]);
   const selected = Math.min(active,Math.max(0,entries.length-1));
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return undefined;
     const before = document.activeElement;
     setQuery('');
     setActive(0);
-    const frame = requestAnimationFrame(() => searchRef.current?.focus());
+    // Commit focus before the dialog is painted. A deferred animation frame
+    // left a visible palette unable to receive an immediately pressed Escape.
+    searchRef.current?.focus({preventScroll:true});
     return () => {
-      cancelAnimationFrame(frame);
       if (before?.isConnected && typeof before.focus === 'function') before.focus();
     };
   },[open,scope]);

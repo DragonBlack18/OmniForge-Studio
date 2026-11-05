@@ -1,14 +1,16 @@
 # OmniForge Studio
 
-**v0.7.8 — CAD Toolkit: geometria técnica e medições (candidata em validação)** · Aplicação desktop local para código, automação e desenho 2D.
+**v0.7.9 — autoria de fluxos e recuperação protegida, integradas**
 
-**v0.7.6:** estado leve de automação preservado ao alternar CAD/IDE, runtime React Flow carregado apenas ao abrir o canvas, proteção de edição concorrente ao salvar, orçamento menor de JS inicial e benchmarks reais do Electron no Windows. Sem modificar dados originais. [Detalhes técnicos](docs/LAZY_FLOW_PERFORMANCE_V076.md).
+Aplicação desktop local para código, automações supervisionadas e CAD 2D.
+Navegação única, tema grafite/vermelho e ferramentas contextuais, sem um dashboard de métricas simuladas.
 
-**v0.7.5:** Barra de atividades por domínio, tela inicial operacional (sem dashboard), paleta de comandos Ctrl+Shift+P/F1, quick-open Ctrl+P de arquivos reais do workspace, ícones SVG leves e Monaco adaptativo para arquivos grandes. Nenhuma engine externa foi misturada ao código. [Especificação técnica e plano de integração](docs/TECHNICAL_WORKBENCH_V075.md).
+Esta etapa concilia o histórico de edição, diagnóstico, oito operações de dados e três modelos do PR #36
+com a recuperação cifrada do PR #37. Há um único estado de documento: restaurar pode ser desfeito,
+salvar não limpa edições mais recentes e um conflito externo não sobrescreve o projeto.
 
-**v0.7.4:** CAD 2D com checkpoint isolado no perfil local, restauração explícita, inspeção JSON de conflitos e proteção por revisão SHA-256. A recuperação **não sobrescreve** o desenho original e requer salvar manualmente. Detalhes: [docs/CAD_RECOVERY_V074.md](docs/CAD_RECOVERY_V074.md).
-
-**v0.7.8:** novas operações reais do CAD 2D: rotação, espelhamento, paralela, matriz retangular e medição entre dois pontos. Disponíveis em um único inspetor contextual, preservando navegação única e tema grafite/vermelho. [Especificação técnica](docs/CAD_TOOLKIT_V078.md).
+[Integração, evidências e limites](docs/UNIFIED_FLOWS_V079.md) · [Histórico](CHANGELOG.md).
+A promoção para release depende dos gates do mesmo commit; a versão permanece experimental.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -33,7 +35,7 @@ Navegação global única, superfícies neutras com acento vermelho, editor sem 
 
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
-Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks externos e automações de e-mail prontas.
 
 ## Recuperação da IDE v0.7.3
 

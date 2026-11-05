@@ -77,6 +77,9 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   discardEditorDraft: (workspace, relative, expectedDraftRevision) =>
     ipcRenderer.invoke('omni:discardEditorDraft', workspace, relative, expectedDraftRevision),
   saveFile: (relative, content, revision) => ipcRenderer.invoke('omni:saveFile', relative, content, revision),
+  readFlowDraft: root => ipcRenderer.invoke('omni:readFlowDraft', root),
+  writeFlowDraft: (root, flow, revision, token) => ipcRenderer.invoke('omni:writeFlowDraft', root, flow, revision, token),
+  discardFlowDraft: (root, token) => ipcRenderer.invoke('omni:discardFlowDraft', root, token),
   saveFlow: (flow, revision) => ipcRenderer.invoke('omni:saveFlow', flow, revision),
   validateFlow: flow => ipcRenderer.invoke('omni:validateFlow', flow),
   executeFlow: (flow, dryRun) => ipcRenderer.invoke('omni:executeFlow', flow, dryRun),

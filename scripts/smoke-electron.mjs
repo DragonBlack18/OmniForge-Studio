@@ -6,6 +6,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { WORKFLOW_TEMPLATES } from '../core/modules/automation/templates.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omniforge-electron-smoke-'));
@@ -115,7 +116,7 @@ try {
   assert.equal(catalogAfterRestart.length, 1, 'Cadastro de projeto deve persistir após reinício.');
   assert.ok(afterRestart.length >= 2, 'Histórico deve persistir depois de reiniciar o desktop');
   assert.equal(await page.getByRole('button', { name: 'Salvar fluxo' }).isDisabled(), true);
-  await page.getByRole('button', { name: 'Validar' }).click();
+  await page.getByRole('button', { name: 'Validar', exact: true }).click();
   await page.getByText('Estrutura válida', { exact: false }).waitFor();
   // v0.1.5: two independently registered folders, real local API, native consent,
   // typed contract and persisted metadata. The service is a REAL local HTTP server.
@@ -187,12 +188,17 @@ try {
   const persistedProjects = await page.evaluate(() => window.omni.listProjects());
   assert.equal(persistedProjects.length, 2);
   assert.equal(persistedProjects.find(x => x.id === backend.id)?.capabilities?.[0]?.id, 'registrar-venda');
-  // v0.1.10: real renderer validates catalog search and a built-in model.
+  // Catalog coverage grows with registered templates; select by identity, not order.
   await page.getByRole('button', { name:'Modelos de fluxo' }).click();
   await page.getByText('Biblioteca de fluxos', { exact:true }).waitFor();
-  assert.equal(await page.getByRole('button',{name:'Usar modelo'}).count(),6);
+  assert.equal(await page.getByRole('button',{name:'Usar modelo',exact:true}).count(),WORKFLOW_TEMPLATES.length);
+  for(const template of WORKFLOW_TEMPLATES){
+    const card=page.locator('article').filter({has:page.getByText(template.label,{exact:true})});
+    assert.equal(await card.count(),1,`Modelo registrado deve aparecer uma vez: ${template.id}`);
+  }
   await page.evaluate(() => { window.confirm = () => true; });
-  await page.getByRole('button',{name:'Usar modelo'}).last().click();
+  await page.locator('article').filter({has:page.getByText('Normalizar texto',{exact:true})})
+    .getByRole('button',{name:'Usar modelo',exact:true}).click();
   await page.getByText('Modelo carregado: Normalizar texto.',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Validar',exact:true}).click();
   await page.getByText('Estrutura válida',{exact:false}).waitFor();

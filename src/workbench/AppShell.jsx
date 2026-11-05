@@ -1,5 +1,10 @@
+import { getLanguage } from './editor-language.mjs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFlowRecovery } from '../modules/automation/useFlowRecovery.mjs';
+const FlowRecoveryNotice = React.lazy(() => import('../modules/automation/FlowRecoveryNotice.jsx'));
 import { useFlowSession, toUiNodes } from '../modules/automation/useFlowSession.mjs';
+import {checkFlowConnection,arrangeFlowNodes} from '../../core/modules/automation/connections.mjs';
+import FlowInspector,{FlowEditTools} from '../modules/automation/FlowInspector.jsx';
 import { NODE_CATALOG, exampleFlow, createNode } from '../../core/catalog.mjs';
 import { validateFlow } from '../../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../../core/templates.mjs';
@@ -29,17 +34,6 @@ const CATEGORY_NAV_ICONS = {Gatilhos:'workflow',Lógica:'workflow',Dados:'code',
   Matemática:'code',Codificação:'code',Datas:'history',Arquivos:'folder',
   Integrações:'plug',Projetos:'folder',Engenharia:'cad'};
 const DEFAULT = exampleFlow();
-const EXT_TO_LANGUAGE = {
-  js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript', ts: 'typescript', tsx: 'typescript',
-  py: 'python', java: 'java', go: 'go', rs: 'rust', c: 'c', cpp: 'cpp', h: 'cpp', cs: 'csharp',
-  json: 'json', html: 'html', css: 'css', scss: 'scss', sh: 'shell', ps1: 'powershell',
-  sql: 'sql', yaml: 'yaml', yml: 'yaml', md: 'markdown', xml: 'xml', php: 'php', rb: 'ruby'
-};
-
-function getLanguage(filename) {
-  return EXT_TO_LANGUAGE[filename?.split('.').pop()?.toLowerCase()] || 'plaintext';
-}
-
 const ModuleLoading = ({label='ferramenta'}) => <div className="module-loading" role="status">Carregando {label}...</div>;
 
 function readUiPreference(key, fallback) {
@@ -67,12 +61,17 @@ export default function AppShell() {
   const [extensions, setExtensions] = useState([]);
   const [schedules, setSchedules] = useState([]);
   const [files, setFiles] = useState([]);
+  const flowSession = useFlowSession(DEFAULT);
   const {
     nodes, setNodes, edges, setEdges, graph, selectedId, setSelectedId,
-    flowRevision, flowDirty, handleNodesChange, handleEdgesChange,
-    markEdited, captureSaveToken, markSaved, replaceDocument
-  } = useFlowSession(DEFAULT);
+    flowRevision, flowDirty, recoveryEligible, handleNodesChange, handleEdgesChange,
+    captureSaveToken, markSaved, replaceDocument, canUndo, canRedo, undo, redo,
+    deleteSelected, deleteElements, duplicateSelected, rename, editEpoch, applyTemplate: applyFlowTemplate
+  } = flowSession;
   const [validation, setValidation] = useState(null);
+  const [flowTab,setFlowTab]=useState(null);
+  const [flowFocus,setFlowFocus]=useState(null);
+  useEffect(()=>{setValidation(null);setLastRun(null);},[editEpoch,workspace]);
   const [lastRun, setLastRun] = useState(null);
   const [history, setHistory] = useState([]);
   const [selectedHistory, setSelectedHistory] = useState(null);
@@ -97,10 +96,11 @@ export default function AppShell() {
   const selected = nodes.find(node => node.id === selectedId);
   const catalogCategories = useMemo(() => ['Todas',...new Set(Object.values(NODE_CATALOG).map(meta=>meta.category))], []);
   const catalogGroups = useMemo(() => {
-    const query=catalogQuery.trim().toLocaleLowerCase('pt-BR');
+    const normalize=value=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
+    const query=normalize(catalogQuery.trim());
     const items=Object.entries(NODE_CATALOG).filter(([type,meta]) =>
       (catalogCategory === 'Todas' || meta.category === catalogCategory) &&
-      (!query || `${meta.label} ${meta.description} ${meta.category} ${type}`.toLocaleLowerCase('pt-BR').includes(query)));
+      (!query || normalize(`${meta.label} ${meta.description} ${meta.category} ${type}`).includes(query)));
     return Object.groupBy(items, ([,meta])=>meta.category);
   }, [catalogQuery, catalogCategory]);
   const visibleCatalogCount = Object.values(catalogGroups).reduce((sum, items)=>sum+items.length,0);
@@ -158,11 +158,16 @@ export default function AppShell() {
     if (!attempt.accepted) notify('Conclua a operação atual antes de iniciar outra.');
   }, [notify]);
 
+  const flowRecovery = useFlowRecovery({ workspace, graph, revision:flowRevision, dirty:flowDirty && recoveryEligible,
+    execute, notify, session:flowSession, busy });
+  const flowEditAllowed = () => !flowRecovery.locked || (notify('Resolva o rascunho de fluxo antes de editar.'), false);
+
   const applyProject = async result => {
+    const recoveryReady = flowRecovery.controller.open(result.workspace);
     setWorkspace(result.workspace);
     setActiveProjectId(result.projectId);
     setFiles(result.files);
-    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null);
+    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null, false);
     recovery.reset(); fileContentRef.current = '';
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
     setCreateKind(null); setCreatePath(''); setEditorJump(null);
@@ -174,14 +179,16 @@ export default function AppShell() {
     setProjects(await window.omni.listProjects());
     setExtensions(await window.omni.listExtensions());
     setMode('canvas');
+    await recoveryReady;
     notify(`Projeto aberto: ${result.workspace}`);
   };
 
   const confirmProjectSwitch = () => !(dirty || flowDirty || cadDirty) ||
-    window.confirm('Existem alterações não salvas. Deseja trocar de projeto e descartá-las?');
+    window.confirm('Existem alterações não salvas. Trocar de projeto? Alterações sem cópia de recuperação serão perdidas.');
 
   const openWorkspace = () => execute(async () => {
     if (!confirmProjectSwitch()) return;
+    await flowRecovery.controller.flush();
     const result = await window.omni.selectWorkspace();
     if (result) await applyProject(result);
   });
@@ -195,6 +202,7 @@ export default function AppShell() {
 
   const openProjectById = id => execute(async () => {
     if (!confirmProjectSwitch()) return;
+    await flowRecovery.controller.flush();
     await applyProject(await window.omni.openProject(id));
   });
 
@@ -293,61 +301,88 @@ export default function AppShell() {
   const insertExtensionAction=(extensionId,actionId)=>addNode('extension.call',{extensionId,actionId});
 
   const applyTemplate = template => {
+    if(busy || !flowEditAllowed())return;
     if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
     const copy=structuredClone(template.flow);
-    replaceDocument(copy, flowRevision, true);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
+    applyFlowTemplate(copy);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
     notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
   };
 
   const addNode = (type, extraConfig = {}) => {
+    if(busy || !flowEditAllowed())return;
+    if(nodes.length>=400){notify('Limite de 400 blocos atingido.');return;}
     const id = `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const next = createNode(type, id, { x: 160 + nodes.length * 60, y: 110 + nodes.length * 50 });
     next.config={...next.config,...extraConfig};
     setNodes(previous => [...previous, toUiNodes({ nodes: [next] })[0]]);
-    markEdited();
     setSelectedId(id);
     setMode('canvas');setSideMode('catalog');setUtilityOpen(true);setInspectorOpen(true);
     notify('Bloco adicionado. Conecte as portas antes de executar.');
   };
 
   const onConnect = useCallback((connection, addEdge) => {
-    if (connection.source === connection.target) return notify('Não é permitido conectar um bloco a ele mesmo.');
+    if(busy || flowRecovery.locked)return;
+    const checked=checkFlowConnection(graph,connection);
+    if(!checked.valid)return notify(checked.message);
     // React Flow's validated addEdge is supplied by the lazy FlowCanvas.
     if (typeof addEdge !== 'function') throw new TypeError('Conector do grafo indisponível.');
     setEdges(old => addEdge({ ...connection, id: `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, old));
     setValidation(null);
-    markEdited();
-  }, [setEdges, markEdited, notify]);
+  }, [setEdges, graph, busy, notify, flowRecovery.locked]);
 
   const changeConfig = (key, value) => {
+    if(busy || !flowEditAllowed())return;
+    try {
     setNodes(all => all.map(node => node.id === selectedId
       ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value, ...(key === 'projectId' ? { capabilityId: '' } : {}), ...(key === 'extensionId' ? { actionId: '' } : {}) } } }
-      : node));
+      : node),{groupKey:selectedId+':'+key});
     setValidation(null);
-    markEdited();
+    }catch(error){notify(error.message);}
   };
 
+  const selectFlowNode=id=>{
+    setSelectedId(id);setFlowFocus({id,at:Date.now()});setInspectorOpen(true);
+  };
+  const editFlow=useCallback(action=>{
+    if(busy || flowRecovery.locked)return;
+    try {
+      if(action==='undo')undo();
+      else if(action==='redo')redo();
+      else if(action==='delete')deleteSelected();
+      else if(action==='duplicate')duplicateSelected('n_'+crypto.randomUUID().replaceAll('-','').slice(0,18));
+      else if(action==='arrange'){setNodes(arrangeFlowNodes(nodes,edges));setFlowFocus({id:null,at:Date.now()});}
+      else if(action==='fit')setFlowFocus({id:null,at:Date.now()});
+    }catch(error){notify(error.message);}
+  },[busy,flowRecovery.locked,nodes,edges,undo,redo,deleteSelected,duplicateSelected,setNodes,notify]);
+  useEffect(()=>{
+    if(mode!=='canvas')return;
+    const handle=event=>{
+      if(!(event.ctrlKey||event.metaKey)||event.altKey||event.target?.isContentEditable||/input|textarea|select/i.test(event.target?.tagName||''))return;
+      const key=event.key.toLowerCase();
+      if(key==='z'||key==='y'){event.preventDefault();editFlow(key==='y'||event.shiftKey?'redo':'undo');}
+      else if(key==='d'){event.preventDefault();editFlow('duplicate');}
+    };
+    window.addEventListener('keydown',handle);return()=>window.removeEventListener('keydown',handle);
+  },[mode,editFlow]);
+
   const validate = () => execute(async () => {
+    if (!flowEditAllowed()) return;
     const checked = await window.omni.validateFlow(graph);
     setValidation(checked);
+    setInspectorOpen(true);setFlowTab({tab:'diagnostics',at:Date.now()});
     setMode('canvas');
     notify(checked.valid ? 'Validação concluída: estrutura e capacidades aprovadas.' : `Validação identificou ${checked.errors.length} problema(s).`);
   });
 
-  const save = () => execute(async () => {
-    if (!workspace) throw new Error('Abra uma pasta para salvar o fluxo.');
-    const snapshot = captureSaveToken();
-    const result = await window.omni.saveFlow(graph, flowRevision);
-    const unchanged = markSaved(snapshot, result.revision);
-    notify(unchanged ? `Fluxo gravado em ${result.path}` :
-      'Fluxo salvo, mas alterações mais recentes ainda precisam ser gravadas.');
-  });
+  const save = flowRecovery.save;
 
   const run = dryRun => execute(async () => {
+    if (!flowEditAllowed()) return;
     if (!workspace) throw new Error('Abra uma pasta antes de executar.');
     setLiveSteps([]);
     setLastRun(null);
     setRunning(true);
+    setInspectorOpen(true);setFlowTab({tab:'diagnostics',at:Date.now()});
     let result;
     try { result = await window.omni.executeFlow(graph, dryRun); }
     finally { setRunning(false); }
@@ -534,7 +569,7 @@ export default function AppShell() {
           <NavGlyph name="terminal" size={15}/><span>Comandos</span><kbd>Ctrl⇧P</kbd>
         </button>
         <button disabled={busy} type="button" onClick={openWorkspace} className="button button--outline topbar-open"><NavGlyph name="folder" size={16}/> Abrir projeto</button>
-        {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
+        {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty||flowRecovery.locked} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
       </header>
 
       <div className="workspace-layout">
@@ -571,7 +606,7 @@ export default function AppShell() {
               {items.map(([type,node])=><button key={type} type="button" className="catalog-item" title={node.description}
                 disabled={busy} onClick={()=>addNode(type)}>
                 <span className="catalog-icon"><NavGlyph name={CATEGORY_NAV_ICONS[category]||'workflow'} size={16}/></span>
-                <span className="catalog-item__copy"><strong>{node.label}</strong><small>{node.description}</small></span>
+                <span className="catalog-item__copy"><strong>{node.label}</strong></span>
                 <span className="catalog-plus" aria-hidden="true">+</span>
               </button>)}
             </section>)}
@@ -628,21 +663,27 @@ export default function AppShell() {
           {mode === 'canvas' && (
             <>
               <div className="main-toolbar">
-                <div className="toolbar-heading"><span className="eyebrow">WORKSPACE / AUTOMAÇÕES</span><strong>Editor visual</strong></div>
+                <div className="toolbar-heading"><span className="eyebrow">WORKSPACE / AUTOMAÇÕES</span><strong>Editor visual</strong>{flowRecovery.phase==='saved' && <small className="flow-protection" data-testid="flow-draft-saved">Cópia local protegida</small>}</div>
                 <div className="toolbar-actions">
                   <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar biblioteca de blocos':'Mostrar painel de ferramentas'} title="Alternar biblioteca de blocos" onClick={()=>{setUtilityOpen(value=>!value);setSideMode('catalog');}}><NavGlyph name="panel" size={16}/> <span>Biblioteca</span></button>
-                  <button className="button button--subtle" disabled={busy} onClick={validate}>Validar</button>
-                  <button className="button button--subtle" disabled={busy || !workspace} onClick={() => run(true)}>Simular</button>
-                  <button className="button button--run" disabled={busy || !workspace} onClick={() => run(false)}>▶ Executar</button>
+                  <button className="button button--subtle" disabled={busy || flowRecovery.locked} onClick={validate}>Validar</button>
+                  <button className="button button--subtle" disabled={busy || !workspace || flowRecovery.locked} onClick={() => run(true)}>Simular</button>
+                  <button className="button button--run" disabled={busy || !workspace || flowRecovery.locked} onClick={() => run(false)}>▶ Executar</button>
                   {running && <button className="button button--stop" type="button" data-testid="flow-cancel" onClick={cancelRun}>■ Cancelar</button>}
                   <button type="button" className="button button--subtle button--inspector" title="Alternar inspetor" aria-label={inspectorOpen?'Ocultar inspetor':'Mostrar inspetor'}
                     onClick={()=>setInspectorOpen(open=>!open)}><NavGlyph name="layers" size={16}/></button>
                 </div>
               </div>
+              {(flowRecovery.draft || flowRecovery.error) && <React.Suspense fallback={null}><FlowRecoveryNotice
+                recovery={flowRecovery} revision={flowRevision} busy={busy} onRestore={flowRecovery.restore} onDiscard={flowRecovery.discard}/></React.Suspense>}
+              <FlowEditTools name={graph.name} nodeCount={nodes.length} edgeCount={edges.length}
+                busy={busy || flowRecovery.locked} selected={selected} canUndo={canUndo} canRedo={canRedo} onAction={editFlow}/>
               <ModuleErrorBoundary label="Automação visual"><React.Suspense fallback={<ModuleLoading label="automações"/>}>
                 <FlowCanvas nodes={nodes} edges={edges} onNodesChange={handleNodesChange}
-                  onEdgesChange={handleEdgesChange} onConnect={onConnect}
-                  onNodeClick={(_event,node)=>{setSelectedId(node.id);setInspectorOpen(true);}}
+                  onEdgesChange={handleEdgesChange} onConnect={onConnect} locked={busy || flowRecovery.locked}
+                  graph={graph} diagnostics={validation?.diagnostics} runSteps={running?liveSteps:lastRun?.steps}
+                  focusRequest={flowFocus} onDeleteElements={deleteElements}
+                  onNodeClick={(_event,node)=>{setSelectedId(node.id);setInspectorOpen(true);setFlowTab({tab:'properties',at:Date.now()});}}
                   onPaneClick={()=>setSelectedId(null)}/>
               </React.Suspense></ModuleErrorBoundary>
             </>
@@ -655,7 +696,7 @@ export default function AppShell() {
                 <div className="project-cards">{WORKFLOW_TEMPLATES.map(template=><article key={template.id} className="project-card">
                   <div className="project-card__heading"><strong>{template.label}</strong><span className="project-available">VALIDADO</span></div>
                   <p className="projects-intro">{template.description}</p>
-                  <div className="project-card__footer"><span>{template.flow.nodes.length} blocos · {template.flow.edges.length} conexões</span><button className="button button--solid" disabled={busy} onClick={() => applyTemplate(template)}>Usar modelo</button></div>
+                  <div className="project-card__footer"><span>{template.flow.nodes.length} blocos · {template.flow.edges.length} conexões</span><button className="button button--solid" disabled={busy || flowRecovery.locked} onClick={() => applyTemplate(template)}>Usar modelo</button></div>
                 </article>)}</div>
               </section>
             </>
@@ -840,71 +881,12 @@ export default function AppShell() {
           )}
         </main>
 
-        {mode==='canvas' && inspectorOpen && <aside className="inspector" aria-label="Inspetor de automações">
-          <div className="inspector-heading">PROPRIEDADES <span>{mode === 'canvas' ? 'NÓ' : 'PROJETO'}</span></div>
-          {mode === 'canvas' && selected ? (
-            <div className="inspector-section">
-              <span className="eyebrow">CONFIGURAÇÃO DO BLOCO</span>
-              <h3>{NODE_CATALOG[selected.data.kind].label}</h3>
-              <p>{NODE_CATALOG[selected.data.kind].description}</p>
-              <div className="inspector-separator" />
-              {NODE_CATALOG[selected.data.kind].fields.map(field => (
-                <label key={field.key} className="setting-field">
-                  <span>{field.label}</span>
-                  {field.kind === 'extension' ? (
-                    <select aria-label="Extensão do nó" value={selected.data.config.extensionId||''}
-                      onChange={event=>changeConfig('extensionId',event.target.value)}>
-                      <option value="">Selecione uma extensão autorizada</option>
-                      {extensions.filter(item=>item.enabled&&item.granted.includes('workflow.transform'))
-                        .map(item=><option key={item.id} value={item.id}>{item.name} ({item.id})</option>)}
-                    </select>
-                  ) : field.kind === 'extensionAction' ? (
-                    <select aria-label="Ação da extensão" value={selected.data.config.actionId||''}
-                      onChange={event=>changeConfig('actionId',event.target.value)}>
-                      <option value="">Selecione uma ação</option>
-                      {(extensions.find(item=>item.id===selected.data.config.extensionId)?.actions||[])
-                        .map(item=><option key={item.id} value={item.id}>{item.name}</option>)}
-                    </select>
-                  ) : field.kind === 'project' ? (
-                    <select value={selected.data.config.projectId || ''} onChange={event => changeConfig('projectId', event.target.value)}>
-                      <option value="">Selecione um projeto</option>
-                      {projects.filter(p => p.available).map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                    </select>
-                  ) : field.kind === 'capability' ? (
-                    <select value={selected.data.config.capabilityId || ''} onChange={event => changeConfig('capabilityId', event.target.value)}>
-                      <option value="">Selecione uma capacidade</option>
-                      {(projects.find(p => p.id === selected.data.config.projectId)?.capabilities || []).map(c => <option key={c.id} value={c.id}>{c.label} ({c.id})</option>)}
-                    </select>
-                  ) : field.kind === 'select' ? (
-                    <select value={selected.data.config[field.key] || field.default} onChange={event => changeConfig(field.key, event.target.value)}>{field.options.map(option => <option key={option} value={option}>{option}</option>)}</select>
-                  ) : field.kind === 'json' ? (
-                    <textarea rows={8} spellCheck={false} value={selected.data.config[field.key] || ''} onChange={event => changeConfig(field.key, event.target.value)} />
-                  ) : (
-                    <input value={selected.data.config[field.key] || ''} onChange={event => changeConfig(field.key, event.target.value)}/>
-                  )}
-                </label>
-              ))}
-              <div className="inspector-tip">{flowDirty ? "Fluxo modificado: salve para persistir. A execução usa os nós atuais da tela." : "Fluxo sincronizado com o projeto."}</div>
-            </div>
-          ) : <div className="inspector-section"><p>Selecione um bloco para editar as configurações. As informações de validação e execução aparecem abaixo.</p></div>}
-          <div className="inspector-heading inspector-heading--border">DIAGNÓSTICO <span>{validation?.valid === true ? 'PASS' : validation ? 'FAIL' : '—'}</span></div>
-          <div className="diagnostic-log">
-            {running && <div className="run-active" data-testid="flow-running" role="status">● EXECUTOR ISOLADO · {liveSteps.length} etapa(s) concluída(s) · cancelamento disponível</div>}
-            {running && liveSteps.map((step, index) => <div key={'live-'+index} className="log-line"><span className={step.status === 'PASS' ? 'log-success' : 'log-muted'}>{step.status}</span> {step.nodeId} <span className="log-muted">{step.elapsedMs}ms</span></div>)}
-            {!running && !validation && !lastRun && <div className="log-muted">Valide, simule ou execute o fluxo para ver os resultados.</div>}
-            {validation && <>
-              <div className={validation.valid ? 'log-success' : 'log-error'}>{validation.valid ? '✓ Estrutura válida' : `× ${validation.errors.length} erro(s)`}</div>
-              {validation.errors.map((message, i) => <div key={i} className="log-line log-error">{message}</div>)}
-              {validation.warnings.map((message, i) => <div key={`w${i}`} className="log-line log-muted">{message}</div>)}
-            </>}
-            {lastRun && <>
-              <div className="run-divider">{lastRun.dryRun ? 'SIMULAÇÃO' : 'EXECUÇÃO REAL'} · {lastRun.ok ? 'PASS' : 'FAIL'}</div>
-              {(lastRun.steps || []).map(step => <div key={step.nodeId} className="log-line"><span className={step.status === 'PASS' ? 'log-success' : step.status === 'SKIP' ? 'log-muted' : 'log-error'}>{step.status}</span> {step.nodeId} <span className="log-muted">{step.elapsedMs}ms</span>{step.message && <div className="log-error">{step.message}</div>}</div>)}
-              {(lastRun.artifacts || []).map((item, index) => <div key={index} className="log-line log-muted">{item.simulated ? 'Seria gravado' : 'Gravado'}: {item.relativePath}</div>)}
-              {lastRun.error && <div className="log-line log-error">{lastRun.error}</div>}
-            </>}
-          </div>
-        </aside>}
+        {mode==='canvas' && inspectorOpen && <FlowInspector
+          selected={selected} graph={graph} projects={projects} extensions={extensions}
+          validation={validation} lastRun={lastRun} running={running} liveSteps={liveSteps}
+          busy={busy || flowRecovery.locked} tabRequest={flowTab} onConfig={changeConfig} onSelect={selectFlowNode}
+          onRename={value=>{if(busy || !flowEditAllowed())return;try{rename(value);}catch(error){notify(error.message);}}}/>}
+
       </div>
       {paletteScope && <React.Suspense fallback={null}><CommandPalette open
         scope={paletteScope} commands={workbenchCommands} mode={mode}

@@ -31,12 +31,39 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Unified authoring and recovery acceptance
+        run: npm run smoke:flow-integration
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Unified-Flow-Preview
+          path: smoke-artifacts/flow-unified-*.png
+          if-no-files-found: warn
+      - name: Encrypted flow recovery and process restart
+        run: npm run smoke:flow-recovery
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Flow-Recovery-Preview
+          path: smoke-artifacts/flow-recovery-*.png
+          if-no-files-found: warn
       - name: Studio UX and CAD inspector regression
         run: npm run smoke:studio
         timeout-minutes: 5
       - name: CAD Toolkit v0.7.8 real geometry regression
         run: npm run smoke:cad-toolkit
         timeout-minutes: 5
+      - name: Flow authoring v0.7.9 real editing and execution
+        run: npm run smoke:flow-authoring
+        timeout-minutes: 5
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Flow-Authoring-Preview
+          path: smoke-artifacts/flow-authoring-*
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         if: always()
         with:

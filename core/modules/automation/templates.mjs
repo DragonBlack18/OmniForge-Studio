@@ -24,6 +24,17 @@ const branch=(()=>{
   ]}};
 })();
 const templates=[
+  makeTemplate('projetar-registros','Preparar registros','Valida uma lista, seleciona propriedades e mapeia os campos para JSON.',
+    ['trigger.manual','logic.requireType','data.project','data.mapFields','io.writeJson'],
+    [{id:1,valor:120,interno:'não exportar'},{id:2,valor:80,interno:'não exportar'}],
+    {1:{expected:'array'},2:{fields:'id,valor'},3:{mapping:'{"codigo":"id","total":"valor"}'},4:{fileName:'registros.json'}}),
+  makeTemplate('agrupar-registros','Agrupar por categoria','Agrupa os registros mantendo os dados de cada item.',
+    ['trigger.manual','data.groupBy','io.writeJson'],
+    [{categoria:'A',valor:10},{categoria:'B',valor:20},{categoria:'A',valor:30}],
+    {1:{path:'categoria'},2:{fileName:'grupos.json'}}),
+  makeTemplate('totalizar-registros','Totalizar e limitar','Soma um campo numérico e restringe o resultado ao intervalo configurado.',
+    ['trigger.manual','data.sumBy','math.clamp','io.writeJson'],
+    [{valor:120},{valor:80}],{1:{path:'valor'},2:{min:'0',max:'1000'},3:{fileName:'total.json'}}),
   {id:'venda-json',label:'Venda em JSON',description:'Exemplo de registro local sem chamadas externas.',flow:simple},
   branch,
   makeTemplate('filtrar-lista','Filtrar e extrair','Gatilho → campo de array → filtro → extrair campo → JSON.',
