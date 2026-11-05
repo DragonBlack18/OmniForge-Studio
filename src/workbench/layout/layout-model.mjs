@@ -127,7 +127,9 @@ export function createLayoutStore(storage) {
     preset(id,mode,preset){return set(id,presetLayout(this.getSnapshot(id).layout,mode,preset));},
     reset(id){ // Explicit reset repairs incompatible preferences; documents are never involved.
       if(blocked){profiles=new Map();blocked=false;}
-      const scope=layoutScope(id);profiles.set(scope,freeze(defaultLayout()));persist();emit();
+      const scope=layoutScope(id);profiles.delete(scope);profiles.set(scope,freeze(defaultLayout()));
+      while(profiles.size>PROFILE_LIMIT)profiles.delete(profiles.keys().next().value);
+      persist();emit();
     }
   });
 }

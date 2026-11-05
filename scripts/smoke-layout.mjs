@@ -27,6 +27,8 @@ let app,page,phase='boot';const errors=[],shots=[];
 const watchdog=setTimeout(()=>{console.error('[LAYOUT] timeout',phase);process.exit(1);},200000);watchdog.unref();
 const nav=()=>page.getByTestId('primary-sidebar');
 async function openProject(folder) {
+  // Windows temp paths may use an 8.3 alias; compare the same canonical path as the core.
+  folder=await fs.realpath(folder);
   await app.evaluate(({dialog},dir)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[dir]});},folder);
   await page.getByRole('button',{name:'Abrir projeto',exact:true}).click();
   await page.waitForFunction(dir=>document.querySelector('.topbar-workspace')?.title===dir,folder);
@@ -36,7 +38,7 @@ async function openProject(folder) {
 async function paint(){await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));}
 async function snapshot(name) {
   await paint();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Sem overflow horizontal.');
-  const filename=`layout-${name}-v081.png`;await page.screenshot({path:path.join(artifacts,filename)});shots.push(filename);
+  const filename=`layout-${name}-v081.png`;await page.screenshot({path:path.join(artifacts,filename)});shots.push({file:filename,viewport:await page.evaluate(()=>({width:innerWidth,height:innerHeight})),phase});
 }
 async function options(){await page.getByTestId('layout-open').click();await page.getByTestId('layout-options').waitFor();}
 async function start(){
@@ -97,7 +99,10 @@ try {
  await page.keyboard.press('Control+p');await page.getByRole('searchbox',{name:'Pesquisar arquivos'}).fill('materiais.js');await page.getByRole('option',{name:/materiais.js/}).click();
  await page.locator('.monaco-editor').first().waitFor();await page.locator('.monaco-editor').first().click();await page.keyboard.press('Control+End');await page.keyboard.type('\n// revisao local');
  const saveFile=page.getByRole('button',{name:'Salvar arquivo',exact:true});await page.waitForFunction(()=>[...document.querySelectorAll('button')].some(el=>el.textContent==='Salvar arquivo'&&!el.disabled));
+ await page.evaluate(()=>{window.__layoutMonacoElement=document.querySelector('.monaco-editor');});
  await page.keyboard.press('Control+Shift+F11');await page.getByTestId('layout-exit-focus').waitFor();await page.getByTestId('layout-exit-focus').click();assert.equal(await saveFile.isEnabled(),true);
+ assert.equal(await page.evaluate(()=>window.__layoutMonacoElement===document.querySelector('.monaco-editor')),true,'Foco não deve remontar Monaco.');
+ assert.match(await page.locator('.monaco-editor .view-lines').first().innerText(),/revisao[\s\u00a0]+local/);
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1280,800));await page.waitForFunction(()=>innerWidth<=1280);await snapshot('code-1280');
  assert.equal(await fs.readFile(path.join(a,'materiais.js'),'utf8'),code);
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,900));
