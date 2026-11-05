@@ -24,6 +24,12 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
   let past=[],future=[],savedKey=JSON.stringify(toFlowDocument(nodes,edges,name)),group=null,snapshot;
   const listeners=new Set();
   const doc=()=>toFlowDocument(nodes,edges,name);
+  // The inspector id and React Flow's selected flags must agree after commands
+  // that replace nodes. Otherwise Delete can target the original after a copy.
+  function selectNode(id){
+    selectedId=nodes.some(n=>n.id===id)?id:null;
+    nodes=nodes.map(n=>{const selected=n.id===selectedId;return n.selected===selected?n:{...n,selected};});
+  }
   const assertWritable=()=>{if(writeLocked)throw new Error('Edição bloqueada durante operação ou recuperação pendente.');};
   const emit=()=>{
     if(cachedEpoch!==editEpoch||cachedDocument!==documentEpoch){cachedGraph=doc();cachedEpoch=editEpoch;cachedDocument=documentEpoch;}
@@ -53,20 +59,20 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
     if(!groupKey||group?.key!==groupKey||now-group.at>650)past.push(historyEntry());
     group=groupKey?{key:groupKey,at:now}:null;future=[];trim();
     nodes=nextNodes;edges=nextEdges;name=newName;
-    if(!ids.has(selectedId))selectedId=null;
+    if(!ids.has(selectedId))selectNode(null);
     editEpoch++;recoveryEligible=true;flowDirty=encoded!==savedKey;emit();
   }
   function travel(from,to){
     assertWritable();const entry=from.pop();if(!entry)return false;
     to.push(historyEntry());nodes=toUiNodes(entry.flow);edges=clone(entry.flow.edges);name=entry.flow.name;
-    selectedId=entry.selectedId;editEpoch++;recoveryEligible=true;group=null;
+    selectNode(entry.selectedId);editEpoch++;recoveryEligible=true;group=null;
     flowDirty=JSON.stringify(doc())!==savedKey;trim();emit();return true;
   }
-  emit();
+  selectNode(selectedId);emit();
   return {
     subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener);},getSnapshot:()=>snapshot,
     setInteractionLocked(value){writeLocked=Boolean(value);},
-    setSelectedId(id){selectedId=nodes.some(n=>n.id===id)?id:null;nodes=nodes.map(n=>({...n,selected:n.id===selectedId}));emit();},
+    setSelectedId(id){selectNode(id);emit();},
     setNodes(value,options){if(!options?.presentation)assertWritable();commit(typeof value==='function'?value(nodes):value,edges,options);},
     setEdges(value,options){if(!options?.presentation)assertWritable();commit(nodes,typeof value==='function'?value(edges):value,options);},
     handleNodesChange(changes,apply){
@@ -92,14 +98,14 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
       assertWritable();const found=nodes.find(n=>n.id===selectedId);if(!found)return;
       if(typeof id!=='string'||!id||nodes.some(n=>n.id===id))throw Error('Identificador inválido ou já utilizado.');
       const copy=clone(found);copy.id=id;copy.position={x:found.position.x+60,y:found.position.y+160};copy.selected=false;
-      commit([...nodes,copy],edges);selectedId=id;emit();
+      commit([...nodes,copy],edges);selectNode(id);emit();
     },
     rename(value){assertWritable();const clean=String(value).trim();assertFlowName(clean);commit(nodes,edges,{newName:clean,groupKey:'name'});},
-    applyTemplate(flow){assertWritable();commit(toUiNodes(flow),clone(flow.edges),{newName:flow.name||name});selectedId=nodes[0]?.id||null;emit();},
+    applyTemplate(flow){assertWritable();commit(toUiNodes(flow),clone(flow.edges),{newName:flow.name||name});selectNode(nodes[0]?.id||null);emit();},
     replaceDocument(flow,revision,dirty=false,protect=dirty){
       // Native project load, not a user edit: no history leaks across workspaces.
       const nextName=flow.name||'Fluxo principal';assertFlowName(nextName);
-      nodes=toUiNodes(flow);edges=clone(flow.edges);name=nextName;selectedId=nodes[0]?.id||null;
+      nodes=toUiNodes(flow);edges=clone(flow.edges);name=nextName;selectNode(nodes[0]?.id||null);
       flowRevision=revision;flowDirty=dirty;recoveryEligible=Boolean(protect);documentEpoch++;editEpoch=dirty?1:0;
       past=[];future=[];group=null;lastSavedSequence=0;savedKey=dirty?null:JSON.stringify(doc());emit();
     },
@@ -107,7 +113,7 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
       // Only invoked after coordinator rechecks both disk and checkpoint CAS.
       // Preserve the loaded source as the undo baseline and retain its revision.
       commit(toUiNodes(flow),clone(flow.edges),{newName:flow.name||name},true);
-      selectedId=nodes[0]?.id||null;recoveryEligible=true;emit();
+      selectNode(nodes[0]?.id||null);recoveryEligible=true;emit();
     },
     captureSaveToken(){group=null;return {document:documentEpoch,edit:editEpoch,sequence:++saveSequence,key:JSON.stringify(doc())};},
     isCurrentDocument(token){return Boolean(token&&token.document===documentEpoch);},

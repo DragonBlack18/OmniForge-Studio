@@ -54,6 +54,17 @@ try{
   phase='duplicate, structural diagnostic and node focus';
   await select('selecionar');await page.getByTestId('flow-duplicate').click();await count(4);
   const copy=await nodes().evaluateAll(elements=>elements.map(e=>e.dataset.id).find(id=>!['inicio','selecionar','gravar'].includes(id)));
+  phase='copy selection and keyboard deletion address the same object';
+  await page.waitForFunction(id=>{
+    const selected=[...document.querySelectorAll('.react-flow__node.selected')];
+    return selected.length===1&&selected[0].dataset.id===id;
+  },copy);
+  await page.locator('.react-flow__node[data-id="'+copy+'"]').focus();
+  await page.keyboard.press('Delete');await count(3);await connections(2);
+  assert.equal(await page.locator('.react-flow__node[data-id="selecionar"]').count(),1,'Excluir a cópia pelo teclado deve preservar o original.');
+  await page.getByTestId('flow-undo').click();await count(4);await connections(2);
+  await page.waitForFunction(id=>document.querySelector('.react-flow__node.selected')?.dataset.id===id,copy);
+  phase='diagnostic focuses the restored copy';
   await page.getByRole('button',{name:'Validar',exact:true}).click();await page.getByRole('tabpanel',{name:'Diagnóstico do fluxo'}).waitFor();
   await page.getByTestId('flow-diagnostic').filter({hasText:copy}).first().click();await page.getByRole('tabpanel',{name:'Propriedades do fluxo'}).waitFor();
   assert.match(await page.locator('.flow-object-id').textContent(),new RegExp(copy));
