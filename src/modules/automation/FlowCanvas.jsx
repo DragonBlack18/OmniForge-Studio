@@ -36,7 +36,7 @@ const NODE_TYPES = { block: BlockNode };
 const FIT_VIEW_OPTIONS = Object.freeze({ padding: 0.24 });
 const PRO_OPTIONS = Object.freeze({ hideAttribution: false });
 
-export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick }) {
+export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick, readOnly = false }) {
   // The apply/add helpers and React Flow remain inside this dynamic module.
   // The parent owns the document; leaving canvas never drops unsaved edits.
   const handleNodes = React.useCallback(changes =>
@@ -51,7 +51,8 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
       onConnect={handleConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
       fitView fitViewOptions={FIT_VIEW_OPTIONS}
       proOptions={PRO_OPTIONS}
-      colorMode="dark" nodesConnectable elementsSelectable>
+      colorMode="dark" nodesDraggable={!readOnly} nodesConnectable={!readOnly}
+      deleteKeyCode={readOnly ? null : ['Backspace','Delete']} elementsSelectable>
       <Background color="#2b292e" gap={24} size={1}/>
       <Controls position="bottom-left" showInteractive={false}/>
       <MiniMap pannable zoomable nodeColor="#8f4753" maskColor="rgba(15,13,17,0.72)" position="bottom-right"/>

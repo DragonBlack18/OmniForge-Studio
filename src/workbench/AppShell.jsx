@@ -1,4 +1,7 @@
+import { getLanguage } from './editor-language.mjs';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFlowRecovery } from '../modules/automation/useFlowRecovery.mjs';
+const FlowRecoveryNotice = React.lazy(() => import('../modules/automation/FlowRecoveryNotice.jsx'));
 import { useFlowSession, toUiNodes } from '../modules/automation/useFlowSession.mjs';
 import { NODE_CATALOG, exampleFlow, createNode } from '../../core/catalog.mjs';
 import { validateFlow } from '../../core/graph.mjs';
@@ -29,17 +32,6 @@ const CATEGORY_NAV_ICONS = {Gatilhos:'workflow',Lógica:'workflow',Dados:'code',
   Matemática:'code',Codificação:'code',Datas:'history',Arquivos:'folder',
   Integrações:'plug',Projetos:'folder',Engenharia:'cad'};
 const DEFAULT = exampleFlow();
-const EXT_TO_LANGUAGE = {
-  js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript', ts: 'typescript', tsx: 'typescript',
-  py: 'python', java: 'java', go: 'go', rs: 'rust', c: 'c', cpp: 'cpp', h: 'cpp', cs: 'csharp',
-  json: 'json', html: 'html', css: 'css', scss: 'scss', sh: 'shell', ps1: 'powershell',
-  sql: 'sql', yaml: 'yaml', yml: 'yaml', md: 'markdown', xml: 'xml', php: 'php', rb: 'ruby'
-};
-
-function getLanguage(filename) {
-  return EXT_TO_LANGUAGE[filename?.split('.').pop()?.toLowerCase()] || 'plaintext';
-}
-
 const ModuleLoading = ({label='ferramenta'}) => <div className="module-loading" role="status">Carregando {label}...</div>;
 
 function readUiPreference(key, fallback) {
@@ -69,7 +61,7 @@ export default function AppShell() {
   const [files, setFiles] = useState([]);
   const {
     nodes, setNodes, edges, setEdges, graph, selectedId, setSelectedId,
-    flowRevision, flowDirty, handleNodesChange, handleEdgesChange,
+    flowRevision, flowDirty, editVersion, handleNodesChange, handleEdgesChange,
     markEdited, captureSaveToken, markSaved, replaceDocument
   } = useFlowSession(DEFAULT);
   const [validation, setValidation] = useState(null);
@@ -158,11 +150,16 @@ export default function AppShell() {
     if (!attempt.accepted) notify('Conclua a operação atual antes de iniciar outra.');
   }, [notify]);
 
+  const flowRecovery = useFlowRecovery({ workspace, graph, revision:flowRevision, dirty:flowDirty && editVersion>0,
+    execute, notify, replaceDocument, captureSaveToken, markSaved });
+  const flowEditAllowed = () => !flowRecovery.locked || (notify('Resolva o rascunho de fluxo antes de editar.'), false);
+
   const applyProject = async result => {
+    const recoveryReady = flowRecovery.controller.open(result.workspace);
     setWorkspace(result.workspace);
     setActiveProjectId(result.projectId);
     setFiles(result.files);
-    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null);
+    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null, false);
     recovery.reset(); fileContentRef.current = '';
     setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
     setCreateKind(null); setCreatePath(''); setEditorJump(null);
@@ -174,14 +171,16 @@ export default function AppShell() {
     setProjects(await window.omni.listProjects());
     setExtensions(await window.omni.listExtensions());
     setMode('canvas');
+    await recoveryReady;
     notify(`Projeto aberto: ${result.workspace}`);
   };
 
   const confirmProjectSwitch = () => !(dirty || flowDirty || cadDirty) ||
-    window.confirm('Existem alterações não salvas. Deseja trocar de projeto e descartá-las?');
+    window.confirm('Existem alterações não salvas. Trocar de projeto? Alterações sem cópia de recuperação serão perdidas.');
 
   const openWorkspace = () => execute(async () => {
     if (!confirmProjectSwitch()) return;
+    await flowRecovery.controller.flush();
     const result = await window.omni.selectWorkspace();
     if (result) await applyProject(result);
   });
@@ -195,6 +194,7 @@ export default function AppShell() {
 
   const openProjectById = id => execute(async () => {
     if (!confirmProjectSwitch()) return;
+    await flowRecovery.controller.flush();
     await applyProject(await window.omni.openProject(id));
   });
 
@@ -293,6 +293,7 @@ export default function AppShell() {
   const insertExtensionAction=(extensionId,actionId)=>addNode('extension.call',{extensionId,actionId});
 
   const applyTemplate = template => {
+    if (!flowEditAllowed()) return;
     if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
     const copy=structuredClone(template.flow);
     replaceDocument(copy, flowRevision, true);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');setUtilityOpen(true);
@@ -300,6 +301,7 @@ export default function AppShell() {
   };
 
   const addNode = (type, extraConfig = {}) => {
+    if (!flowEditAllowed()) return;
     const id = `n_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const next = createNode(type, id, { x: 160 + nodes.length * 60, y: 110 + nodes.length * 50 });
     next.config={...next.config,...extraConfig};
@@ -311,15 +313,17 @@ export default function AppShell() {
   };
 
   const onConnect = useCallback((connection, addEdge) => {
+    if (flowRecovery.locked) return;
     if (connection.source === connection.target) return notify('Não é permitido conectar um bloco a ele mesmo.');
     // React Flow's validated addEdge is supplied by the lazy FlowCanvas.
     if (typeof addEdge !== 'function') throw new TypeError('Conector do grafo indisponível.');
     setEdges(old => addEdge({ ...connection, id: `e_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` }, old));
     setValidation(null);
     markEdited();
-  }, [setEdges, markEdited, notify]);
+  }, [setEdges, markEdited, notify, flowRecovery.locked]);
 
   const changeConfig = (key, value) => {
+    if (!flowEditAllowed()) return;
     setNodes(all => all.map(node => node.id === selectedId
       ? { ...node, data: { ...node.data, config: { ...node.data.config, [key]: value, ...(key === 'projectId' ? { capabilityId: '' } : {}), ...(key === 'extensionId' ? { actionId: '' } : {}) } } }
       : node));
@@ -328,22 +332,17 @@ export default function AppShell() {
   };
 
   const validate = () => execute(async () => {
+    if (!flowEditAllowed()) return;
     const checked = await window.omni.validateFlow(graph);
     setValidation(checked);
     setMode('canvas');
     notify(checked.valid ? 'Validação concluída: estrutura e capacidades aprovadas.' : `Validação identificou ${checked.errors.length} problema(s).`);
   });
 
-  const save = () => execute(async () => {
-    if (!workspace) throw new Error('Abra uma pasta para salvar o fluxo.');
-    const snapshot = captureSaveToken();
-    const result = await window.omni.saveFlow(graph, flowRevision);
-    const unchanged = markSaved(snapshot, result.revision);
-    notify(unchanged ? `Fluxo gravado em ${result.path}` :
-      'Fluxo salvo, mas alterações mais recentes ainda precisam ser gravadas.');
-  });
+  const save = flowRecovery.save;
 
   const run = dryRun => execute(async () => {
+    if (!flowEditAllowed()) return;
     if (!workspace) throw new Error('Abra uma pasta antes de executar.');
     setLiveSteps([]);
     setLastRun(null);
@@ -534,7 +533,7 @@ export default function AppShell() {
           <NavGlyph name="terminal" size={15}/><span>Comandos</span><kbd>Ctrl⇧P</kbd>
         </button>
         <button disabled={busy} type="button" onClick={openWorkspace} className="button button--outline topbar-open"><NavGlyph name="folder" size={16}/> Abrir projeto</button>
-        {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
+        {mode==='canvas' && <button disabled={busy||!workspace||!flowDirty||flowRecovery.locked} type="button" onClick={save} className="button button--solid topbar-save"><NavGlyph name="check" size={15}/> Salvar fluxo</button>}
       </header>
 
       <div className="workspace-layout">
@@ -628,19 +627,21 @@ export default function AppShell() {
           {mode === 'canvas' && (
             <>
               <div className="main-toolbar">
-                <div className="toolbar-heading"><span className="eyebrow">WORKSPACE / AUTOMAÇÕES</span><strong>Editor visual</strong></div>
+                <div className="toolbar-heading"><span className="eyebrow">WORKSPACE / AUTOMAÇÕES</span><strong>Editor visual</strong>{flowRecovery.phase==='saved' && <small className="flow-protection" data-testid="flow-draft-saved">Cópia local protegida</small>}</div>
                 <div className="toolbar-actions">
                   <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar biblioteca de blocos':'Mostrar painel de ferramentas'} title="Alternar biblioteca de blocos" onClick={()=>{setUtilityOpen(value=>!value);setSideMode('catalog');}}><NavGlyph name="panel" size={16}/> <span>Biblioteca</span></button>
-                  <button className="button button--subtle" disabled={busy} onClick={validate}>Validar</button>
-                  <button className="button button--subtle" disabled={busy || !workspace} onClick={() => run(true)}>Simular</button>
-                  <button className="button button--run" disabled={busy || !workspace} onClick={() => run(false)}>▶ Executar</button>
+                  <button className="button button--subtle" disabled={busy} onClick={validate} aria-disabled={flowRecovery.locked}>Validar</button>
+                  <button className="button button--subtle" disabled={busy || !workspace || flowRecovery.locked} onClick={() => run(true)}>Simular</button>
+                  <button className="button button--run" disabled={busy || !workspace || flowRecovery.locked} onClick={() => run(false)}>▶ Executar</button>
                   {running && <button className="button button--stop" type="button" data-testid="flow-cancel" onClick={cancelRun}>■ Cancelar</button>}
                   <button type="button" className="button button--subtle button--inspector" title="Alternar inspetor" aria-label={inspectorOpen?'Ocultar inspetor':'Mostrar inspetor'}
                     onClick={()=>setInspectorOpen(open=>!open)}><NavGlyph name="layers" size={16}/></button>
                 </div>
               </div>
+              {(flowRecovery.draft || flowRecovery.error) && <React.Suspense fallback={null}><FlowRecoveryNotice
+                recovery={flowRecovery} revision={flowRevision} busy={busy} onRestore={flowRecovery.restore} onDiscard={flowRecovery.discard}/></React.Suspense>}
               <ModuleErrorBoundary label="Automação visual"><React.Suspense fallback={<ModuleLoading label="automações"/>}>
-                <FlowCanvas nodes={nodes} edges={edges} onNodesChange={handleNodesChange}
+                <FlowCanvas readOnly={flowRecovery.locked} nodes={nodes} edges={edges} onNodesChange={handleNodesChange}
                   onEdgesChange={handleEdgesChange} onConnect={onConnect}
                   onNodeClick={(_event,node)=>{setSelectedId(node.id);setInspectorOpen(true);}}
                   onPaneClick={()=>setSelectedId(null)}/>

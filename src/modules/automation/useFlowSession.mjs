@@ -55,8 +55,10 @@ export function useFlowSession(initialFlow) {
   const [flowDirty, setFlowDirty] = useState(false);
   const documentEpoch = useRef(0);
   const editEpoch = useRef(0);
+  const [editVersion, setEditVersion] = useState(0);
   const markEdited = useCallback(() => {
     editEpoch.current += 1;
+    setEditVersion(v => v + 1);
     setFlowDirty(true);
   }, []);
   const captureSaveToken = useCallback(() => ({
@@ -86,9 +88,10 @@ export function useFlowSession(initialFlow) {
     setEdges(previous => applyChanges(changes, previous));
   }, [markEdited]);
 
-  const replaceDocument = useCallback((flow, revision, dirty = false) => {
+  const replaceDocument = useCallback((flow, revision, dirty = false, protect = dirty) => {
     documentEpoch.current += 1;
     editEpoch.current = dirty ? 1 : 0;
+    setEditVersion(protect ? 1 : 0);
     setNodes(toUiNodes(flow));
     setEdges(flow.edges);
     setSelectedId(flow.nodes[0]?.id || null);
@@ -100,7 +103,7 @@ export function useFlowSession(initialFlow) {
     nodes, setNodes, edges, setEdges, graph,
     selectedId, setSelectedId,
     flowRevision, setFlowRevision,
-    flowDirty, setFlowDirty,
+    flowDirty, setFlowDirty, editVersion,
     handleNodesChange, handleEdgesChange,
     markEdited, captureSaveToken, markSaved,
     replaceDocument

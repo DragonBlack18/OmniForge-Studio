@@ -1,3 +1,12 @@
+## [0.7.9] — Recuperação protegida de fluxos
+
+- Checkpoint de alterações do fluxo no perfil local, cifrado no Windows via safeStorage assíncrono; sem gravação automática no original ou execução de nós.
+- Restauração explícita, inspeção JSON opcional, descarte confirmado e revisão externa relida antes de restaurar.
+- Fila por perfil, CAS, quotas, limites, defesa contra links/corrupção e isolamento de sessões, incluindo reabertura do mesmo projeto.
+- Coordenação do checkpoint com save em voo, preservação das edições recentes e limpeza somente do token correto.
+- Sem navegação extra, dependência npm ou aumento de orçamento de bundle.
+- Testes de filesystem/coordenador e novo E2E Electron Windows de reinício completo com cifra real.
+
 ## [0.7.8] — CAD Toolkit: operações geométricas precisas (candidata)
 
 - Rotação de linha/círculo e retângulo nos ângulos compatíveis com o schema 2D, com pivô local/global; espelhamento X/Y.
