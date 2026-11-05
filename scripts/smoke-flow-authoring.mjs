@@ -15,6 +15,19 @@ const errors=[];
 const watchdog=setTimeout(()=>{console.error('[FLOW AUTHORING] watchdog',phase);process.exit(1);},180000);watchdog.unref();
 const nodes=()=>page.locator('.react-flow__node');
 async function count(expected){await page.waitForFunction(n=>document.querySelectorAll('.react-flow__node').length===n,expected);}
+async function connections(expected){
+  // Undo replaces node geometry. React Flow measures the new nodes before
+  // rendering their edges, so locator.count() immediately after click races
+  // ResizeObserver. Keep the exact invariant, with a bounded observable wait.
+  await page.waitForFunction(n=>{
+    const edges=[...document.querySelectorAll('.react-flow__edge')];
+    return edges.length===n&&edges.every(edge=>{
+      const d=edge.querySelector('.react-flow__edge-path')?.getAttribute('d');
+      return typeof d==='string'&&d.length>0&&!/NaN|Infinity/.test(d);
+    });
+  },expected,{timeout:15000});
+  assert.equal(await page.locator('.react-flow__edge').count(),expected);
+}
 async function nav(name){await page.getByTestId('primary-sidebar').getByRole('button',{name,exact:true}).click();}
 async function select(id){await page.locator('.react-flow__node[data-id="'+id+'"]').click();}
 async function connect(source,target){
@@ -34,7 +47,7 @@ try{
   assert.equal(await page.getByRole('navigation',{name:'Navegação principal'}).count(),1);
   await page.getByLabel('Localizar ferramenta').fill('cad');assert.equal(await page.getByRole('button',{name:'CAD Sketch 2D',exact:true}).count(),1);
   assert.equal(await page.getByRole('button',{name:'Central de Tarefas',exact:true}).count(),0);await page.getByLabel('Localizar ferramenta').press('Escape');
-  await page.getByRole('button',{name:'Abrir projeto',exact:true}).click();await page.getByText('Projeto aberto:',{exact:false}).waitFor();await count(3);
+  await page.getByRole('button',{name:'Abrir projeto',exact:true}).click();await page.getByText('Projeto aberto:',{exact:false}).waitFor();await count(3);await connections(2);
   await page.getByRole('button',{name:'Salvar fluxo',exact:true}).click();await page.getByText('Fluxo gravado em',{exact:false}).waitFor();
   const original=await fs.readFile(flowFile);
   assert.equal(await page.getByTestId('flow-undo').isDisabled(),true);
@@ -47,19 +60,30 @@ try{
   await page.getByTestId('flow-fit').click();
   await page.waitForTimeout(220); // Bound the explicit 180ms viewport transition before mouse coordinates.
   phase='native wire connection and duplicate-input rejection';
-  await connect('selecionar',copy);
-  await page.waitForFunction(()=>document.querySelectorAll('.react-flow__edge').length===3);
-  await connect('inicio',copy);assert.equal(await page.locator('.react-flow__edge').count(),3);
-  await page.getByTestId('flow-undo').click();assert.equal(await page.locator('.react-flow__edge').count(),2);
+  await connect('selecionar',copy);await connections(3);
+  await connect('inicio',copy);await connections(3);
+  await page.getByTestId('flow-undo').click();await connections(2);
+  phase='repeated undo/redo preserves real wires after node measurement';
+  for(let cycle=0;cycle<3;cycle++){
+    await page.getByTestId('flow-redo').click();await count(4);await connections(3);
+    await page.getByTestId('flow-undo').click();await count(4);await connections(2);
+  }
   phase='delete + undo restores incident edges as one operation';
-  await page.getByTestId('flow-delete').click();await count(3);await page.getByTestId('flow-undo').click();await count(4);await page.getByTestId('flow-redo').click();await count(3);
-  await select('selecionar');await page.keyboard.press('Delete');await count(2);assert.equal(await page.locator('.react-flow__edge').count(),0);
-  await page.getByTestId('flow-undo').click();await count(3);assert.equal(await page.locator('.react-flow__edge').count(),2);
+  await page.getByTestId('flow-delete').click();await count(3);await connections(2);
+  await page.getByTestId('flow-undo').click();await count(4);await connections(2);
+  await page.getByTestId('flow-redo').click();await count(3);await connections(2);
+  await select('selecionar');await page.keyboard.press('Delete');await count(2);await connections(0);
+  await page.getByTestId('flow-undo').click();await count(3);await connections(2);
   phase='auto arrange and outline navigation do not write to disk';
   await page.getByTestId('flow-arrange').click();
   await page.getByRole('tab',{name:'Estrutura',exact:true}).click();await page.getByLabel('Localizar bloco no fluxo').fill('gravar');
   await page.getByTestId('flow-outline-gravar').click();assert.equal(await page.locator('.flow-object-id').textContent(),'gravar');
   assert.deepEqual(await fs.readFile(flowFile),original);
+  phase='explicit save verifies undo-restored topology in the native file';
+  await page.getByRole('button',{name:'Salvar fluxo',exact:true}).click();await page.getByText('Fluxo gravado em',{exact:false}).waitFor();
+  const restored=JSON.parse(await fs.readFile(flowFile,'utf8')),baseline=JSON.parse(original.toString('utf8'));
+  assert.deepEqual(restored.nodes.map(n=>n.id).sort(),baseline.nodes.map(n=>n.id).sort());
+  assert.deepEqual(restored.edges,baseline.edges);
   phase='new template, real execution and file output';
   await page.evaluate(()=>{window.confirm=()=>true;});
   await nav('Modelos de fluxo');await page.locator('article').filter({hasText:'Preparar registros'}).getByRole('button',{name:'Usar modelo'}).click();await count(5);
@@ -75,7 +99,7 @@ try{
   phase='reload reads saved graph and no renderer errors';
   await page.reload();await page.getByTestId('workspace-overview').waitFor();await page.getByRole('button',{name:'Abrir projeto',exact:true}).click();await count(5);
   assert.equal(await page.getByTestId('flow-undo').isDisabled(),true);assert.deepEqual(errors,[]);
-  console.log('PASS flow authoring: real wires, history, diagnostics, search, layout, new runner tools and saved JSON.');
+  console.log('PASS flow authoring: real wires, repeated history, persisted topology, diagnostics, search, layout, new runner tools and saved JSON.');
 }catch(error){
   console.error('[FLOW AUTHORING] phase='+phase,error);process.exitCode=1;
   await page?.screenshot({path:path.join(artifacts,'flow-authoring-failure.png')}).catch(()=>{});
