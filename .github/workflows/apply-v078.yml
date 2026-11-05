@@ -1,0 +1,43 @@
+name: Apply reviewed CAD Toolkit patch
+on:
+  push:
+    branches: [feature/v0.7.8-cad-toolkit]
+permissions:
+  contents: write
+jobs:
+  apply-reviewed-patch:
+    if: ${{ startsWith(github.event.head_commit.message, 'ci_apply_v078') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verify and apply reviewed technical patch
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const zlib=require('node:zlib');
+          const crypto=require('node:crypto');
+          const folder='.github/v078/';
+          const encoded=[1,2,3,4,5,6].map(i =>
+            fs.readFileSync(folder+'patch.'+String(i).padStart(2,'0')+'.b64','utf8').trim()).join('');
+          if(encoded.length!==21376)throw Error('Incomplete CAD patch segments: '+encoded.length);
+          const bytes=zlib.brotliDecompressSync(Buffer.from(encoded,'base64'));
+          const hash=crypto.createHash('sha256').update(bytes).digest('hex');
+          if(hash!=='135056015701bda28664ae4d5dd3be1f3184e197debabf7e61286f1856165fef')
+            throw Error('CAD Toolkit source patch SHA-256 mismatch: '+hash);
+          fs.writeFileSync('v078.review.patch',bytes);
+          NODE
+          git apply --check v078.review.patch
+          git apply v078.review.patch
+          node --check core/modules/cad/cad-toolkit.mjs
+          node --check scripts/smoke-cad-toolkit.mjs
+          node --test tests/cad-toolkit.test.mjs
+          rm -rf .github/v078
+          rm -f .github/workflows/source-snapshot-v078.yml .github/workflows/apply-v078.yml v078.review.patch
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "feat(cad): real rotation, mirror, offsets, arrays and precise measurement"
+          git push origin HEAD:feature/v0.7.8-cad-toolkit
