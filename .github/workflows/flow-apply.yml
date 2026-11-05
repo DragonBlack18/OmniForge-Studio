@@ -19,7 +19,7 @@ jobs:
           python3 - <<'PY'
           import os, json, base64, lzma, hashlib, urllib.request, subprocess
           from pathlib import Path
-          expected_parent='56c9ec47a2c95a64893f3686919c28d5b2916569'
+          expected_parent='95ff8052191ad591dbfeabccde61f69874ded892'
           parent=subprocess.check_output(['git','rev-parse','HEAD^'],text=True).strip()
           if parent != expected_parent: raise SystemExit('Unexpected branch parent; no changes applied')
           chunks=[]
@@ -30,9 +30,8 @@ jobs:
           raw=b''.join(chunks)
           if hashlib.sha256(raw).hexdigest() != 'dd9d1d9289632ac8e1ef6b592d44d87dc372db96d2daed1856d9591b1ee640ec': raise SystemExit('Patch integrity failure')
           patch=Path('/tmp/flow-authoring.patch'); patch.write_bytes(lzma.decompress(raw))
-          subprocess.run(['git','apply','--check','--unidiff-zero',str(patch)],check=True)
-          subprocess.run(['git','apply','--unidiff-zero',str(patch)],check=True)
-          for name in ['flow-source.yml','flow-apply.yml']: Path('.github/workflows',name).unlink()
+          subprocess.run(['git','apply','--check','--unidiff-zero','--exclude=.github/workflows/*',str(patch)],check=True)
+          subprocess.run(['git','apply','--unidiff-zero','--exclude=.github/workflows/*',str(patch)],check=True)
           if json.loads(Path('package.json').read_text())['version']!='0.7.9': raise SystemExit('Unexpected target version')
           PY
           git config user.name 'github-actions[bot]'
