@@ -12,8 +12,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Apply reviewed source without executing project code
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test "$GITHUB_REF" = 'refs/heads/feature/v0.7.9-unified-flows'
@@ -25,7 +28,30 @@ jobs:
           git apply --index --unidiff-zero "$RUNNER_TEMP/unified.patch"
           git rm .github/unified.patch.0 .github/unified.patch.1 .github/unified.patch.2
           git diff --cached --check
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'feat(v0.7.9): unify flow authoring and protected recovery with shared session transactions'
-          git push origin HEAD:feature/v0.7.9-unified-flows
+          python3 - <<'PY'
+          import os,json,subprocess,urllib.request
+          from pathlib import Path
+          prefix='https://api.github.com/repos/DragonBlack18/OmniForge-Studio'
+          def api(endpoint,data=None,method=None):
+              request=urllib.request.Request(prefix+endpoint,data=None if data is None else json.dumps(data).encode(),method=method or ('POST' if data is not None else 'GET'),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'})
+              with urllib.request.urlopen(request) as response: return json.load(response)
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          ref='/git/refs/heads/feature/v0.7.9-unified-flows'
+          if api('/git/ref/heads/feature/v0.7.9-unified-flows')['object']['sha']!=head: raise SystemExit('Concurrent branch update; refusing to replace')
+          entries=[]
+          for name in subprocess.check_output(['git','diff','--cached','--name-only','-z']).decode().split('\0'):
+              if not name: continue
+              if name.startswith('.github/workflows/'): raise SystemExit('Source transfer cannot alter workflows')
+              entry={'path':name,'mode':'100644','type':'blob'}
+              if Path(name).is_file(): entry['content']=Path(name).read_text(encoding='utf-8')
+              else: entry['sha']=None
+              entries.append(entry)
+          base=api('/git/commits/'+head)['tree']['sha']
+          tree=api('/git/trees',{'base_tree':base,'tree':entries})['sha']
+          expected=subprocess.check_output(['git','write-tree'],text=True).strip()
+          if tree!=expected: raise SystemExit('Tree verification failed: '+tree+' != '+expected)
+          commit=api('/git/commits',{'message':'feat(v0.7.9): unify reversible flow authoring and protected recovery','tree':tree,'parents':[head]})['sha']
+          if api('/git/ref/heads/feature/v0.7.9-unified-flows')['object']['sha']!=head: raise SystemExit('Concurrent branch update; no ref changed')
+          api(ref,{'sha':commit,'force':False},'PATCH')
+          print('Verified source tree '+tree+' commit '+commit)
+          PY
