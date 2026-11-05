@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { getNodeDefinition } from './catalog.mjs';
+import { FLOW_LIMITS } from './flow-limits.mjs';
 import { atomicWrite, verifyWorkspace, readFlowDocument } from '../workspace/workspace.mjs';
 
 const MAGIC = Buffer.from('OFLOW1\n');
@@ -20,7 +21,7 @@ const object = value => Boolean(value && typeof value === 'object' && !Array.isA
 
 /** An unfinished graph need not be executable, but must be bounded and coherent. */
 export function assertRecoverableFlow(flow) {
-  if (!object(flow) || flow.schemaVersion !== 1 || typeof flow.name !== 'string' || flow.name.length > 100 ||
+  if (!object(flow) || flow.schemaVersion !== 1 || typeof flow.name !== 'string' || flow.name.length > FLOW_LIMITS.name ||
       !Array.isArray(flow.nodes) || flow.nodes.length > 400 || !Array.isArray(flow.edges) || flow.edges.length > 800)
     throw new Error('Contrato do rascunho de fluxo inválido.');
   const nodes = new Set(), edges = new Set();

@@ -36,6 +36,7 @@ A tabela histórica abaixo foi redigida na fundação do projeto; seus números 
 | v0.7.6 | Desacoplamento do React Flow do startup, estado leve de sessão e medição real do Electron | Candidata: budget JS, Node, E2E, benchmarks, NSIS/Portable e SHA-256 |
 | v0.7.7 | Navegação única, Studio preto/vermelho, outliner e propriedades CAD completas para as primitivas 2D existentes | Candidata: Node, Electron, revisão visual, bundle e NSIS/Portable |
 | v0.7.8 | Ferramentas CAD 2D: rotação, espelho, paralelas, matriz e medições reais | CI Linux/Windows, E2E CAD, DXF/undo, bundle, Setup/Portable e SHA-256 |
+| v0.7.9 | Autoria, diagnóstico, oito ferramentas locais e recuperação protegida integradas num único estado | Testes conjuntos: história/restauração/save, Electron Windows, bundle, Setup/Portable |
 | Proposta v0.7.x | Gerenciamento seguro de tarefas de desenvolvimento e terminal isolado | Quotas, consentimento, cancelamento, processo filho, ameaças |
 | Proposta v0.8.x | Integração Theia/LSP/depuração via adaptador | Isolamento, licenças, end-to-end |
 | Proposta v0.9.x | Gatilhos de eventos mais amplos, retenção e monitoramento de fluxos | Idempotência, replay, side effects, recovering |

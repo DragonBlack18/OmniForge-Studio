@@ -48,18 +48,18 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
   },[instance,focusRequest]);
   const displayNodes=React.useMemo(()=>{
     const issues=new Map(diagnostics.filter(d=>d.nodeId).map(d=>[d.nodeId,d.message]));
-    const execution=new Map(runSteps.map(s=>[s.nodeId,s.status]));
+    const execution=new Map(runSteps.map(s=>[s.nodeId || s.id,s.status]));
     return nodes.map(n=>({...n,data:{...n.data,issue:issues.get(n.id),execution:execution.get(n.id)}}));
   },[nodes,diagnostics,runSteps]);
   const valid=React.useCallback(connection=>checkFlowConnection(graph,connection).valid,[graph]);
   // The apply/add helpers and React Flow remain inside this dynamic module.
   // The parent owns the document; leaving canvas never drops unsaved edits.
   const handleNodes = React.useCallback(changes =>
-    {if(!locked)onNodesChange(changes, applyNodeChanges);}, [onNodesChange,locked]);
+    {const allowed=locked?changes.filter(c=>c.type==='select'||c.type==='dimensions'):changes;if(allowed.length)onNodesChange(allowed,applyNodeChanges);}, [onNodesChange,locked]);
   const handleEdges = React.useCallback(changes =>
-    {if(!locked)onEdgesChange(changes, applyEdgeChanges);}, [onEdgesChange,locked]);
+    {const allowed=locked?changes.filter(c=>c.type==='select'):changes;if(allowed.length)onEdgesChange(allowed,applyEdgeChanges);}, [onEdgesChange,locked]);
   const handleConnect = React.useCallback(connection =>
-    onConnect(connection, addEdge), [onConnect]);
+    {if(!locked)onConnect(connection, addEdge);}, [onConnect,locked]);
   const beforeDelete=React.useCallback(async selection=>{
     if(!locked)onDeleteElements(selection);
     return false; // Session already committed nodes and wires as one operation.

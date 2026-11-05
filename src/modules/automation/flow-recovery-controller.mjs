@@ -18,7 +18,7 @@ export function createFlowRecoveryController(api, { delay = 900, setTimer = setT
     if (!latest?.dirty || !s.ready || s.draft || s.failed || s.paused || s !== session) return s.chain;
     const { flow, revision } = latest;
     s.chain = s.chain.catch(() => {}).then(async () => {
-      if (session !== s || s.failed) return;
+      if (session !== s || s.failed || (s.latest !== latest && !s.paused)) return;
       const content = JSON.stringify(flow);
       if (content === s.lastContent && revision === s.lastBase) {
         publish(s, { phase:'saved', error:'' });
@@ -28,7 +28,26 @@ export function createFlowRecoveryController(api, { delay = 900, setTimer = setT
       // Keep a token from an in-flight write even if a native save paused us.
       s.token = saved.draftRevision;
       s.lastContent = content; s.lastBase = revision;
-      publish(s, { phase:s.paused?'saving':'saved', savedAt:saved.savedAt, error:'' });
+      publish(s, { phase:s.paused?'saving':s.latest===latest?'saved':'pending', savedAt:saved.savedAt, error:'' });
+    }).catch(error => fail(s, error));
+    return s.chain;
+  }
+  function reconcileClean(s) {
+    if (!s.ready || s.draft || s.failed || s.paused || s.latest?.dirty) return;
+    const latest = s.latest;
+    s.chain = s.chain.catch(() => {}).then(async () => {
+      if (session !== s || s.latest !== latest || s.paused || s.failed || s.draft) return;
+      if (s.token) {
+        // Undo-to-save invalidates our checkpoint, not an external document.
+        // Recheck source and CAS so external edits never turn into silent deletion.
+        const fresh = await api.readFlowDraft(s.root);
+        if (session !== s || s.latest !== latest || s.paused) return;
+        if (fresh && (fresh.draftRevision !== s.token || fresh.sourceUnavailable || fresh.sourceRevision !== latest.revision))
+          throw new Error('O fluxo mudou externamente. Cópia preservada; reabra o projeto.');
+        if (fresh) await api.discardFlowDraft(s.root, s.token);
+        s.token = null; s.lastContent = null; s.lastBase = null;
+      }
+      if (session === s && s.latest === latest) publish(s, { phase:'ready', savedAt:null, error:'' });
     }).catch(error => fail(s, error));
     return s.chain;
   }
@@ -67,7 +86,7 @@ export function createFlowRecoveryController(api, { delay = 900, setTimer = setT
       s.latest = { flow, revision, dirty };
       if (!dirty) {
         cancelTimer(s);
-        if (s.ready && !s.draft && !s.failed && !s.paused) publish(s, { phase:'ready' });
+        reconcileClean(s);
         return;
       }
       schedule(s);
@@ -88,10 +107,20 @@ export function createFlowRecoveryController(api, { delay = 900, setTimer = setT
       if (session !== s) throw new Error('Projeto alterado durante salvamento.');
       return s;
     },
-    async afterSave(lease, successful) {
+    async afterSave(lease, successful, current = null) {
       const s = session;
       if (!s || s !== lease) return;
-      if (successful && s.token) {
+      if (successful && current?.dirty) {
+        // Edits made while native save was pending must remain protected. Replace
+        // the checkpoint against the NEW source revision; never delete it first.
+        s.latest = { flow:current.flow, revision:current.revision, dirty:true };
+        try {
+          const saved = await api.writeFlowDraft(s.root, current.flow, current.revision, s.token);
+          s.token = saved.draftRevision; s.lastContent = JSON.stringify(current.flow);
+          s.lastBase = current.revision; s.failed = false;
+          publish(s, { savedAt:saved.savedAt, error:'' });
+        } catch (error) { fail(s, error); }
+      } else if (successful && s.token) {
         try {
           await api.discardFlowDraft(s.root, s.token);
           s.token = null; s.lastContent = null; s.lastBase = null; s.failed = false;
@@ -104,7 +133,7 @@ export function createFlowRecoveryController(api, { delay = 900, setTimer = setT
       // The React adapter stages the committed document after this epoch bump.
       publish(s, { phase:s.failed?'error':'ready', stagingEpoch:state.stagingEpoch + 1 });
     },
-    async restore(currentRevision) {
+    async restore(currentRevision, isDocumentCurrent = () => true, applyRecovered = null) {
       const s = session;
       if (!s?.draft) return null;
       await s.chain;
@@ -115,7 +144,11 @@ export function createFlowRecoveryController(api, { delay = 900, setTimer = setT
       s.draft = fresh; publish(s, { draft:fresh });
       if (fresh.sourceUnavailable || fresh.baseRevision !== fresh.sourceRevision || fresh.baseRevision !== currentRevision)
         throw new Error('O fluxo no disco mudou. Restauração bloqueada; o rascunho foi preservado.');
+      if (!isDocumentCurrent()) throw new Error('Documento alterado durante restauração; cópia preservada.');
       const flow = structuredClone(fresh.flow);
+      // Commit the buffer while the unresolved-draft guard is still active.
+      // A rejected buffer update must leave both the checkpoint and guard intact.
+      if (applyRecovered) applyRecovered(flow);
       s.draft = null; s.latest = null; s.failed = false;
       s.lastContent = JSON.stringify(flow); s.lastBase = fresh.baseRevision;
       publish(s, { phase:'saved', draft:null, error:'' });

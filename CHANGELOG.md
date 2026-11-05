@@ -1,3 +1,16 @@
+## [0.7.9] — Autoria e recuperação unificadas
+
+- Um único store de sessão reúne undo/redo, duplicação, remoção com conexões, organização, seleção, nome e revisão do documento.
+- Inspetor contextual Propriedades/Estrutura/Diagnóstico; conexões inválidas recusadas e estados reais de execução no canvas.
+- Oito ferramentas locais de dados/texto/números e três novos modelos executáveis; catálogo com 57 nós e seis modelos.
+- Checkpoints cifrados no Windows, restauração manual e reversível, inspeção JSON e descarte confirmado.
+- Undo até o último conteúdo salvo remove somente a cópia obsoleta e revalida conflitos antes da limpeza.
+- Alterações durante save recebem checkpoint com a nova revisão; nenhuma exclusão antes de protegê-las.
+- Contrato de nome de 120 caracteres, orçamento único para as duas pilhas de histórico e bloqueios de todas as mutações durante recuperação.
+- Corrigido foco imediato da paleta e mapeamento dos IDs dos estados de execução.
+- Suíte local de 339 testes passou. E2E Windows combinado, smokes anteriores, bundle e Setup/Portable são gates obrigatórios da revisão final.
+- Sem nova dependência runtime, migração destrutiva ou ampliação de permissões de execução.
+
 ## [0.7.8] — CAD Toolkit: operações geométricas precisas (candidata)
 
 - Rotação de linha/círculo e retângulo nos ângulos compatíveis com o schema 2D, com pivô local/global; espelhamento X/Y.

@@ -1,10 +1,16 @@
 # OmniForge Studio
 
-**v0.7.9 — Recuperação protegida de fluxos**
+**v0.7.9 — autoria de fluxos e recuperação protegida, integradas**
 
-Aplicação desktop local para código, automações supervisionadas e desenho técnico 2D. Navegação única, tema grafite/vermelho e ferramentas separadas por domínio.
+Aplicação desktop local para código, automações supervisionadas e CAD 2D.
+Navegação única, tema grafite/vermelho e ferramentas contextuais, sem um dashboard de métricas simuladas.
 
-Esta versão acrescenta cópias locais cifradas das alterações do fluxo no Windows, restauração manual, inspeção de conflitos e descarte confirmado. Salvar e executar continuam explícitos. [Contrato e limites](docs/FLOW_RECOVERY_V079.md) · [Histórico de versões](CHANGELOG.md).
+Esta etapa concilia o histórico de edição, diagnóstico, oito operações de dados e três modelos do PR #36
+com a recuperação cifrada do PR #37. Há um único estado de documento: restaurar pode ser desfeito,
+salvar não limpa edições mais recentes e um conflito externo não sobrescreve o projeto.
+
+[Integração, evidências e limites](docs/UNIFIED_FLOWS_V079.md) · [Histórico](CHANGELOG.md).
+A promoção para release depende dos gates do mesmo commit; a versão permanece experimental.
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 
@@ -29,7 +35,7 @@ Navegação global única, superfícies neutras com acento vermelho, editor sem 
 
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
-Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks/agendados e automações de e-mail prontas.
+Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks externos e automações de e-mail prontas.
 
 ## Recuperação da IDE v0.7.3
 
