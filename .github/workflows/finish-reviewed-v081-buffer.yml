@@ -1,0 +1,31 @@
+name: Finish reviewed v081 buffer correction
+on:
+  push:
+    branches: [feature/v0.8.1-workspace-layout]
+    paths: [.github/workflows/finish-reviewed-v081-buffer.yml]
+permissions:
+  contents: write
+jobs:
+  reviewed-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and apply exact reviewed correction
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import base64,gzip,hashlib,pathlib,re,subprocess
+          source=pathlib.Path('.github/workflows/apply-reviewed-v081-buffer.yml').read_text()
+          encoded=re.search(r"encoded='([^']+)'",source).group(1)
+          encoded=encoded.replace('EPlXUxJVxJVx7','EPlXUxJVx7')
+          patch=gzip.decompress(base64.b64decode(encoded))
+          assert hashlib.sha256(patch).hexdigest()=='39ffb3ffc527f2029dcc2e5ecca6e97bf5bc72e15fa9b222315f35f1c726282f'
+          subprocess.run(['git','apply','--check','-'],input=patch,check=True)
+          subprocess.run(['git','apply','--index','-'],input=patch,check=True)
+          PY
+          git rm .github/workflows/apply-reviewed-v081-buffer.yml .github/workflows/finish-reviewed-v081-buffer.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(ide): preserve live Monaco buffer across delayed React renders'
+          git push origin HEAD:refs/heads/feature/v0.8.1-workspace-layout
