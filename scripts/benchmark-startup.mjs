@@ -16,6 +16,7 @@ import { _electron as electron } from 'playwright-core';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const artifacts=path.join(root,'smoke-artifacts');
+const packageVersion=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8')).version;
 const samples=[];
 const sampleCount=3;
 const watchdog=setTimeout(()=>{console.error('[BENCHMARK] timeout');process.exit(1);},180000);
@@ -85,7 +86,7 @@ try {
   const values=samples.map(x=>x.coldStartToWorkbenchMs).sort((a,b)=>a-b);
   const report={
     schemaVersion:1,
-    version:'0.7.6',
+    version:packageVersion,
     environment:{os:process.platform,arch:process.arch,node:process.version,
       sampleCount,mode:'packaged-renderer-in-Electron-automation'},
     measures:'wall-clock from Electron launch to React workbench visible; renderer heap from Chromium CDP when available',

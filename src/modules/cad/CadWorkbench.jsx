@@ -1,3 +1,4 @@
+import PanelResizer from '../../shared/PanelResizer.jsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addCadEntity, addCadLayer, cadBounds, cadEntityMetrics, cadStats, deleteCadEntity, initialCadSketch, makeCadEntity, removeCadLayer, replaceCadEntity, snapCadPoint } from '../../../core/modules/cad/cad2d.mjs';
 import { NavGlyph } from '../../shared/NavGlyph.jsx';
@@ -30,15 +31,13 @@ const CadShape = React.memo(function CadShape({ entity, color, selected, onSelec
   return <circle cx={entity.center.x} cy={-entity.center.y} r={entity.radius} {...shared}/>;
 });
 
-export default function CadWorkbench({workspace,visible,onDirtyChange}) {
+export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorWidth=310,inspectorOpen=true,inspectorResize,resizeKey}) {
   const [sketch,setSketch]=useState(initialCadSketch);
   const [revision,setRevision]=useState(null);
   const [dirty,setDirty]=useState(false);
   const [working,setWorking]=useState(false);
   const [loadError,setLoadError]=useState(false);
   const operationRef=useRef(false);
-  const [inspectorWidth,setInspectorWidth]=useState(()=>{try{const n=Number(localStorage.getItem('of.cad.inspectorWidth.v1'));return n>=272&&n<=420?n:310;}catch{return 310;}});
-  const resizeRef=useRef(null);
   const [tool,setTool]=useState('select');
   const [layerId,setLayerId]=useState('principal');
   const [selected,setSelected]=useState(null);
@@ -290,16 +289,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
       setStatus(labels[kind]+' aplicada em geometria real; use Salvar desenho para persistir.');
     }catch(e){setStatus('Operação recusada: '+e.message);}
   }
-  function persistWidth(value){try{localStorage.setItem('of.cad.inspectorWidth.v1',String(value));}catch{}}
-  function resizeStart(event){
-    event.preventDefault();resizeRef.current={x:event.clientX,width:inspectorWidth};event.currentTarget.setPointerCapture(event.pointerId);
-  }
-  function resizeMove(event){if(!resizeRef.current)return;setInspectorWidth(clamp(resizeRef.current.width+resizeRef.current.x-event.clientX,272,420));}
-  function resizeEnd(){if(resizeRef.current){resizeRef.current=null;persistWidth(inspectorWidth);}}
-  function resizeKey(event){
-    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();
-    const next=event.key==='Home'?272:event.key==='End'?420:clamp(inspectorWidth+(event.key==='ArrowLeft'?10:-10),272,420);setInspectorWidth(next);persistWidth(next);
-  }
+
   function restoreCadDraft(){
     if(!workspace || working)return;
     const value=recovery.restore(revision);
@@ -461,9 +451,9 @@ export default function CadWorkbench({workspace,visible,onDirtyChange}) {
         <div className="cad-viewport-help">{tip}</div>
         <div className="cad-viewport-zoom">{Math.round(view.zoom*25)}% <span>· Roda do mouse para zoom</span></div>
       </section>
-      <div className="cad-panel-resize" role="separator" tabIndex={0} aria-label="Largura do inspetor CAD" aria-orientation="vertical"
-        aria-valuemin={272} aria-valuemax={420} aria-valuenow={inspectorWidth} onPointerDown={resizeStart} onPointerMove={resizeMove} onPointerUp={resizeEnd} onPointerCancel={resizeEnd} onKeyDown={resizeKey}/>
-      <aside className="cad-properties" style={{width:inspectorWidth,flexBasis:inspectorWidth}}>
+      {inspectorOpen&&<PanelResizer key={resizeKey} label="Largura do inspetor CAD" controls="cad-properties"
+        value={inspectorWidth} min={272} max={420} defaultValue={310} direction={-1} {...inspectorResize}/>}
+      <aside id="cad-properties" className="cad-properties" hidden={!inspectorOpen} style={{width:inspectorWidth,flexBasis:inspectorWidth}}>
         <CadOutliner sketch={sketch} selected={selected} layerId={layerId} disabled={editBlocked}
           onSelect={selectObject} onLayer={id=>{setLayerId(id);setSelected(null);}}
           onEntityFlag={(id,key,value)=>editIdentity(id,{[key]:value})} onLayerFlag={(id,key,value)=>editLayer(id,{[key]:value})}/>

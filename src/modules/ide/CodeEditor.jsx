@@ -5,7 +5,8 @@ import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import CssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
-import React from 'react';
+import React, {useCallback,useEffect,useLayoutEffect,useRef} from 'react';
+import {bindEditorBuffer} from './editor-buffer.mjs';
 
 self.MonacoEnvironment = {
   getWorker(_moduleId, label) {
@@ -29,6 +30,24 @@ loader.config({ monaco });
 
 // Monaco, language workers, themes and language services load on the first
 // actual editor visit, never while the user is on Home, CAD or Automations.
-export default function CodeEditor(props) {
-  return <Editor {...props} theme="omniforge-studio"/>;
+export default function CodeEditor({value,documentVersion,onChange,onMount,...props}) {
+  const latest=useRef({value,documentVersion,onChange,onMount});
+  latest.current={value,documentVersion,onChange,onMount};
+  const binding=useRef(null);
+  const mounted=useCallback((editor,api)=>{
+    binding.current?.dispose();
+    const current=latest.current;
+    binding.current=bindEditorBuffer(editor,{
+      version:current.documentVersion,content:current.value,
+      onChange:(text,event)=>latest.current.onChange?.(text,event)
+    });
+    current.onMount?.(editor,api);
+  },[]);
+  useLayoutEffect(()=>{
+    binding.current?.replace(documentVersion,value);
+  },[documentVersion,value]);
+  useEffect(()=>()=>{binding.current?.dispose();binding.current=null;},[]);
+  // No controlled value echo: a delayed React effect must not replace text
+  // that Monaco has already accepted. Native undo/redo remains model-owned.
+  return <Editor {...props} defaultValue={value} onMount={mounted} theme="omniforge-studio"/>;
 }

@@ -4,6 +4,7 @@ import App from './App.jsx';
 import './style.css';
 import './chrome.css';
 import './studio.css';
+import './workbench/layout/Layout.css';
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }

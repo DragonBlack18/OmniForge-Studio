@@ -1,4 +1,15 @@
-## v0.8.0 — Fundação de produção (candidata)
+# OmniForge Studio
+
+## v0.8.1 — Áreas de trabalho por projeto
+
+Painéis redimensionáveis por mouse e teclado, foco no editor sem perder alterações,
+preferências por projeto e módulo, disposições Equilibrado/Área ampla/Inspeção e
+capturas reais do Electron nos testes. Mantém navegação única e preto/grafite com vermelho discreto.
+
+[Arquitetura e testes](docs/WORKSPACE_LAYOUT_V081.md) · [Política de evidência visual](docs/VISUAL_EVIDENCE_POLICY.md).
+Continua uma distribuição experimental sem assinatura, com os gates obrigatórios de cada revisão.
+
+### Base nativa v0.8.0
 
 Segurança nativa centralizada, proteção de gravações, diagnóstico local sem conteúdo dos projetos,
 instalação de dependências fixada por lockfile e verificação dos fuses no binário real.
@@ -8,7 +19,7 @@ A interface e os formatos da v0.7.9 são preservados. Consulte
 Build local: `npm ci`, `npm run verify:release`, `npm test`, `npm run build`.
 Os instaladores Windows são construídos e testados no CI. Nenhuma assinatura digital ou ausência universal de defeitos é prometida.
 
-# OmniForge Studio
+## Ferramentas consolidadas
 
 **v0.7.9 — autoria de fluxos e recuperação protegida, integradas**
 

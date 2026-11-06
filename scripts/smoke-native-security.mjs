@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const packageVersion=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8')).version;
 const lab=await fs.mkdtemp(path.join(os.tmpdir(),'omni-native-security-'));
 const profile=path.join(lab,'profile'),workspace=path.join(lab,'workspace'),reportFile=path.join(lab,'report.json');
 await Promise.all([fs.mkdir(profile),fs.mkdir(workspace)]);
@@ -46,7 +47,7 @@ try {
   await page.getByRole('button',{name:'Exportar JSON',exact:true}).click();
   await page.getByText('Relatório exportado.',{exact:true}).waitFor();
   const bytes=await fs.readFile(reportFile,'utf8'),exported=JSON.parse(bytes);
-  assert.equal(exported.application.version,'0.8.0');
+  assert.equal(exported.application.version,packageVersion);
   assert.ok(!bytes.includes(lab)&&!bytes.includes('OMNIFORGE_E2E'));
   await page.getByRole('button',{name:'Exportar JSON',exact:true}).click();
   await page.getByText('O arquivo já existe. Escolha outro nome; nada foi sobrescrito.',{exact:true}).waitFor();

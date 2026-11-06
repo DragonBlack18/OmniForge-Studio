@@ -5,7 +5,7 @@ import './NavigationSidebar.css';
 export { NavGlyph } from '../shared/NavGlyph.jsx';
 
 /** One global navigator. Editors own their tools, not another application menu. */
-export default function NavigationSidebar({mode,collapsed,onCollapse,onNavigate,workspace,busy=false}) {
+export default function NavigationSidebar({mode,collapsed,onCollapse,onNavigate,workspace,busy=false,width}) {
   const [query,setQuery]=useState('');
   const normalize=value=>String(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const needle=normalize(query.trim());
@@ -24,7 +24,7 @@ export default function NavigationSidebar({mode,collapsed,onCollapse,onNavigate,
   const navigate=next=>{setQuery('');onNavigate(next);};
   const toggle=title=>setFolded(old=>{const next=new Set(old);next.has(title)?next.delete(title):next.add(title);return next;});
   return <nav className={`primary-nav ${collapsed?'primary-nav--collapsed':''}`}
-    aria-label="Navegação principal" data-testid="primary-sidebar">
+    id="workbench-navigation" style={{width,flexBasis:width}} aria-label="Navegação principal" data-testid="primary-sidebar">
     <div className="primary-nav__heading">
       {!collapsed&&<input className="primary-nav__filter" aria-label="Localizar ferramenta" placeholder="Localizar ferramenta" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Escape')setQuery('');}}/>}
       <button type="button" className="primary-nav__collapse" onClick={onCollapse}

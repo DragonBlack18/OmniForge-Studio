@@ -14,7 +14,8 @@ async function fixture(change, expected) {
   }finally{await fs.rm(dir,{recursive:true,force:true});}
 }
 test('release contract validates exact versions, registry integrity and explicit security choices',async()=>{
-  const report=await verifyReleaseContract();assert.equal(report.version,'0.8.0');assert.ok(report.components>300);
+  const report=await verifyReleaseContract();const pkg=JSON.parse(await fs.readFile('package.json','utf8'));
+  assert.equal(report.version,pkg.version);assert.ok(report.components>300);
 });
 test('release fails closed when a direct dependency differs from its committed lock',async()=>{
   await fixture(async dir=>{const file=path.join(dir,'package.json'),p=JSON.parse(await fs.readFile(file));
@@ -29,4 +30,9 @@ test('release rejects missing integrity and weakened packaged hardening',async()
 test('release rejects unpinned CI installs without changing source or lock',async()=>{
   await fixture(async dir=>{const file=path.join(dir,'.github/workflows/ci.yml');
     await fs.writeFile(file,(await fs.readFile(file,'utf8')).replaceAll('npm ci --no-audit --no-fund','npm install --no-audit --no-fund'));},/instalação fechada/);
+});
+
+test('application and dependency lock versions must agree before any release',async()=>{
+  await fixture(async dir=>{const file=path.join(dir,'package.json'),p=JSON.parse(await fs.readFile(file));
+    p.version='99.0.0';await fs.writeFile(file,JSON.stringify(p));},/Versão divergente/);
 });
