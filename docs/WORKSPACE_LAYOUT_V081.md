@@ -67,3 +67,28 @@ Gates existentes de Linux, Windows, recuperação, segurança nativa, módulos, 
 Não há docking arbitrário, janelas destacadas nem múltiplos editores simultâneos nesta versão.
 Não aumenta as capacidades geométricas do CAD nem implementa LSP/DAP.
 Ainda faltam assinatura do editor, atualização/rollback, auditoria de vulnerabilidades/licenças e aceitação prolongada em computadores reais para uma distribuição comercial estável.
+
+## Correção de retenção do buffer Monaco durante a validação
+
+O smoke de layout detectou perda de caracteres antes de ativar o modo de
+foco: o checkpoint continha `// revisao ll`, embora o teclado tivesse
+enviado `// revisao local`. A asserção de conteúdo integral foi mantida.
+
+O modelo Monaco agora é o proprietário da edição em andamento. A interface
+React recebe seus eventos para marcar alterações e produzir checkpoints,
+mas não reaplica esses valores ao modelo a cada render. Somente uma nova
+versão explícita de documento (abrir, carregar resultado, criar arquivo,
+restaurar rascunho) pode substituir o buffer. A assinatura de eventos é
+única por montagem, é liberada ao desmontar e preserva o undo/redo nativo.
+
+`tests/editor-buffer.test.mjs` cobre ecos atrasados, troca explícita,
+undo/redo, falhas de substituição e descarte de listeners. O E2E Windows
+continua digitando pelo teclado sem aumentar delays ou substituir a
+verificação por visibilidade de um botão: compara texto completo do
+checkpoint, identidade do elemento Monaco e bytes originais no disco.
+
+Referência primária consultada: implementação `Editor.tsx` do
+`@monaco-editor/react` v4.7.0, em especial o efeito controlado `[value]`
+e a assinatura de `onDidChangeModelContent`. Nenhum código externo foi
+copiado para o adaptador local.
+https://github.com/suren-atoyan/monaco-react/blob/v4.7.0/src/Editor/Editor.tsx

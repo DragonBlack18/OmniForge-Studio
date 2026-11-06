@@ -87,6 +87,7 @@ export default function AppShell() {
   const [liveSteps, setLiveSteps] = useState([]);
   const [fileName, setFileName] = useState('');
   const [fileContent, setFileContent] = useState('');
+  const [fileDocumentVersion,setFileDocumentVersion]=useState(0);
   const [dirty, setDirty] = useState(false);
   const [cadDirty, setCadDirty] = useState(false);
   const [fileRevision, setFileRevision] = useState('');
@@ -415,6 +416,7 @@ export default function AppShell() {
     const loaded = await window.omni.readFile(relative);
     await recovery.open(workspace,relative);
     fileContentRef.current = loaded.content;
+    setFileDocumentVersion(version=>version+1);
     setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision); setDirty(false);
     setEditorJump(null); setEditorPosition({line:1,column:1});
     setMode('code');setSideMode('files'); notify(`Arquivo aberto: ${relative}`);
@@ -425,6 +427,7 @@ export default function AppShell() {
     const loaded = await window.omni.readFile(hit.path);
     await recovery.open(workspace,hit.path);
     fileContentRef.current = loaded.content;
+    setFileDocumentVersion(version=>version+1);
     setFileName(hit.path); setFileContent(loaded.content); setFileRevision(loaded.revision);
     setDirty(false); setEditorJump({path:hit.path,line:hit.line,column:hit.column});
     setEditorPosition({line:hit.line,column:hit.column});
@@ -443,6 +446,7 @@ export default function AppShell() {
         const loaded = await window.omni.readFile(relative);
         await recovery.open(workspace,relative);
         fileContentRef.current = loaded.content;
+    setFileDocumentVersion(version=>version+1);
         setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision);
         setDirty(false); setEditorJump(null); setEditorPosition({line:1,column:1});
         notify('Arquivo criado: ' + relative);
@@ -471,6 +475,7 @@ export default function AppShell() {
     const content = recovery.restore(fileRevision);
     if (content === null) return notify('O arquivo original mudou. Copie o rascunho para comparar manualmente.');
     fileContentRef.current = content;
+    setFileDocumentVersion(version=>version+1);
     setFileContent(content);
     setDirty(true);
     notify('Rascunho restaurado somente no editor. Use Salvar arquivo para gravar no projeto.');
@@ -747,7 +752,7 @@ export default function AppShell() {
               {fileName && dirty && recovery.protectionStatus==='saved' && !recovery.recoveryDraft &&
                 <p className="editor-recovery__saved" data-testid="editor-draft-saved">Rascunho protegido localmente. Salve o arquivo para confirmar as alterações.</p>}
               {fileName ? (
-                <div className="editor-wrap"><ModuleErrorBoundary key={fileName} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}><CodeEditor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent}
+                <div className="editor-wrap"><ModuleErrorBoundary key={fileName} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}><CodeEditor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent} documentVersion={fileDocumentVersion}
                   onMount={editor => {
                     editor.onDidChangeCursorPosition(event => setEditorPosition({
                       line:event.position.lineNumber,column:event.position.column
