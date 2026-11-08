@@ -74,7 +74,14 @@ try{
   await page.getByRole('tab',{name:/^main.ts/}).click();
   await page.locator('.code-live-editor .monaco-editor').click();
   await page.keyboard.press('Control+z');
-  await page.waitForFunction(()=>!document.querySelector('.code-live-editor .view-lines')?.textContent.includes('revisao'));
+  // Monaco owns typing undo stops (e.g. word groups), so one Ctrl+Z must
+  // revert a real edit, not necessarily the entire sentence in one step.
+  await waitForPageState(page,async({root,changedA})=>{
+    const draft=await window.omni.readEditorDraft(root,'src/main.ts');
+    return draft===null || draft.content!==changedA;
+  },{root:canonicalWorkspace,changedA},{timeout:20000,description:'undo real da aba reaberta'});
+  const untouchedPython=await page.evaluate(root=>window.omni.readEditorDraft(root,'src/calculo.py'),canonicalWorkspace);
+  assert.equal(untouchedPython.content,changedPy,'Undo de main.ts não pode alterar a aba Python.');
   await page.keyboard.press('Control+y');await checkpoint('src/main.ts',changedA);
   await page.getByTestId('primary-sidebar').getByRole('button',{name:'CAD Sketch 2D'}).click();
   await page.getByTestId('cad-workbench').waitFor();
