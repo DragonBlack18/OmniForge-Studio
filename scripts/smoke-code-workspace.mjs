@@ -10,6 +10,8 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const lab=await fs.mkdtemp(path.join(os.tmpdir(),'omni-ide-workspace-'));
 const workspace=path.join(lab,'Oficina-Engenharia'),profile=path.join(lab,'profile');
 await Promise.all([fs.mkdir(workspace),fs.mkdir(profile)]);await fs.mkdir(path.join(workspace,'src'));
+// Recovery IPC pins the canonical native workspace, not an OS temp-path alias.
+const canonicalWorkspace=await fs.realpath(workspace);
 const sourceA=["import { massa } from './geometria';",'export const resultado: number = massa(2, 3);',
   'export const descricao: string = 42;',''].join('\n');
 const sourceB='export function massa(volume: number, densidade: number): number {\n  return volume * densidade;\n}\n';
@@ -26,7 +28,7 @@ async function checkpoint(relative,content){
   await waitForPageState(page,async({workspace,relative,content})=>{
     const record=await window.omni.readEditorDraft(workspace,relative);
     return record?.content===content;
-  },{workspace,relative,content},{timeout:20000,description:'checkpoint integral de '+relative});
+  },{workspace:canonicalWorkspace,relative,content},{timeout:20000,description:'checkpoint integral de '+relative});
 }
 try{
   app=await electron.launch({args:['.'],cwd:root,timeout:45000,env:{...process.env,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:profile,ELECTRON_RENDERER_URL:''}});
