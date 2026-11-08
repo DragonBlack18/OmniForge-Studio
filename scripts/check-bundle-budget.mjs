@@ -37,7 +37,7 @@ const MAX_INITIAL_CSS = 300_000;
 const chunks = Object.entries(manifest)
   .filter(([,row]) => row.file?.endsWith('.js'))
   .map(([key,row]) => ({ key, file:row.file }));
-const deferredEditor = chunks.some(x => /src\/modules\/ide\/CodeEditor\.jsx/.test(x.key) && !js.has(x.file));
+const deferredEditor = chunks.some(x => /src\/modules\/ide\/(?:CodeEditor|CodeWorkspace)\.jsx/.test(x.key) && !js.has(x.file));
 const deferredCad = chunks.some(x => /src\/modules\/cad\/CadWorkbench\.jsx/.test(x.key) && !js.has(x.file));
 const deferredCanvas = chunks.some(x => /src\/modules\/automation\/FlowCanvas\.jsx/.test(x.key) && !js.has(x.file));
 const report = {

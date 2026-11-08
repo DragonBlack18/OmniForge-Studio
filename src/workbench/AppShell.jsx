@@ -1,4 +1,3 @@
-import { getLanguage } from './editor-language.mjs';
 import { useWorkbenchLayout } from './layout/useWorkbenchLayout.mjs';
 import LayoutControls from './layout/LayoutControls.jsx';
 import PanelResizer from '../shared/PanelResizer.jsx';
@@ -13,7 +12,7 @@ import { NODE_CATALOG, exampleFlow, createNode } from '../../core/catalog.mjs';
 import { validateFlow } from '../../core/graph.mjs';
 import { WORKFLOW_TEMPLATES } from '../../core/templates.mjs';
 const FlowCanvas = React.lazy(() => import('../modules/automation/FlowCanvas.jsx'));
-const CodeEditor = React.lazy(() => import('../modules/ide/CodeEditor.jsx'));
+const CodeWorkspace = React.lazy(() => import('../modules/ide/CodeWorkspace.jsx'));
 const CadWorkbench = React.lazy(() => import('../modules/cad/CadWorkbench.jsx'));
 import WorkspaceOverview from './WorkspaceOverview.jsx';
 const ExtensionsHub = React.lazy(() => import('../modules/extensions/ExtensionsHub.jsx'));
@@ -30,8 +29,7 @@ import { NavGlyph } from '../shared/NavGlyph.jsx';
 import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
 import { createOperationGate } from '../utils/operation-gate.mjs';
-import { useEditorRecovery } from '../modules/ide/useEditorRecovery.mjs';
-import { editorOptionsForSize } from '../modules/ide/editor-performance.mjs';
+import { useCodeWorkspace } from '../modules/ide/useCodeWorkspace.mjs';
 
 
 
@@ -85,18 +83,12 @@ export default function AppShell() {
   const [busy, setBusy] = useState(false);
   const [running, setRunning] = useState(false);
   const [liveSteps, setLiveSteps] = useState([]);
-  const [fileName, setFileName] = useState('');
-  const [fileContent, setFileContent] = useState('');
-  const [fileDocumentVersion,setFileDocumentVersion]=useState(0);
-  const [dirty, setDirty] = useState(false);
+  const code = useCodeWorkspace();
+  const fileName = code.active?.path || '';
+  const dirty = code.snapshot.dirty;
   const [cadDirty, setCadDirty] = useState(false);
-  const [fileRevision, setFileRevision] = useState('');
-  const fileContentRef = useRef('');
-  const recovery = useEditorRecovery({ workspace, fileName, fileContent, fileRevision, dirty });
   const [createKind, setCreateKind] = useState(null);
   const [createPath, setCreatePath] = useState('');
-  const [editorJump, setEditorJump] = useState(null);
-  const [editorPosition, setEditorPosition] = useState({line:1,column:1});
   const [info, setInfo] = useState({ version: '0.7.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
@@ -167,10 +159,8 @@ export default function AppShell() {
     setActiveProjectId(result.projectId);
     setFiles(result.files);
     replaceDocument(result.flow, result.flowRevision, result.flowRevision === null, false);
-    recovery.reset(); fileContentRef.current = '';
-    setFileName(''); setFileContent(''); setFileRevision(''); setDirty(false); setCadDirty(false);
-    setCreateKind(null); setCreatePath(''); setEditorJump(null);
-    setEditorPosition({line:1,column:1});
+    code.controller.reset(result.workspace);
+    setCadDirty(false); setCreateKind(null); setCreatePath('');
     setFileQuery(''); setCollapsedFolders(new Set()); setSideMode('catalog');
     setLastRun(null); setValidation(null);
     setHistory(await window.omni.listRunHistory());
@@ -188,6 +178,7 @@ export default function AppShell() {
   const openWorkspace = () => execute(async () => {
     if (!confirmProjectSwitch()) return;
     await flowRecovery.controller.flush();
+    if (!await code.controller.flush()) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
     const result = await window.omni.selectWorkspace();
     if (result) await applyProject(result);
   });
@@ -202,6 +193,7 @@ export default function AppShell() {
   const openProjectById = id => execute(async () => {
     if (!confirmProjectSwitch()) return;
     await flowRecovery.controller.flush();
+    if (!await code.controller.flush()) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
     await applyProject(await window.omni.openProject(id));
   });
 
@@ -412,25 +404,12 @@ export default function AppShell() {
   });
 
   const openFile = relative => execute(async () => {
-    if (dirty && !window.confirm('Descartar alterações não salvas do arquivo atual?')) return;
-    const loaded = await window.omni.readFile(relative);
-    await recovery.open(workspace,relative);
-    fileContentRef.current = loaded.content;
-    setFileDocumentVersion(version=>version+1);
-    setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision); setDirty(false);
-    setEditorJump(null); setEditorPosition({line:1,column:1});
-    setMode('code');setSideMode('files'); notify(`Arquivo aberto: ${relative}`);
+    await code.controller.open(relative);
+    setMode('code'); setSideMode('files'); notify(`Arquivo aberto: ${relative}`);
   });
 
   const openSearchHit = hit => execute(async () => {
-    if (dirty && !window.confirm('Descartar as alterações não salvas antes de abrir este resultado?')) return;
-    const loaded = await window.omni.readFile(hit.path);
-    await recovery.open(workspace,hit.path);
-    fileContentRef.current = loaded.content;
-    setFileDocumentVersion(version=>version+1);
-    setFileName(hit.path); setFileContent(loaded.content); setFileRevision(loaded.revision);
-    setDirty(false); setEditorJump({path:hit.path,line:hit.line,column:hit.column});
-    setEditorPosition({line:hit.line,column:hit.column});
+    await code.controller.open(hit.path,{line:hit.line,column:hit.column});
     setMode('code'); setSideMode('files');
     notify('Resultado aberto: ' + hit.path + ' · linha ' + hit.line);
   });
@@ -443,57 +422,30 @@ export default function AppShell() {
       if (!relative) throw new Error('Informe o nome ou caminho relativo.');
       if (createKind === 'file') {
         await window.omni.createWorkspaceFile(relative);
-        const loaded = await window.omni.readFile(relative);
-        await recovery.open(workspace,relative);
-        fileContentRef.current = loaded.content;
-    setFileDocumentVersion(version=>version+1);
-        setFileName(relative); setFileContent(loaded.content); setFileRevision(loaded.revision);
-        setDirty(false); setEditorJump(null); setEditorPosition({line:1,column:1});
+        setFiles(await window.omni.listFiles());
+        await code.controller.open(relative);
+        setMode('code'); setSideMode('files');
         notify('Arquivo criado: ' + relative);
       } else {
         await window.omni.createWorkspaceFolder(relative);
+        setFiles(await window.omni.listFiles());
         notify('Pasta criada: ' + relative);
       }
-      setFiles(await window.omni.listFiles());
       setCreateKind(null); setCreatePath('');
     });
   };
 
-  const saveFile = () => execute(async () => {
-    if (!workspace || !fileName) throw new Error('Selecione um arquivo do projeto.');
-    if (recovery.recoveryDraft) throw new Error('Resolva o rascunho recuperável antes de salvar.');
-    const writtenContent = fileContent;
-    const saved = await window.omni.saveFile(fileName, writtenContent, fileRevision);
-    const unchangedInEditor = fileContentRef.current === writtenContent;
-    setFileRevision(saved.revision);
-    setDirty(!unchangedInEditor);
-    await recovery.onSaved(workspace, fileName, unchangedInEditor);
-    notify(unchangedInEditor ? `Arquivo atualizado: ${fileName}` :
+  const saveFile = all => execute(async () => {
+    if (all) {
+      const results = await code.controller.saveAll();
+      notify(results.length + ' arquivo(s) salvos.');
+      return;
+    }
+    if (!fileName) throw new Error('Selecione um arquivo do projeto.');
+    const result = await code.controller.save(fileName);
+    notify(result.unchanged ? `Arquivo atualizado: ${fileName}` :
       'Arquivo salvo; edições mais recentes ainda precisam ser gravadas.');
   });
-  const restoreEditorDraft = () => {
-    const content = recovery.restore(fileRevision);
-    if (content === null) return notify('O arquivo original mudou. Copie o rascunho para comparar manualmente.');
-    fileContentRef.current = content;
-    setFileDocumentVersion(version=>version+1);
-    setFileContent(content);
-    setDirty(true);
-    notify('Rascunho restaurado somente no editor. Use Salvar arquivo para gravar no projeto.');
-  };
-  const discardEditorDraft = () => execute(async () => {
-    if (!recovery.recoveryDraft || !window.confirm(
-      'Descartar definitivamente a cópia de recuperação? O arquivo original permanecerá intacto.'
-    )) return;
-    await recovery.discard(workspace, fileName);
-    notify('Cópia de recuperação descartada; arquivo original preservado.');
-  });
-  const copyEditorDraft = async () => {
-    if (!recovery.recoveryDraft) return;
-    try {
-      await navigator.clipboard.writeText(recovery.recoveryDraft.content);
-      notify('Texto do rascunho copiado. Revise as diferenças antes de salvar.');
-    } catch (error) { notify('Não foi possível copiar o rascunho: '+error.message); }
-  };
 
   const navigate = nextMode => {
     if(nextMode==='history'){openHistory();return;}
@@ -552,12 +504,12 @@ export default function AppShell() {
         event.preventDefault();
         if(!workspace || busy || event.repeat)return;
         if(mode==='canvas' && flowDirty)save();
-        else if(mode==='code' && fileName && dirty)saveFile();
+        else if(mode==='code' && fileName && dirty)saveFile(event.shiftKey);
       }
     };
     window.addEventListener('keydown',handleShortcut);
     return ()=>window.removeEventListener('keydown',handleShortcut);
-  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,fileContent,fileRevision,flowRevision,layout]);
+  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,code.snapshot,flowRevision,layout]);
 
   return (
     <div className={`app-shell ${layout.focus?'layout-focus':''}`} data-layout-scope={layout.scope} data-layout-mode={mode}>
@@ -721,56 +673,13 @@ export default function AppShell() {
               </section>
             </>
           )}
-          {mode === 'code' && (
-            <>
-              <div className="main-toolbar">
-                <div className="toolbar-heading"><span className="eyebrow">EDITOR / ARQUIVOS LOCAIS</span><strong>{fileName || 'Nenhum arquivo selecionado'} {dirty ? '•' : ''}</strong></div>
-                <div className="toolbar-actions">
-                  <button type="button" className="button button--subtle button--utility" aria-label={utilityOpen?'Ocultar explorador de arquivos':'Mostrar painel de ferramentas'} onClick={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}><NavGlyph name="panel" size={16}/> Explorador</button>
-                  {fileName && <span className="workspace-editor-position" data-testid="editor-position">Ln {editorPosition.line} · Col {editorPosition.column}</span>}
-                  <button className="button button--solid" disabled={busy || !fileName || !dirty || Boolean(recovery.recoveryDraft)} onClick={saveFile}>Salvar arquivo</button>
-                </div>
-              </div>
-              {fileName && recovery.recoveryDraft && <section className="editor-recovery" role="status" data-testid="editor-recovery">
-                <div>
-                  <strong>{recovery.recoveryDraft.baseRevision === fileRevision ?
-                    'Rascunho de recuperação disponível' : 'Conflito: arquivo alterado externamente'}</strong>
-                  <p>{recovery.recoveryDraft.baseRevision === fileRevision ?
-                    'Existe uma edição não salva de uma sessão anterior. A restauração altera somente o editor.' :
-                    'O documento em disco mudou desde a criação do rascunho. Copie o conteúdo para comparar; a restauração automática está bloqueada.'}</p>
-                </div>
-                <div className="editor-recovery__actions">
-                  {recovery.recoveryDraft.baseRevision === fileRevision &&
-                    <button className="button button--solid" type="button" onClick={restoreEditorDraft}>
-                      Restaurar no editor
-                    </button>}
-                  <button className="button button--outline" type="button" onClick={copyEditorDraft}>Copiar rascunho</button>
-                  <button className="button button--subtle" disabled={busy} type="button" onClick={discardEditorDraft}>Descartar rascunho</button>
-                </div>
-              </section>}
-              {fileName && recovery.recoveryError && <p className="editor-recovery__error" role="alert">{recovery.recoveryError}</p>}
-              {fileName && dirty && recovery.protectionStatus==='saved' && !recovery.recoveryDraft &&
-                <p className="editor-recovery__saved" data-testid="editor-draft-saved">Rascunho protegido localmente. Salve o arquivo para confirmar as alterações.</p>}
-              {fileName ? (
-                <div className="editor-wrap"><ModuleErrorBoundary key={fileName} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}><CodeEditor key={fileName} theme="vs-dark" language={getLanguage(fileName)} value={fileContent} documentVersion={fileDocumentVersion}
-                  onMount={editor => {
-                    editor.onDidChangeCursorPosition(event => setEditorPosition({
-                      line:event.position.lineNumber,column:event.position.column
-                    }));
-                    if (editorJump && editorJump.path === fileName) {
-                      const position = {lineNumber:editorJump.line,column:editorJump.column};
-                      editor.revealPositionInCenter(position);
-                      editor.setPosition(position);
-                      editor.focus();
-                      setEditorPosition({line:position.lineNumber,column:position.column});
-                      setEditorJump(null);
-                    }
-                  }}
-                  onChange={v => {fileContentRef.current = v ?? ''; setFileContent(v ?? ''); setDirty(true);}}
-                  options={editorOptionsForSize(fileContent.length)} /></React.Suspense></ModuleErrorBoundary></div>
-              ) : <div className="empty-main"><div>◧</div><h2>Editor de código</h2><p>Abra uma pasta e selecione um arquivo no explorador.</p></div>}
-            </>
-          )}
+          {(mode==='code'||code.snapshot.documents.length>0) && <div style={{display:mode==='code'?'flex':'none',flex:1,minWidth:0,minHeight:0}}>
+            <ModuleErrorBoundary key={code.snapshot.scope} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}>
+              <CodeWorkspace controller={code.controller} snapshot={code.snapshot} busy={busy} visible={mode==='code'} focus={layout.focus}
+                utilityOpen={utilityOpen} onToggleExplorer={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}
+                onNotice={notify} onRequest={execute}/>
+            </React.Suspense></ModuleErrorBoundary>
+          </div>}
           {mode === 'projects' && (
             <>
               <div className="main-toolbar">
