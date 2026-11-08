@@ -11,10 +11,12 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: Verify and apply exact reviewed source patch
         shell: bash
         run: |
-          test "$(git rev-parse HEAD^)" = e282b0f061eb49cd0d940e1b1e72a24d5df27c60
+          test "$(git rev-parse HEAD^)" = f5e18533cbcf4f50ef26de724b180f3af4e4fa92
           python3 - <<'PY'
           import base64,hashlib,lzma,pathlib,subprocess
           # Temporary feature-branch transport only: exact local source patch,
