@@ -25,6 +25,9 @@ try{
   app=await electron.launch({args:['.'],cwd:root,timeout:45000,env:{...process.env,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:profile,ELECTRON_RENDERER_URL:''}});
   page=await app.firstWindow({timeout:45000});page.setDefaultTimeout(20000);
   page.on('pageerror',error=>{errors.push(error.message);console.error('[PROJECT SUITE renderer]',phase,error.stack||error.message);});
+  assert.equal(path.normalize(await app.evaluate(({app})=>app.getPath('userData'))).toLowerCase(),path.normalize(profile).toLowerCase());
+  await app.evaluate(({BrowserWindow,dialog})=>{BrowserWindow.getAllWindows()[0].setSize(1440,900);dialog.showMessageBox=async()=>({response:1});});
+  await nativePicker(workspace);await page.getByTestId('workspace-overview').waitFor();
   // Electron owns native window.confirm dialogs. CDP dialog.accept can race
   // with that native adapter; fixture decisions are controlled explicitly,
   // as in the existing recovery/flow acceptance suites. Native file/task
@@ -34,9 +37,6 @@ try{
       throw new Error('Confirmação inesperada no teste: '+message);
     return true;
   };});
-  assert.equal(path.normalize(await app.evaluate(({app})=>app.getPath('userData'))).toLowerCase(),path.normalize(profile).toLowerCase());
-  await app.evaluate(({BrowserWindow,dialog})=>{BrowserWindow.getAllWindows()[0].setSize(1440,900);dialog.showMessageBox=async()=>({response:1});});
-  await nativePicker(workspace);await page.getByTestId('workspace-overview').waitFor();
   phase='new document without existing project or file';
   await page.getByRole('button',{name:'Novo documento',exact:true}).click();
   await page.getByTestId('untitled-notice').waitFor();await page.locator('.code-live-editor .monaco-editor').waitFor();
