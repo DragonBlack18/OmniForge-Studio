@@ -7,6 +7,7 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {_electron as electron} from 'playwright-core';
 import {answerConfirmation} from './lib/confirm-dialog.mjs';
+import {waitForState} from './lib/wait-for-state.mjs';
 import {parseCadDxf} from '../core/modules/cad/cad-import.mjs';
 import {cadBounds} from '../core/modules/cad/cad2d.mjs';
 
@@ -25,7 +26,31 @@ const watchdog=setTimeout(()=>{console.error('[CAD DIMENSIONS] timeout phase='+p
 watchdog.unref();
 const waitStatus=text=>page.waitForFunction(value=>document.querySelector('.cad-status')?.textContent.includes(value),text);
 const countAnnotations=count=>page.waitForFunction(value=>document.querySelectorAll('[data-testid="cad-dimension-annotation"]').length===value,count);
-const select=id=>page.locator(`[data-testid="cad-object-entry"][data-object-id="${id}"]`).click();
+// Selection and history commit before the inspector's effects populate its forms.
+// Wait for exact observable values, including uniqueness, before reading or editing.
+async function expectInspector(expected,id){
+  let observed;
+  try{
+    await waitForState(async()=>{
+      observed=await page.evaluate(labels=>({
+        selected:[...document.querySelectorAll('[data-testid="cad-object-entry"][aria-selected="true"]')].map(entry=>entry.dataset.objectId),
+        fields:Object.fromEntries(labels.map(label=>[label,[...document.querySelectorAll('.cad-inspection input[aria-label], .cad-inspection select[aria-label]')]
+          .filter(input=>input.getAttribute('aria-label')===label).map(input=>input.value)]))
+      }),Object.keys(expected));
+      return observed.selected.length===1&&observed.selected[0]===id&&Object.entries(expected).every(([label,value])=>observed.fields[label].length===1&&observed.fields[label][0]===value);
+    },{timeout:20000,description:`${phase}: inspetor de ${id} com ${JSON.stringify(expected)}`});
+  }catch(error){
+    error.message+=' Último estado observado: '+JSON.stringify(observed);throw error;
+  }
+}
+const arcFields=(radius,{centerX=100,mode='fixed',offset=12}={})=>({
+  'Raio (mm)':String(radius),'Centro X (mm)':String(centerX),
+  'Valor da cota (mm)':String(radius),'Comportamento da cota':mode,'Afastamento da cota (mm)':String(offset)
+});
+async function select(id,expected){
+  await page.locator(`[data-testid="cad-object-entry"][data-object-id="${id}"]`).click();
+  await expectInspector(expected,id);
+}
 async function openCad(){
   await page.getByRole('button',{name:'Abrir projeto'}).click();await page.getByText('Projeto aberto:',{exact:false}).waitFor();
   await page.getByRole('button',{name:'CAD Sketch 2D'}).click();await page.getByTestId('cad-workbench').waitFor();
@@ -48,8 +73,9 @@ try{
   assert.equal(await page.getByTestId('cad-object-entry').count(),8);
   const arcId=await page.getByTestId('cad-object-entry').nth(0).getAttribute('data-object-id');
   const lineId=await page.getByTestId('cad-object-entry').nth(1).getAttribute('data-object-id');
-  await select(arcId);
+  await select(arcId,arcFields(40,{mode:'reference',offset:10}));
   await page.getByTestId('cad-dimension-mode').selectOption('fixed');
+  await expectInspector(arcFields(40,{offset:10}),arcId);
   phase='invalid fields retain input, expose associated errors and focus the first invalid field';
   await page.getByTestId('cad-dimension-value').fill('');await page.getByTestId('cad-dimension-offset').fill('0');
   await page.getByTestId('cad-dimension-apply').click();
@@ -66,45 +92,50 @@ try{
   phase='apply corrected fixed radius';
   await page.getByTestId('cad-dimension-offset').fill('12');
   await page.getByTestId('cad-dimension-apply').click();await waitStatus('Cota fixa aplicada');
-  await countAnnotations(1);assert.equal(await page.getByLabel('Raio (mm)',{exact:true}).inputValue(),'30');
+  await countAnnotations(1);await expectInspector(arcFields(30),arcId);
   assert.match(await page.getByTestId('cad-dimension-annotation').textContent(),/R 30 mm/);
   await assert.rejects(fs.stat(stored),{code:'ENOENT'});
 
   phase='undo and redo geometry with its persistent constraint';
   await page.getByRole('button',{name:'Desfazer',exact:true}).click();await countAnnotations(0);
-  await select(arcId);assert.equal(await page.getByLabel('Raio (mm)',{exact:true}).inputValue(),'40');
+  await select(arcId,arcFields(40,{mode:'reference',offset:10}));
+  assert.match(await page.locator(`path[data-entity-id="${arcId}"]`).getAttribute('d'),/A 40 40/);
   await page.getByRole('button',{name:'Refazer',exact:true}).click();await countAnnotations(1);
-  await select(arcId);assert.equal(await page.getByLabel('Raio (mm)',{exact:true}).inputValue(),'30');
+  await select(arcId,arcFields(30));
+  assert.match(await page.locator(`path[data-entity-id="${arcId}"]`).getAttribute('d'),/A 30 30/);
 
   phase='reject incompatible direct geometry and scale while accepting translation';
   await page.getByLabel('Raio (mm)',{exact:true}).fill('31');
   await page.getByTestId('cad-apply-geometry').click();await waitStatus('Dimensão fixa');
-  assert.match(await page.locator(`[data-entity-id="${arcId}"]`).first().getAttribute('d'),/A 30 30/);
+  assert.match(await page.locator(`path[data-entity-id="${arcId}"]`).getAttribute('d'),/A 30 30/);
   await page.locator('.cad-property-section').filter({has:page.locator('summary').filter({hasText:/^Transformar$/})}).locator('summary').click();
   await page.getByLabel('Deslocamento X (mm)',{exact:true}).fill('5');
   await page.getByRole('button',{name:'Aplicar transformação',exact:true}).click();await waitStatus('Transformação aplicada.');
-  assert.equal(await page.getByLabel('Centro X (mm)',{exact:true}).inputValue(),'105');
+  await expectInspector({...arcFields(30,{centerX:105}),'Deslocamento X (mm)':'0','Escala uniforme':'1'},arcId);
   await page.getByLabel('Escala uniforme',{exact:true}).fill('2');
   await page.getByRole('button',{name:'Aplicar transformação',exact:true}).click();await waitStatus('Dimensão fixa');
-  assert.equal(await page.getByLabel('Raio (mm)',{exact:true}).inputValue(),'30');
-  assert.equal(await page.getByLabel('Centro X (mm)',{exact:true}).inputValue(),'105');
+  await expectInspector(arcFields(30,{centerX:105}),arcId);
 
   phase='reference dimension follows a resized line';
-  await select(lineId);
+  await select(lineId,{'X inicial (mm)':'100','Y inicial (mm)':'0','X final (mm)':'100','Y final (mm)':'80',
+    'Comportamento da cota':'reference','Valor da cota (mm)':'80','Afastamento da cota (mm)':'10'});
   await page.getByTestId('cad-dimension-offset').fill('-15');
   await page.getByTestId('cad-dimension-apply').click();await waitStatus('Cota de referência adicionada');
+  await expectInspector({'Comportamento da cota':'reference','Valor da cota (mm)':'80','Afastamento da cota (mm)':'-15'},lineId);
   await page.getByLabel('Método de edição geométrica').selectOption('dimensions');
+  await expectInspector({'Comprimento (mm)':'80','Ângulo (graus)':'90'},lineId);
   await page.getByLabel('Comprimento (mm)',{exact:true}).fill('100');
   await page.getByLabel('Ângulo (graus)',{exact:true}).fill('90');
   await page.getByTestId('cad-apply-geometry').click();await waitStatus('Dimensões aplicadas.');
   await countAnnotations(2);
+  await expectInspector({'Comprimento (mm)':'100','Valor da cota (mm)':'100','Afastamento da cota (mm)':'-15'},lineId);
   assert.match(await page.locator('[data-testid="cad-dimension-annotation"][data-dimension-kind="length"]').textContent(),/100 mm/);
   await page.getByRole('button',{name:'Remover cota Comprimento',exact:true}).click();await waitStatus('Cota removida; geometria preservada.');
-  await countAnnotations(1);assert.equal(await page.getByLabel('Comprimento (mm)',{exact:true}).inputValue(),'100');
+  await countAnnotations(1);await expectInspector({'Comprimento (mm)':'100','Valor da cota (mm)':'100','Afastamento da cota (mm)':'10'},lineId);
   await page.getByRole('button',{name:'Desfazer',exact:true}).click();await countAnnotations(2);
 
   phase='copy and delete carry dimensions with the object, including undo/redo';
-  await select(arcId);await page.getByTestId('cad-duplicate').click();await countAnnotations(3);
+  await select(arcId,arcFields(30,{centerX:105}));await page.getByTestId('cad-duplicate').click();await countAnnotations(3);
   assert.equal(await page.getByTestId('cad-object-entry').count(),9);
   assert.match(await page.getByTestId('cad-dimension-entry').textContent(),/R 30 mm/);
   await page.getByRole('button',{name:'Excluir entidade',exact:true}).click();await countAnnotations(2);
@@ -116,14 +147,13 @@ try{
   assert.deepEqual(committed.entities.find(entity=>entity.id===arcId).source.blockPath,['FLANGE']);
 
   phase='recover an unsaved dimension value without overwriting the native source';
-  await select(arcId);await page.getByTestId('cad-dimension-value').fill('35');
+  await select(arcId,arcFields(30,{centerX:105}));await page.getByTestId('cad-dimension-value').fill('35');
   await page.getByTestId('cad-dimension-apply').click();await waitStatus('Cota fixa aplicada');
+  await expectInspector(arcFields(35,{centerX:105}),arcId);
   await page.getByTestId('cad-draft-saved').waitFor();assert.deepEqual(await read(),committed);
   await page.reload();await openCad();await page.getByTestId('cad-recovery').waitFor();
   assert.deepEqual(await read(),committed);
-  await page.getByTestId('cad-restore-draft').click();await countAnnotations(2);await select(arcId);
-  assert.equal(await page.getByTestId('cad-dimension-value').inputValue(),'35');
-  assert.equal(await page.getByLabel('Raio (mm)',{exact:true}).inputValue(),'35');
+  await page.getByTestId('cad-restore-draft').click();await countAnnotations(2);await select(arcId,arcFields(35,{centerX:105}));
   await save();const finalDocument=await read(),savedBytes=await fs.readFile(stored);
   assert.equal(finalDocument.entities.find(entity=>entity.id===arcId).dimensions[0].value,35);
 
@@ -145,8 +175,8 @@ try{
   assert.deepEqual(await fs.readFile(stored),savedBytes);assert.deepEqual(await fs.readFile(source),originalSource);
 
   phase='reload v2, inspect real layout and capture evidence at desktop sizes';
-  await page.reload();await openCad();await countAnnotations(2);await select(arcId);
-  assert.equal(await page.getByTestId('cad-dimension-value').inputValue(),'35');assert.equal(await page.getByTestId('cad-save').isDisabled(),true);
+  await page.reload();await openCad();await countAnnotations(2);await select(arcId,arcFields(35,{centerX:105}));
+  assert.equal(await page.getByTestId('cad-save').isDisabled(),true);
   await page.getByRole('button',{name:'Ajustar desenho à tela',exact:true}).click();
   await page.getByTestId('cad-persistent-dimensions').scrollIntoViewIfNeeded();
   await page.screenshot({path:path.join(artifacts,'cad-dimensions.png')});
