@@ -32,5 +32,5 @@
 .code-close-overlay h3{font-size:14px;color:#f1dce5;margin:0 0 12px;overflow-wrap:anywhere}.code-close-overlay p{color:#ac9dab;font-size:12px;line-height:1.6}
 .code-close-overlay>section>div{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}.code-close-overlay button{padding:8px 11px;border:1px solid #6c4656;border-radius:5px;background:#3a2834;color:#efdae5;font-size:11px;cursor:pointer}
 .code-close-overlay button:first-child{background:#6b293b}.code-close-overlay button:focus-visible{outline:2px solid #d88499;outline-offset:2px}
-@media(max-width:1300px){.code-workspace .workspace-editor-position{display:none}.code-optional-label{display:none}.code-analysis>header>small{display:none}.code-commandbar{padding:3px 8px}.code-analysis__list small{max-width:190px;overflow:hidden;text-overflow:ellipsis}}
+@media(max-width:1300px){.code-workspace .workspace-editor-position{font-size:10px;white-space:nowrap;flex:none}.code-optional-label{display:none}.code-analysis>header>small{display:none}.code-commandbar{padding:3px 8px}.code-analysis__list small{max-width:190px;overflow:hidden;text-overflow:ellipsis}}
 @media(prefers-reduced-motion:reduce){.code-close-overlay{backdrop-filter:none}}
