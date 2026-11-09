@@ -1,0 +1,32 @@
+name: Prepare reviewed v090 development kit
+on:
+  push:
+    branches: [feature/v0.9.0-project-data-suite]
+    paths: [.github/workflows/dev-support-v090.yml]
+permissions:
+  contents: read
+jobs:
+  kit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Fetch pinned reference with Git object verification
+        shell: bash
+        run: |
+          mkdir -p reviewed-vendor
+          curl --fail --location --retry 2 https://raw.githubusercontent.com/mholt/PapaParse/5.5.3/papaparse.min.js -o reviewed-vendor/papaparse.cjs
+          test "$(git hash-object reviewed-vendor/papaparse.cjs)" = f31411042b80599f9dd6126ff8fd41f8fa8f68fb
+          curl --fail --location --retry 2 https://raw.githubusercontent.com/mholt/PapaParse/5.5.3/LICENSE -o reviewed-vendor/PapaParse-LICENSE.txt
+          sha256sum reviewed-vendor/* > reviewed-vendor/SHA256SUMS.txt
+          tar -czf development-kit.tgz node_modules reviewed-vendor
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OmniForge-v090-Development-Kit
+          path: development-kit.tgz
+          retention-days: 2
+          if-no-files-found: error
