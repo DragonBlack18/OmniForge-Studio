@@ -14,8 +14,8 @@
   "scripts": {
     "dev": "concurrently --kill-others \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on tcp:127.0.0.1:5173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "vite build",
-    "test": "node --test",
-    "test:core": "node --test",
+    "test": "node --test --test-timeout=60000",
+    "test:core": "node --test --test-timeout=60000",
     "smoke:electron": "node scripts/smoke-electron.mjs",
     "dist:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
     "demo:core": "node scripts/demo-core.mjs",

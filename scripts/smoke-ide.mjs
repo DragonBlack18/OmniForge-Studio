@@ -65,7 +65,7 @@ try {
   assert.match(position, /Ln 4 · Col [1-9]\d*/);
   assert.equal(await fs.readFile(path.join(workspace, 'src', 'entry.js'), 'utf8'), source);
   phase = 'create folder from UI';
-  await page.getByRole('button', { name: /Nova pasta/ }).click();
+  await page.getByRole('button', { name: '+ Nova pasta', exact: true }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo');
   await page.getByTestId('workspace-create-confirm').click();
   // Observe the authoritative filesystem from the Node test process.
@@ -94,7 +94,7 @@ try {
   await waitForEntry('novo-modulo', 'directory');
   assert.ok((await fs.stat(path.join(workspace, 'novo-modulo'))).isDirectory());
   phase = 'create new file from UI and save in Monaco';
-  await page.getByRole('button', { name: /Novo arquivo/ }).click();
+  await page.getByRole('button', { name: '+ Novo arquivo', exact: true }).click();
   await page.getByLabel('Caminho do novo item').fill('novo-modulo/exemplo.py');
   await page.getByTestId('workspace-create-confirm').click();
   await page.getByText('Arquivo criado: novo-modulo/exemplo.py', { exact: false }).waitFor();
