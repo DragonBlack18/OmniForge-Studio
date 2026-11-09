@@ -1,0 +1,38 @@
+name: v090 bounded Windows diagnostics
+on:
+  push:
+    branches: [diagnostics/v090-windows-test-logs]
+    paths: [.github/workflows/v090-log-diagnostic.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read existing failed job without rerunning tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p diagnostics
+          gh api repos/DragonBlack18/OmniForge-Studio/actions/jobs/129076565664/logs > diagnostics/failed-windows-job.log
+          python3 - <<'PY'
+          import pathlib,re
+          source=pathlib.Path('diagnostics/failed-windows-job.log')
+          lines=source.read_text(encoding='utf-8-sig').splitlines()
+          indexes=set()
+          for n,line in enumerate(lines):
+              if re.search(r'not ok|ERR_TEST|testTimeoutFailure|failureType:|error:|cancelledByParent|##\[error\]',line):
+                  indexes.update(range(max(0,n-6),min(len(lines),n+30)))
+          selected=[f'{n+1}: {lines[n]}' for n in sorted(indexes)]
+          text='\n'.join(selected[-250:]) or '\n'.join(lines[-80:])
+          pathlib.Path('diagnostics/failures.txt').write_text(text,encoding='utf-8')
+          print(text)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OmniForge-v090-Windows-Failure-Logs
+          path: diagnostics/
+          retention-days: 3
+          if-no-files-found: error
