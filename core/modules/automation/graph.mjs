@@ -1,3 +1,4 @@
+import {validateDataSuiteNode} from './data-suite-contract.mjs';
 import { validatePureNode } from './pure-nodes.mjs';
 import { getNodeDefinition } from './catalog.mjs';
 import { validateLocalHttpConfig } from '../integrations/http.mjs';
@@ -59,7 +60,7 @@ export function validateFlow(flow, { projects = [], extensions = [] } = {}) {
       report(`Configuração inválida no nó ${node.id}`);
       continue;
     }
-    try { validatePureNode(node); } catch (error) { report(`Nó ${node.id}: ${error.message}`); }
+    try { validatePureNode(node); validateDataSuiteNode(node); } catch (error) { report(`Nó ${node.id}: ${error.message}`); }
     // Enforce select contracts for built-in adapters as well as pure nodes.
     for (const field of getNodeDefinition(node.type).fields.filter(f => f.kind === 'select')) {
       if (!field.options.includes(node.config[field.key])) {

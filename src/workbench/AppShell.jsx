@@ -30,6 +30,9 @@ import { findWorkbenchModule } from './module-registry.mjs';
 import { visibleFileEntries } from '../utils/file-tree.mjs';
 import { createOperationGate } from '../utils/operation-gate.mjs';
 import { useCodeWorkspace } from '../modules/ide/useCodeWorkspace.mjs';
+import {useProjectAuthoring} from './useProjectAuthoring.mjs';
+import CreateMenu from './CreateMenu.jsx';
+const ProjectAuthoringDialog=React.lazy(()=>import('../modules/ide/ProjectAuthoringDialog.jsx'));
 
 
 
@@ -159,7 +162,10 @@ export default function AppShell() {
     setActiveProjectId(result.projectId);
     setFiles(result.files);
     replaceDocument(result.flow, result.flowRevision, result.flowRevision === null, false);
-    code.controller.reset(result.workspace);
+    const initialScratch=!workspace&&code.controller.getSnapshot().documents.length>0&&
+      code.controller.getSnapshot().documents.every(d=>d.untitled);
+    if(initialScratch)code.controller.attachInitialWorkspace(result.workspace);
+    else code.controller.reset(result.workspace);
     setCadDirty(false); setCreateKind(null); setCreatePath('');
     setFileQuery(''); setCollapsedFolders(new Set()); setSideMode('catalog');
     setLastRun(null); setValidation(null);
@@ -172,13 +178,13 @@ export default function AppShell() {
     notify(`Projeto aberto: ${result.workspace}`);
   };
 
-  const confirmProjectSwitch = () => !(dirty || flowDirty || cadDirty) ||
+  const confirmProjectSwitch = () => !workspace || !(dirty || flowDirty || cadDirty) ||
     window.confirm('Existem alterações não salvas. Trocar de projeto? Alterações sem cópia de recuperação serão perdidas.');
 
   const openWorkspace = () => execute(async () => {
     if (!confirmProjectSwitch()) return;
     await flowRecovery.controller.flush();
-    if (!await code.controller.flush()) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
+    if (!await code.controller.flush({allowUntitled:!workspace})) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
     const result = await window.omni.selectWorkspace();
     if (result) await applyProject(result);
   });
@@ -193,9 +199,12 @@ export default function AppShell() {
   const openProjectById = id => execute(async () => {
     if (!confirmProjectSwitch()) return;
     await flowRecovery.controller.flush();
-    if (!await code.controller.flush()) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
+    if (!await code.controller.flush({allowUntitled:!workspace})) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
     await applyProject(await window.omni.openProject(id));
   });
+
+  const authoring=useProjectAuthoring({code,workspace,busy,execute,applyProject,confirmProjectSwitch,
+    flushFlow:()=>flowRecovery.controller.flush(),setFiles,setMode,setSideMode,notify});
 
   const forgetProjectById = id => execute(async () => {
     if (id === activeProjectId) throw new Error('Abra outro projeto antes de remover o projeto ativo do catálogo.');
@@ -442,6 +451,7 @@ export default function AppShell() {
       return;
     }
     if (!fileName) throw new Error('Selecione um arquivo do projeto.');
+    if(code.active?.untitled){authoring.begin('save-as',fileName);return;}
     const result = await code.controller.save(fileName);
     notify(result.unchanged ? `Arquivo atualizado: ${fileName}` :
       'Arquivo salvo; edições mais recentes ainda precisam ser gravadas.');
@@ -458,7 +468,8 @@ export default function AppShell() {
     if (command.kind === 'navigate') navigate(command.mode);
     else if (command.kind === 'file' && workspace) openFile(command.path);
     else if (command.kind === 'action') {
-      if (command.action === 'runtime-diagnostics') setDiagnosticsOpen(true);
+      if(command.action.startsWith('authoring:'))authoring.begin(command.action.slice(10));
+      else if (command.action === 'runtime-diagnostics') setDiagnosticsOpen(true);
       else if (command.action === 'open-project') openWorkspace();
       else if (command.action === 'layout-focus') layout.toggleFocus();
       else if (command.action === 'layout-reset') layout.reset();
@@ -479,6 +490,10 @@ export default function AppShell() {
   });
   useEffect(()=>{
     const handleShortcut=event=>{
+      if(authoring.request){if((event.ctrlKey||event.metaKey)&&['n','s','p','w'].includes(event.key.toLowerCase()))event.preventDefault();return;}
+      if((event.ctrlKey||event.metaKey)&&!event.altKey&&event.key.toLowerCase()==='n'){
+        event.preventDefault();if(!busy&&!event.repeat)authoring.begin(event.shiftKey?'project':'new');return;
+      }
       if((event.ctrlKey||event.metaKey)&&event.shiftKey&&!event.altKey&&event.key==='F11'&&['canvas','code','cad'].includes(mode)) {
         event.preventDefault();if(!event.repeat)layout.toggleFocus();return;
       }
@@ -502,14 +517,16 @@ export default function AppShell() {
         // Never open Chromium's Save Page dialog in the desktop application.
         // CAD handles its own document save while the shell handles files/flows.
         event.preventDefault();
-        if(!workspace || busy || event.repeat)return;
+        if(busy || event.repeat)return;
+        if(mode==='code'&&code.active?.untitled){authoring.begin('save-as',fileName);return;}
+        if(!workspace)return;
         if(mode==='canvas' && flowDirty)save();
         else if(mode==='code' && fileName && dirty)saveFile(event.shiftKey);
       }
     };
     window.addEventListener('keydown',handleShortcut);
     return ()=>window.removeEventListener('keydown',handleShortcut);
-  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,code.snapshot,flowRevision,layout]);
+  },[workspace,busy,mode,flowDirty,fileName,dirty,graph,code.snapshot,flowRevision,layout,authoring.request]);
 
   return (
     <div className={`app-shell ${layout.focus?'layout-focus':''}`} data-layout-scope={layout.scope} data-layout-mode={mode}>
@@ -527,6 +544,7 @@ export default function AppShell() {
           <small>{currentModule.group}</small><strong>{currentModule.label}</strong>
         </div>
         <div className="topbar-spacer"/>
+        <CreateMenu busy={busy} hasWorkspace={Boolean(workspace)} onAction={authoring.begin}/>
         <LayoutControls layout={layout} mode={mode} hasWorkspace={Boolean(workspace)}/>
         <button type="button" className="button button--outline topbar-commands"
           aria-label="Abrir paleta de comandos" title="Paleta de comandos · Ctrl+Shift+P"
@@ -609,6 +627,7 @@ export default function AppShell() {
                   role="treeitem" aria-expanded={entry.kind==='directory' ? !collapsedFolders.has(entry.path) : undefined}
                   title={entry.path} disabled={busy}
                   className={`file-entry ${entry.kind==='directory'?'file-entry--directory':''} ${entry.path===fileName?'file-entry--selected':''}`}
+                  onContextMenu={event=>{if(entry.kind==='file'){event.preventDefault();authoring.begin('manage',entry.path);}}}
                   onClick={()=>entry.kind==='directory'?toggleFolder(entry.path):openFile(entry.path)}
                   style={{paddingLeft:fileQuery?12:10+entry.depth*12}}>
                   {entry.kind==='directory'?<NavGlyph name="chevron" size={13}/>:<NavGlyph name="code" size={13}/>}
@@ -626,7 +645,7 @@ export default function AppShell() {
         {(mode==='canvas'||mode==='code')&&panels.contextVisible&&<PanelResizer key={layout.scope+':'+mode+':context'} label="Largura do painel de ferramentas" controls="workbench-context"
           value={panels.contextWidth} {...WIDTHS.context} defaultValue={WIDTHS.context.default} {...layout.resize('contextWidth')}/>}
         <main className="main-panel" id="workbench-editor">
-          {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={navigate} onOpenProject={openWorkspace} flowDirty={flowDirty} cadDirty={cadDirty} lastRun={lastRun}/>}
+          {mode==='home' && <WorkspaceOverview workspace={workspace} projects={projects} version={info.version} onNavigate={navigate} onOpenProject={openWorkspace} flowDirty={flowDirty} cadDirty={cadDirty} lastRun={lastRun} onCreate={authoring.begin} busy={busy}/>}
           {mode==='search' && <ModuleErrorBoundary label="Busca no projeto"><React.Suspense fallback={<ModuleLoading label="busca"/>}><WorkspaceSearch workspace={workspace} busy={busy} onOpenResult={openSearchHit}/></React.Suspense></ModuleErrorBoundary>}
           {(cadEverOpened || mode==='cad') && <div style={{display:mode === 'cad' ? 'flex' : 'none',flex:1,minHeight:0}}><ModuleErrorBoundary key={workspace || '__none__'} label="CAD 2D"><React.Suspense fallback={<ModuleLoading label="CAD"/>}><CadWorkbench key={workspace || '__none__'} workspace={workspace} visible={mode==='cad'} onDirtyChange={setCadDirty}
               inspectorOpen={mode==='cad'?panels.inspectorVisible:layout.preferences.cad.inspectorOpen}
@@ -677,7 +696,7 @@ export default function AppShell() {
             <ModuleErrorBoundary key={code.snapshot.scope} label="Editor de código"><React.Suspense fallback={<ModuleLoading label="editor"/>}>
               <CodeWorkspace controller={code.controller} snapshot={code.snapshot} busy={busy} visible={mode==='code'} focus={layout.focus}
                 utilityOpen={utilityOpen} onToggleExplorer={()=>{setUtilityOpen(open=>!open);setSideMode('files');}}
-                onNotice={notify} onRequest={execute}/>
+                onNotice={notify} onRequest={execute} onFileAction={authoring.begin} modalOpen={Boolean(authoring.request)}/>
             </React.Suspense></ModuleErrorBoundary>
           </div>}
           {mode === 'projects' && (
@@ -819,6 +838,9 @@ export default function AppShell() {
           onRename={value=>{if(busy || !flowEditAllowed())return;try{rename(value);}catch(error){notify(error.message);}}}/>}
 
       </div>
+      {authoring.request&&<React.Suspense fallback={null}><ProjectAuthoringDialog key={authoring.request.scope+authoring.request.kind+authoring.request.path}
+        request={authoring.request} workspace={workspace} documents={code.snapshot.documents} busy={busy}
+        onRequest={execute} onSubmit={authoring.submit} onClose={authoring.close}/></React.Suspense>}
       {paletteScope && <React.Suspense fallback={null}><CommandPalette open
         scope={paletteScope} commands={workbenchCommands} mode={mode}
         hasWorkspace={Boolean(workspace)} onClose={()=>setPaletteScope(null)}

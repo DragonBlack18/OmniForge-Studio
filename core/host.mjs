@@ -25,6 +25,7 @@ const loaders = Object.freeze({
   scheduleStore: () => import('./modules/scheduling/schedule-store.mjs'),
   git: () => import('./modules/ide/git-control.mjs'),
   ide: () => import('./modules/ide/workspace-ide.mjs'),
+  authoring: () => import('./modules/ide/project-authoring.mjs'),
   projectTasks: () => import('./modules/ide/project-tasks.mjs'),
   editorRecovery: () => import('./modules/ide/editor-recovery.mjs'),
   taskHistory: () => import('./modules/ide/project-task-history.mjs'),
@@ -87,3 +88,11 @@ export const recordProjectTaskHistory = (...args) => loaders.taskHistory().then(
 export const readEditorDraft = (...args) => loaders.editorRecovery().then(module => module.readEditorDraft(...args));
 export const writeEditorDraft = (...args) => loaders.editorRecovery().then(module => module.writeEditorDraft(...args));
 export const discardEditorDraft = (...args) => loaders.editorRecovery().then(module => module.discardEditorDraft(...args));
+
+export const authoringPath = (...args) => loaders.authoring().then(module=>module.authoringPath(...args));
+export const createAuthoredFile = (...args) => loaders.authoring().then(module => module.createAuthoredFile(...args));
+export const createAuthoredFolder = (...args) => loaders.authoring().then(module => module.createAuthoredFolder(...args));
+export const authoredFileInfo = (...args) => loaders.authoring().then(module => module.authoredFileInfo(...args));
+export const duplicateAuthoredFile = (...args) => loaders.authoring().then(module => module.duplicateAuthoredFile(...args));
+export const relocateAuthoredFile = (...args) => loaders.authoring().then(module => module.relocateAuthoredFile(...args));
+export const createProjectScaffold = (...args) => loaders.authoring().then(module => module.createProjectScaffold(...args));

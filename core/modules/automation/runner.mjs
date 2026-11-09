@@ -7,6 +7,7 @@ import { cadStats, cadEntityMetrics } from '../cad/cad2d.mjs';
 import { loadCadDocument, exportCadSketch } from '../cad/cad-store.mjs';
 import { executePureNode, PURE_CATALOG } from './pure-nodes.mjs';
 import { runExtensionAction } from '../extensions/extension-runtime.mjs';
+import {DATA_SUITE_CATALOG} from './data-suite-catalog.mjs';
 const NOT_EXECUTED = Symbol('omni.node.skipped');
 
 /** Execution is deterministic, sequential and exclusively uses registered node types. */
@@ -71,6 +72,9 @@ export async function runFlow(flow, { workspace, dryRun = true, networkApproved 
         // If branches are mutually exclusive, forward the selected value.
         // If both execute, return an object to avoid silently discarding data.
         output = a === NOT_EXECUTED ? b : b === NOT_EXECUTED ? a : { a, b };
+      } else if (Object.hasOwn(DATA_SUITE_CATALOG, node.type)) {
+        const {executeDataSuite}=await import('./data-suite.mjs');
+        output=await executeDataSuite(node.type,input,node.config);
       } else if (Object.hasOwn(PURE_CATALOG, node.type)) {
         output = await executePureNode(node.type, input, node.config);
       } else if(node.type==='extension.call') {

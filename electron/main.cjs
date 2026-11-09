@@ -169,6 +169,10 @@ async function initializeIpc() {
     activeProjectId = project.id;
     return { workspace: candidate, projectId: project.id, flow: document.flow, flowRevision: document.revision, files };
   }
+  require('./modules/authoring-ipc.cjs').installAuthoringIpc({
+    register,core,serial:serialRegistryAction,getWorkspace:requireWorkspace,getWindow:()=>mainWindow,
+    dialog,catalogRoot:catalogDataRoot,activateProject
+  });
   // Declarative packages are data, never arbitrary Node or browser code.
   // Every mutation shares the project's registry mutex with flow execution.
   register('listExtensions',()=>core.listInstalledExtensions(catalogDataRoot,workspaceRoot));

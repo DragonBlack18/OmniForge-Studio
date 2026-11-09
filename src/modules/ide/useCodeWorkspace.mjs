@@ -5,6 +5,7 @@ export function useCodeWorkspace() {
   const ref=useRef(null);
   if(!ref.current)ref.current=createDocumentSession({
     readFile:(...args)=>window.omni.readFile(...args),
+    createAuthoredFile:(...args)=>window.omni.createAuthoredFile(...args),
     saveFile:(...args)=>window.omni.saveFile(...args),
     readEditorDraft:(...args)=>window.omni.readEditorDraft(...args),
     writeEditorDraft:(...args)=>window.omni.writeEditorDraft(...args),

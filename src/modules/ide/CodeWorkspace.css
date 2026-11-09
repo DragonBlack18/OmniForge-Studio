@@ -41,3 +41,5 @@
 .code-workspace > .main-toolbar > .toolbar-heading{flex:1 1 160px;min-width:0}
 .code-workspace > .main-toolbar > .toolbar-actions{flex:0 1 auto;min-width:0;max-width:100%;flex-wrap:wrap;justify-content:flex-end}
 .code-workspace .workspace-editor-position{display:inline-flex;align-items:center;flex:0 0 auto}
+
+.code-untitled-note{flex:none;font-size:10px;line-height:1.5;margin:0;padding:7px 13px;color:#bea3b3;background:#241c23;border-bottom:1px solid #48313f}

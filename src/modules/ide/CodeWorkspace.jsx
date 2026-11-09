@@ -43,7 +43,7 @@ function ReviewDiff({document,draft,onClose}) {
   </section>;
 }
 
-export default function CodeWorkspace({controller,snapshot,busy,visible,focus,utilityOpen,onToggleExplorer,onNotice,onRequest}) {
+export default function CodeWorkspace({controller,snapshot,busy,visible,focus,utilityOpen,onToggleExplorer,onNotice,onRequest,onFileAction,modalOpen=false}) {
   const document=snapshot.documents.find(d=>d.key===snapshot.active)||null;
   const baseOptions=editorOptionsForSize(document?.content.length||0);
   const editorOptions=useMemo(()=>({...baseOptions,readOnly:Boolean(document?.draft)||busy,padding:{top:10}}),[baseOptions,Boolean(document?.draft),busy]);
@@ -132,11 +132,11 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
     });
     return()=>{navigation.dispose();opener.dispose();};
   },[controller]);
-  const save=()=>onRequest(async()=>{
+  const save=()=>{if(document?.untitled){onFileAction('save-as',document.path);return;}return onRequest(async()=>{
     if(!document)return;
     const result=await controller.save(document.path);
     onNotice(result.unchanged?'Arquivo atualizado: '+document.path:'Arquivo salvo; edições mais recentes ainda precisam ser gravadas.');
-  });
+  });};
   const saveAll=()=>onRequest(async()=>{
     const results=await controller.saveAll();
     onNotice(results.length+' arquivo(s) salvos. '+controller.getSnapshot().pending+' ainda com alterações.');
@@ -160,7 +160,7 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
     }catch(error){setCloseError(error.message);}
   });
   useEffect(()=>{
-    if(!visible)return;
+    if(!visible||modalOpen)return;
     const keydown=event=>{
       if(!(event.ctrlKey||event.metaKey)||event.altKey||closing)return;
       if(event.key.toLowerCase()==='w'){
@@ -171,15 +171,16 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
     };
     window.addEventListener('keydown',keydown,true);
     return()=>window.removeEventListener('keydown',keydown,true);
-  },[visible,document,busy,closing,snapshot]);
+  },[visible,document,busy,closing,snapshot,modalOpen]);
   const jumpTo=(path,pos)=>{setReview(null);controller.activate(path,pos);};
   return <section className="code-workspace" data-testid="code-workspace">
     <div className="main-toolbar">
-      <div className="toolbar-heading"><span className="eyebrow">CÓDIGO / PROJETO LOCAL</span><strong>{document?.path||'Nenhum arquivo selecionado'} {document?.dirty?'•':''}</strong></div>
+      <div className="toolbar-heading"><span className="eyebrow">CÓDIGO / PROJETO LOCAL</span><strong>{document?.label||document?.path||'Nenhum arquivo selecionado'} {document?.dirty?'•':''}</strong></div>
       <div className="toolbar-actions">
+        <button type="button" className="button button--subtle" disabled={busy} onClick={()=>onFileAction('new')}>Novo arquivo</button>
         <button type="button" className="button button--subtle" aria-label={utilityOpen?'Ocultar explorador de arquivos':'Mostrar painel de ferramentas'} onClick={onToggleExplorer}><NavGlyph name="panel" size={15}/><span className="code-optional-label">Explorador</span></button>
         {document&&<span className="workspace-editor-position" data-testid="editor-position">Ln {position.line} · Col {position.column}</span>}
-        <button className="button button--solid" disabled={busy||!document?.dirty||Boolean(document?.draft)} onClick={save}>Salvar arquivo</button>
+        <button className="button button--solid" disabled={busy||!document?.dirty||Boolean(document?.draft)} onClick={save}>{document?.untitled?'Salvar como…':'Salvar arquivo'}</button>
         <button className="button button--outline" disabled={busy||!snapshot.dirty} onClick={saveAll}>Salvar todos</button>
       </div>
     </div>
@@ -190,7 +191,7 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
           onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();
             const target=event.key==='Home'?snapshot.documents[0]:event.key==='End'?snapshot.documents.at(-1):snapshot.documents[(index+(event.key==='ArrowLeft'?-1:1)+snapshot.documents.length)%snapshot.documents.length];
             controller.activate(target.path);event.currentTarget.closest('[role=tablist]')?.querySelectorAll('[role=tab]')[snapshot.documents.indexOf(target)]?.focus();}}}>
-          <NavGlyph name="code" size={13}/><span>{d.path.split('/').at(-1)}</span>{d.dirty&&<span aria-label="Alterações não salvas" className="code-tab__dirty">●</span>}
+          <NavGlyph name="code" size={13}/><span>{d.label||d.path.split('/').at(-1)}</span>{d.dirty&&<span aria-label="Alterações não salvas" className="code-tab__dirty">●</span>}
         </button>
         <button type="button" className="code-tab__close" aria-label={'Fechar '+d.path} disabled={busy} onClick={()=>requestClose(d.path)}><NavGlyph name="close" size={12}/></button>
       </div>)}
@@ -198,6 +199,13 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
     {document&&<div className="code-commandbar">
       <span title={document.path}>{getLanguage(document.path)} · {snapshot.documents.length}/16 arquivos</span>
       <div>
+        <details className="code-tools"><summary>Documento</summary><div>
+          <button type="button" disabled={busy} onClick={e=>{e.currentTarget.closest('details').open=false;onFileAction('save-as',document.path);}}>Salvar como…</button>
+          <button type="button" disabled={busy||document.untitled} onClick={e=>{e.currentTarget.closest('details').open=false;onFileAction('manage',document.path);}}>Organizar / propriedades…</button>
+          <button type="button" disabled={busy||!snapshot.recentClosed.length} onClick={e=>{e.currentTarget.closest('details').open=false;onFileAction('reopen');}}>Reabrir aba fechada</button>
+          <button type="button" disabled={busy} onClick={e=>{e.currentTarget.closest('details').open=false;onFileAction('close-saved');}}>Fechar abas salvas</button>
+          <button type="button" disabled={busy} onClick={e=>{e.currentTarget.closest('details').open=false;onFileAction('close-others');}}>Fechar outras abas salvas</button>
+        </div></details>
         <button type="button" disabled={busy||Boolean(document.draft)} onClick={()=>setReview(review?null:'current')} aria-pressed={review==='current'}>Comparar alterações</button>
         <button type="button" onClick={()=>setPanelOpen(value=>!value)} aria-pressed={panelOpen}>Análise {problems.errors+problems.warnings>0?'('+ (problems.errors+problems.warnings)+')':''}</button>
         <details className="code-tools"><summary>Ferramentas</summary><div>
@@ -205,6 +213,7 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
         </div></details>
       </div>
     </div>}
+    {document?.untitled&&<p className="code-untitled-note" role="status" data-testid="untitled-notice">Documento em memória · use Salvar como antes de fechar o aplicativo. Ainda não há arquivo nem cópia de recuperação em disco.</p>}
     {document?.draft&&<section className="editor-recovery" role="status" data-testid="editor-recovery">
       <div><strong>{document.draft.baseRevision===document.revision?'Rascunho de recuperação disponível':'Conflito: arquivo alterado externamente'}</strong>
         <p>Restaure, compare ou descarte a cópia. O arquivo original não é alterado automaticamente.</p></div>
@@ -227,7 +236,7 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
             options={editorOptions}/>
         </div>
         {review&&<ReviewDiff key={document.key+':'+review} document={document} draft={review==='draft'} onClose={()=>setReview(null)}/>}
-      </>:<div className="empty-main"><NavGlyph name="code" size={30}/><h2>Editor de código</h2><p>Abra arquivos no explorador. Suas edições permanecem nas abas ao alternar ferramentas.</p><small>Ctrl+P · abrir arquivo / Ctrl+Tab · alternar abas</small></div>}
+      </>:<div className="empty-main"><NavGlyph name="code" size={30}/><h2>Editor de código</h2><p>Crie um documento ou abra arquivos no explorador. Suas edições permanecem nas abas ao alternar ferramentas.</p><button className="button button--solid" type="button" disabled={busy} onClick={()=>onFileAction('new')}>Criar documento vazio</button><small>Ctrl+P · abrir arquivo / Ctrl+Tab · alternar abas</small></div>}
     </div>
     {document&&panelOpen&&!focus&&!review&&<section className="code-analysis" aria-label="Análise dos arquivos abertos" data-testid="code-analysis">
       <header><div role="tablist" aria-label="Análise de código">
@@ -265,7 +274,7 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
     }}><section role="dialog" aria-modal="true" aria-label="Fechar documento com alterações">
       <h3>Fechar {closing}?</h3><p>Este arquivo tem alterações não salvas. Os outros documentos continuarão abertos.</p>
       {closeError&&<p role="alert">{closeError}</p>}
-      <div><button type="button" disabled={busy} onClick={()=>finishClose('save')}>Salvar e fechar</button>
+      <div><button type="button" disabled={busy} onClick={()=>{const doc=snapshot.documents.find(d=>d.path===closing);if(doc?.untitled){onFileAction('save-as',closing);setClosing(null);}else finishClose('save');}}>{snapshot.documents.find(d=>d.path===closing)?.untitled?'Salvar como…':'Salvar e fechar'}</button>
         <button type="button" disabled={busy} onClick={()=>finishClose('discard')}>Descartar alterações</button>
         <button type="button" disabled={busy} autoFocus onClick={()=>setClosing(null)}>Cancelar</button></div>
     </section></div>}

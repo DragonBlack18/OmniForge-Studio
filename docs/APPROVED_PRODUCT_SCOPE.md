@@ -1,18 +1,20 @@
-# Escopo de produto — decisões para a expansão após v0.8.1
+# Escopo de produto — uso pessoal e expansão funcional
 
-O direcionamento do usuário foi seguir as recomendações apresentadas para
-as sete decisões. Este documento registra intenção de produto, não afirma
+Atualização em 2026-11-09: o usuário esclareceu que o objetivo é **uso pessoal
+em seus projetos e automações, não distribuição comercial**. Esse direcionamento
+substitui a preferência comercial anterior. As demais decisões técnicas foram
+seguir as recomendações apresentadas para as sete decisões. Este documento registra intenção de produto, não afirma
 que todas as integrações já foram entregues.
 
 | Decisão | Direção aprovada | Situação desta implementação |
 |---|---|---|
-| Produtos independentes | Projetos web/APIs e executáveis Windows gerados devem funcionar sem o OmniForge | Requisito; empacotador de projetos ainda não implementado |
+| Produtos independentes | Projetos web/APIs e executáveis Windows gerados devem funcionar sem o OmniForge | v0.9.0: kits locais Node/Python/web/CSV independentes; compilação de EXEs de projetos ainda não implementada |
 | Linguagens | JavaScript/TypeScript e Python primeiro, com edição, execução, testes e depuração | v0.8.2: documentos e serviços semânticos JS/TS locais. Python permanece edição; execução/depuração pendentes |
 | CAD | Engenharia mecânica: peças, máquinas e precisão geométrica | CAD 2D existente preservado; kernel 3D e restrições ainda pendentes |
-| Integrações | APIs, bancos e arquivos; navegador em módulo separado | Base de fluxos/HTTP local existente preservada; ampliação pendente |
+| Integrações | APIs, bancos e arquivos; navegador em módulo separado | v0.9.0: 26 operações de intercâmbio, registros, engenharia, texto e datas; integrações externas/DB ainda pendentes |
 | Node-RED | Compatibilidade opcional por adaptador, sem substituir fluxos nativos | Não instalado/embutido nesta fase |
 | Serviço independente | Automação continua sem interface somente após ativação explícita | Requisito; não foi criado serviço/daemon nesta fase |
-| Distribuição comercial | Preservar código próprio reservado e avaliar cada componente/licença | UNLICENSED preservado; sem incorporar engines com licença incompatível |
+| Uso pessoal | Reaproveitar componentes de código aberto e preservar avisos/licenças aplicáveis | PapaParse MIT incorporado na v0.9.0; UNLICENSED do código próprio e visibilidade pública não alterados |
 
 ## Importante: visibilidade não é licença
 

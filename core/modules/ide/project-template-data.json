@@ -1,0 +1,143 @@
+{
+  "files": [
+    {
+      "id": "empty",
+      "label": "Arquivo vazio",
+      "extension": "txt",
+      "language": "plaintext",
+      "content": ""
+    },
+    {
+      "id": "javascript",
+      "label": "Módulo JavaScript",
+      "extension": "js",
+      "language": "javascript",
+      "content": "export function executar(dados) {\n  return dados;\n}\n"
+    },
+    {
+      "id": "typescript",
+      "label": "Módulo TypeScript",
+      "extension": "ts",
+      "language": "typescript",
+      "content": "export interface Registro {\n  id: string;\n  valor: number;\n}\n\nexport function totalizar(itens: Registro[]): number {\n  return itens.reduce((total, item) => total + item.valor, 0);\n}\n"
+    },
+    {
+      "id": "python",
+      "label": "Script Python",
+      "extension": "py",
+      "language": "python",
+      "content": "def executar(dados):\n    \"\"\"Transforma os dados sem alterar a entrada.\"\"\"\n    return dados\n\n\nif __name__ == \"__main__\":\n    print(executar({\"status\": \"ok\"}))\n"
+    },
+    {
+      "id": "json",
+      "label": "Documento JSON",
+      "extension": "json",
+      "language": "json",
+      "content": "{\n  \"registros\": []\n}\n"
+    },
+    {
+      "id": "html",
+      "label": "Página HTML",
+      "extension": "html",
+      "language": "html",
+      "content": "<!doctype html>\n<html lang=\"pt-BR\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Meu projeto</title>\n</head>\n<body>\n  <main><h1>Meu projeto</h1></main>\n</body>\n</html>\n"
+    },
+    {
+      "id": "css",
+      "label": "Folha de estilos",
+      "extension": "css",
+      "language": "css",
+      "content": ":root { color-scheme: dark; font-family: system-ui, sans-serif; }\nbody { margin: 0; background: #151518; color: #ece8eb; }\nmain { max-width: 64rem; margin: auto; padding: 2rem; }\n"
+    },
+    {
+      "id": "markdown",
+      "label": "Documento Markdown",
+      "extension": "md",
+      "language": "markdown",
+      "content": "# Meu projeto\n\n## Objetivo\n\nDescreva o resultado esperado.\n\n## Execução\n\nDocumente os comandos e pré-requisitos.\n"
+    },
+    {
+      "id": "sql",
+      "label": "Consulta SQL",
+      "extension": "sql",
+      "language": "sql",
+      "content": "-- Revise a conexão e os nomes antes de executar em outro programa.\nSELECT id, nome\nFROM registros\nORDER BY id;\n"
+    },
+    {
+      "id": "node-test",
+      "label": "Teste Node.js",
+      "extension": "test.mjs",
+      "language": "javascript",
+      "content": "import test from 'node:test';\nimport assert from 'node:assert/strict';\n\ntest('resultado esperado', () => {\n  assert.equal(2 + 2, 4);\n});\n"
+    },
+    {
+      "id": "csv",
+      "label": "Tabela CSV",
+      "extension": "csv",
+      "language": "plaintext",
+      "content": "id,categoria,valor\n1,A,120\n2,B,80\n"
+    },
+    {
+      "id": "python-test",
+      "label": "Teste Python",
+      "extension": "py",
+      "language": "python",
+      "content": "import unittest\n\n\nclass TesteExemplo(unittest.TestCase):\n    def test_resultado(self):\n        self.assertEqual(2 + 2, 4)\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n"
+    }
+  ],
+  "projects": [
+    {
+      "id": "blank",
+      "label": "Projeto vazio",
+      "description": "Pasta de trabalho com README; escolha suas linguagens.",
+      "files": {
+        "README.md": "# Novo projeto\n\nProjeto criado localmente pelo OmniForge. Nenhuma dependência foi instalada.\n"
+      }
+    },
+    {
+      "id": "node-cli",
+      "label": "CLI JavaScript + testes",
+      "description": "Módulos Node.js, entrada de execução e teste node:test; sem pacotes externos.",
+      "files": {
+        "package.json": "{\n  \"name\": \"projeto-local\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"start\": \"node src/main.js\",\n    \"test\": \"node --test\"\n  }\n}\n",
+        "src/main.js": "import { totalizar } from './dados.js';\nconsole.log(JSON.stringify({ total: totalizar([10, 20, 30]) }));\n",
+        "src/dados.js": "export function totalizar(valores) {\n  if (!Array.isArray(valores) || valores.some(v => typeof v !== \"number\" || !Number.isFinite(v))) {\n    throw new TypeError(\"Informe uma lista de números finitos.\");\n  }\n  return valores.reduce((a, b) => a + b, 0);\n}\n",
+        "test/dados.test.js": "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { totalizar } from '../src/dados.js';\ntest('total real', () => assert.equal(totalizar([10, 20, 30]), 60));\ntest('tipo inválido', () => assert.throws(() => totalizar(['10']), TypeError));\n",
+        "README.md": "# CLI JavaScript\n\nProjeto criado localmente pelo OmniForge. Nenhuma dependência foi instalada.\n\nRequer Node.js 22+. Execute `npm start` e `npm test` na Central de Tarefas do OmniForge (com confirmação) ou no seu terminal. Não requer npm install.\n"
+      }
+    },
+    {
+      "id": "python-cli",
+      "label": "CLI Python + testes",
+      "description": "Biblioteca padrão Python, módulo de cálculo e unittest; independente do OmniForge.",
+      "files": {
+        "main.py": "from calculos import totalizar\n\nif __name__ == \"__main__\":\n    print(totalizar([10, 20, 30]))\n",
+        "calculos.py": "from math import isfinite\n\n\ndef totalizar(valores):\n    if not isinstance(valores, list) or any(type(v) not in (int, float) or not isfinite(v) for v in valores):\n        raise ValueError(\"Informe uma lista de números finitos.\")\n    return sum(valores)\n",
+        "test_calculos.py": "import unittest\nfrom calculos import totalizar\n\n\nclass TestCalculos(unittest.TestCase):\n    def test_total(self):\n        self.assertEqual(totalizar([10, 20, 30]), 60)\n\n    def test_tipo_invalido(self):\n        with self.assertRaises(ValueError):\n            totalizar([\"10\"])\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+        "README.md": "# CLI Python\n\nProjeto criado localmente pelo OmniForge. Nenhuma dependência foi instalada.\n\nRequer Python 3 instalado. No seu terminal: `python main.py` e `python -m unittest -v`. Esta versão do OmniForge edita Python, mas não fornece executor/depurador Python.\n"
+      }
+    },
+    {
+      "id": "web-static",
+      "label": "Aplicação web estática",
+      "description": "HTML/CSS/JavaScript local sem CDN, com formulário funcional e nenhuma dependência.",
+      "files": {
+        "index.html": "<!doctype html>\n<html lang=\"pt-BR\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Calculadora local</title><link rel=\"stylesheet\" href=\"styles.css\"></head><body><main><h1>Calculadora de custo</h1><form id=\"form\"><label>Quantidade <input id=\"quantidade\" type=\"number\" min=\"0\" step=\"any\" required value=\"2\"></label><label>Preço unitário <input id=\"preco\" type=\"number\" min=\"0\" step=\"any\" required value=\"10\"></label><button>Calcular</button></form><output id=\"resultado\" aria-live=\"polite\"></output></main><script src=\"app.js\" defer></script></body></html>\n",
+        "app.js": "document.getElementById('form').addEventListener('submit', event => {\n  event.preventDefault();\n  const quantidade = Number(document.getElementById('quantidade').value);\n  const preco = Number(document.getElementById('preco').value);\n  document.getElementById('resultado').textContent = Number.isFinite(quantidade * preco) ? 'Total: ' + (quantidade * preco).toFixed(2) : 'Valores inválidos';\n});\n",
+        "styles.css": ":root{font:16px system-ui;color-scheme:dark}body{background:#161618;color:#e9e5e8;margin:0}main{max-width:42rem;margin:4rem auto;padding:2rem}form,label{display:grid;gap:.8rem}form{gap:1.2rem}input,button{font:inherit;padding:.7rem;border:1px solid #555;border-radius:.3rem}button{background:#762d3a;color:#fff}output{display:block;margin-top:2rem}\n",
+        "README.md": "# Aplicação web estática\n\nProjeto criado localmente pelo OmniForge. Nenhuma dependência foi instalada.\n\nAbra `index.html` no seu navegador. O formulário calcula valores localmente, sem rede. A prévia HTML executável não é embutida no renderer do OmniForge.\n"
+      }
+    },
+    {
+      "id": "data-pipeline",
+      "label": "Tratamento CSV em Python",
+      "description": "CSV de entrada, processamento por biblioteca padrão e teste unitário.",
+      "files": {
+        "entrada.csv": "id,categoria,valor\n1,A,120.50\n2,B,80\n3,A,20\n",
+        "pipeline.py": "import csv\nimport json\nfrom decimal import Decimal\nfrom pathlib import Path\n\n\ndef resumir(caminho):\n    totais = {}\n    with Path(caminho).open(encoding=\"utf-8\", newline=\"\") as arquivo:\n        for linha in csv.DictReader(arquivo):\n            valor = Decimal(linha[\"valor\"])\n            if not valor.is_finite():\n                raise ValueError(\"Valor não finito\")\n            categoria = linha[\"categoria\"]\n            totais[categoria] = totais.get(categoria, Decimal(0)) + valor\n    return {chave: str(valor) for chave, valor in sorted(totais.items())}\n\n\nif __name__ == \"__main__\":\n    print(json.dumps(resumir(Path(__file__).with_name(\"entrada.csv\")), ensure_ascii=False, indent=2))\n",
+        "test_pipeline.py": "import unittest\nfrom pathlib import Path\nfrom pipeline import resumir\n\n\nclass TestPipeline(unittest.TestCase):\n    def test_csv_real(self):\n        resultado = resumir(Path(__file__).with_name(\"entrada.csv\"))\n        self.assertEqual(resultado, {\"A\": \"140.50\", \"B\": \"80\"})\n\n\nif __name__ == \"__main__\":\n    unittest.main()\n",
+        "README.md": "# Tratamento CSV\n\nProjeto criado localmente pelo OmniForge. Nenhuma dependência foi instalada.\n\nRequer Python 3. No terminal externo: `python pipeline.py` e `python -m unittest -v`. A execução imprime JSON e não sobrescreve a entrada.\n"
+      }
+    }
+  ]
+}
