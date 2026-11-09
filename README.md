@@ -1,13 +1,14 @@
 # OmniForge Studio
 
-## v0.8.1 — Áreas de trabalho por projeto
+## v0.8.2 — IDE multidocumento (candidata em validação)
 
-Painéis redimensionáveis por mouse e teclado, foco no editor sem perder alterações,
-preferências por projeto e módulo, disposições Equilibrado/Área ampla/Inspeção e
-capturas reais do Electron nos testes. Mantém navegação única e preto/grafite com vermelho discreto.
+Abas com buffers e histórico independentes, problemas e estrutura JavaScript/TypeScript,
+comparação visual e salvamentos explícitos. Preserva layout por projeto, navegação única,
+segurança nativa e tema grafite/vermelho. Python continua sem LSP/DAP nesta entrega.
 
-[Arquitetura e testes](docs/WORKSPACE_LAYOUT_V081.md) · [Política de evidência visual](docs/VISUAL_EVIDENCE_POLICY.md).
-Continua uma distribuição experimental sem assinatura, com os gates obrigatórios de cada revisão.
+[Especificação e limites](docs/CODE_WORKSPACE_V082.md) · [Decisões 1–7](docs/APPROVED_PRODUCT_SCOPE.md) · [Evidência visual](docs/VISUAL_EVIDENCE_POLICY.md).
+A aprovação da distribuição depende dos gates da mesma revisão. Nenhuma certificação
+comercial/estável ou assinatura digital é declarada.
 
 ### Base nativa v0.8.0
 
@@ -32,6 +33,8 @@ salvar não limpa edições mais recentes e um conflito externo não sobrescreve
 
 [Integração, evidências e limites](docs/UNIFIED_FLOWS_V079.md) · [Histórico](CHANGELOG.md).
 A promoção para release depende dos gates do mesmo commit; a versão permanece experimental.
+
+**Candidata v0.8.2:** IDE com abas, buffers independentes, Salvar todos, problemas/estrutura JavaScript e TypeScript e comparação visual. Python continua com edição, sem LSP/DAP nesta etapa. Aprovação depende dos testes da mesma revisão. [Especificação](docs/CODE_WORKSPACE_V082.md) · [Decisões de produto](docs/APPROVED_PRODUCT_SCOPE.md).
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 

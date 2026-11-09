@@ -1,3 +1,12 @@
+## [0.8.2] — IDE multidocumento e ferramentas locais (candidata)
+
+- Abas por projeto com buffers e histórico Monaco preservados, fechamento confirmado, Salvar todos e proteção independente dos rascunhos.
+- Problemas reais de modelos abertos, estrutura semântica JS/TS, navegação entre definições abertas, ações de formatação/renomeação/referências quando suportadas.
+- Comparação visual somente leitura de baseline/edição e rascunhos, sem sobrescrita implícita.
+- Contratos testados para save concorrente, troca de projeto, quotas, CAS e descarte de modelos. Sem dependências novas ou permissões adicionais.
+- E2E Windows e cinco capturas reais obrigatórios, além de todas as regressões v0.8.1 e executáveis NSIS/Portable.
+- Direção comercial e decisões 1–7 registradas em docs/APPROVED_PRODUCT_SCOPE.md; LSP Python, DAP, terminal, Node-RED, serviço e CAD 3D continuam pendentes.
+
 ## [0.8.1] — Áreas de trabalho por projeto (candidata)
 
 - Painéis redimensionáveis por mouse/teclado: navegação, biblioteca/explorador, inspetor de automações e CAD.

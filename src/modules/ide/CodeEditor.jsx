@@ -30,11 +30,13 @@ loader.config({ monaco });
 
 // Monaco, language workers, themes and language services load on the first
 // actual editor visit, never while the user is on Home, CAD or Automations.
-export default function CodeEditor({value,documentVersion,onChange,onMount,...props}) {
-  const latest=useRef({value,documentVersion,onChange,onMount});
-  latest.current={value,documentVersion,onChange,onMount};
+export default function CodeEditor({value,documentVersion,onChange,onMount,onUnmount,...props}) {
+  const latest=useRef({value,documentVersion,onChange,onMount,onUnmount});
+  latest.current={value,documentVersion,onChange,onMount,onUnmount};
   const binding=useRef(null);
+  const instance=useRef(null);
   const mounted=useCallback((editor,api)=>{
+    instance.current=editor;
     binding.current?.dispose();
     const current=latest.current;
     binding.current=bindEditorBuffer(editor,{
@@ -46,7 +48,10 @@ export default function CodeEditor({value,documentVersion,onChange,onMount,...pr
   useLayoutEffect(()=>{
     binding.current?.replace(documentVersion,value);
   },[documentVersion,value]);
-  useEffect(()=>()=>{binding.current?.dispose();binding.current=null;},[]);
+  useLayoutEffect(()=>()=>{
+    if(instance.current)latest.current.onUnmount?.(instance.current);
+    binding.current?.dispose();binding.current=null;instance.current=null;
+  },[]);
   // No controlled value echo: a delayed React effect must not replace text
   // that Monaco has already accepted. Native undo/redo remains model-owned.
   return <Editor {...props} defaultValue={value} onMount={mounted} theme="omniforge-studio"/>;
