@@ -33,7 +33,7 @@ async function checkpoint(relative,content){
 try{
   app=await electron.launch({args:['.'],cwd:root,timeout:45000,env:{...process.env,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:profile,ELECTRON_RENDERER_URL:''}});
   page=await app.firstWindow({timeout:45000});page.setDefaultTimeout(20000);
-  page.on('pageerror',error=>pageErrors.push(error.message));
+  page.on('pageerror',error=>{pageErrors.push(error.message);console.error('[CODE WORKSPACE renderer]',phase,error.stack||error.message);});
   assert.equal(path.normalize(await app.evaluate(({app})=>app.getPath('userData'))).toLowerCase(),path.normalize(profile).toLowerCase());
   await app.evaluate(({BrowserWindow,dialog},workspace)=>{
     BrowserWindow.getAllWindows()[0].setSize(1440,900);
@@ -87,10 +87,12 @@ try{
   await page.getByTestId('cad-workbench').waitFor();
   await page.getByTestId('primary-sidebar').getByRole('button',{name:'Editor de código',exact:true}).click();
   assert.equal(await page.getByTestId('code-document-tab').count(),3);
+  phase='opening readonly diff after retained-model navigation';
   await page.getByRole('button',{name:'Comparar alterações',exact:true}).click();
   await page.getByTestId('code-review').waitFor();
   await page.locator('.code-review .monaco-diff-editor').waitFor();
   await shot('review');
+  phase='closing readonly diff and saving dirty documents';
   await page.getByRole('button',{name:'Voltar ao editor',exact:true}).click();
   await page.getByRole('button',{name:'Salvar todos',exact:true}).click();
   await page.getByText('2 arquivo(s) salvos.',{exact:false}).waitFor();
