@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
+        with: {node-version: '24.22.1'}
       - run: npm ci --no-audit --no-fund
       - run: node --check core/extension-contract.mjs
       - run: node --check core/extension-registry.mjs
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
+        with: {node-version: '24.22.1'}
       - run: npm ci --no-audit --no-fund
       - run: npm run build
   desktop-e2e:
@@ -43,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
+        with: {node-version: '24.22.1'}
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - name: Extension Hub E2E

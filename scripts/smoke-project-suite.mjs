@@ -6,6 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {_electron as electron} from 'playwright-core';
 import {waitForState,waitForPageState} from './lib/wait-for-state.mjs';
+import {answerConfirmation} from './lib/confirm-dialog.mjs';
 import {fileTemplate,projectTemplate} from '../core/modules/ide/project-templates.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const lab=await fs.mkdtemp(path.join(os.tmpdir(),'omni-project-suite-'));
@@ -28,15 +29,6 @@ try{
   assert.equal(path.normalize(await app.evaluate(({app})=>app.getPath('userData'))).toLowerCase(),path.normalize(profile).toLowerCase());
   await app.evaluate(({BrowserWindow,dialog})=>{BrowserWindow.getAllWindows()[0].setSize(1440,900);dialog.showMessageBox=async()=>({response:1});});
   await nativePicker(workspace);await page.getByTestId('workspace-overview').waitFor();
-  // Electron owns native window.confirm dialogs. CDP dialog.accept can race
-  // with that native adapter; fixture decisions are controlled explicitly,
-  // as in the existing recovery/flow acceptance suites. Native file/task
-  // consent stays separately asserted through dialog.showMessageBox below.
-  await page.evaluate(()=>{window.confirm=message=>{
-    if(!/^(?:Existem alterações não salvas\.|Carregar modelo de fluxo\?)/.test(message))
-      throw new Error('Confirmação inesperada no teste: '+message);
-    return true;
-  };});
   phase='new document without existing project or file';
   await page.getByRole('button',{name:'Novo documento',exact:true}).click();
   await page.getByTestId('untitled-notice').waitFor();await page.locator('.code-live-editor .monaco-editor').waitFor();
@@ -88,7 +80,8 @@ try{
   await docAction('Fechar abas salvas');await page.getByRole('button',{name:'Criar documento vazio',exact:true}).waitFor();checks.push('reopen-and-close-only-saved-tabs');
   phase='new project wizard generates independent CLI with tests';
   await nativePicker(parent);await create('Novo projeto… Ctrl ⇧ N');await modal().getByLabel('Nome do projeto novo').fill('Oficina-CLI');await modal().getByLabel('Modelo de criação').selectOption('node-cli');
-  await screenshot('project-wizard');await modal().getByRole('button',{name:'Criar projeto',exact:true}).click();await waitClosed();
+  await screenshot('project-wizard');await modal().getByRole('button',{name:'Criar projeto',exact:true}).click();
+  await answerConfirmation(page,true,{title:'Trocar de projeto'});await waitClosed();
   const cli=path.join(parent,'Oficina-CLI');
   for(const [relative,content]of Object.entries(projectTemplate('node-cli').files))assert.equal(await fs.readFile(path.join(cli,relative),'utf8'),content);
   await assert.rejects(fs.stat(path.join(cli,'node_modules')),{code:'ENOENT'});checks.push('independent-project-scaffold');
@@ -99,6 +92,7 @@ try{
   const task=await page.evaluate(()=>window.omni.projectTaskState());assert.equal(task.exitCode,0,task.output);assert.equal(task.status,'completed');assert.match(task.output,/(?:# pass 2|pass 2|tests 2)/);await screenshot('generated-tests');checks.push('generated-node-tests-via-native-runner');
   phase='CSV automation performs actual parsing, typing and aggregate write';
   await nav('Modelos de fluxo');await page.locator('article').filter({hasText:'CSV: consolidar categorias'}).getByRole('button',{name:'Usar modelo',exact:true}).click();
+  await answerConfirmation(page,true,{title:'Carregar modelo de fluxo'});
   await page.locator('.react-flow__node').first().waitFor();await page.getByTestId('flow-fit').click();
   await page.getByRole('button',{name:'▶ Executar',exact:true}).click();
   await waitForState(async()=>{try{const v=JSON.parse(await fs.readFile(path.join(cli,'.omniforge/output/csv-consolidado.json'),'utf8'));return v[0]?.sum===140.5&&v[1]?.sum===80;}catch(e){if(e.code==='ENOENT')return false;throw e;}},{timeout:20000,description:'artefato CSV consolidado real'});
@@ -110,6 +104,7 @@ try{
     {title:'Inspecionar registros NDJSON',file:'inspecao-ndjson.json',check:v=>v.matching.length===1&&v.other.length===1&&v.matching[0].valor===12.5}
   ]){
     await nav('Modelos de fluxo');await page.locator('article').filter({hasText:item.title}).getByRole('button',{name:'Usar modelo',exact:true}).click();
+    await answerConfirmation(page,true,{title:'Carregar modelo de fluxo'});
     await page.getByRole('button',{name:'▶ Executar',exact:true}).click();
     await waitForState(async()=>{try{return item.check(JSON.parse(await fs.readFile(path.join(cli,'.omniforge/output',item.file),'utf8')));}catch(e){if(e.code==='ENOENT')return false;throw e;}},{timeout:20000,description:item.title});
     await page.getByText('Execução real concluída.',{exact:false}).waitFor();

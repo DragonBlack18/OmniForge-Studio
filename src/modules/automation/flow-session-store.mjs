@@ -2,6 +2,8 @@
  * No React Flow runtime, IPC, timers or filesystem in this state machine.
  */
 import { FLOW_LIMITS, assertFlowName } from '../../../core/modules/automation/flow-limits.mjs';
+import { reconnectFlowEdge } from '../../../core/modules/automation/connections.mjs';
+import { readFlowLayoutPositions } from '../../../core/modules/automation/layout.mjs';
 const clone = value => structuredClone(value);
 const size = text => new TextEncoder().encode(text).length;
 export function toUiNodes(flow) {
@@ -93,6 +95,25 @@ export function createFlowSession(initialFlow,{clock=Date.now,maxEntries=60,maxB
     deleteElements({nodes:removedNodes=[],edges:removedEdges=[]}={}){
       assertWritable();const nodeIds=new Set(removedNodes.map(n=>n.id)),edgeIds=new Set(removedEdges.map(e=>e.id));
       commit(nodes.filter(n=>!nodeIds.has(n.id)),edges.filter(e=>!edgeIds.has(e.id)));
+    },
+    disconnectEdge(id){
+      assertWritable();
+      if(!edges.some(edge=>edge.id===id))return false;
+      commit(nodes,edges.filter(edge=>edge.id!==id));return true;
+    },
+    reconnectEdge(id,connection){
+      assertWritable();commit(nodes,reconnectFlowEdge(doc(),id,connection));
+    },
+    captureLayoutToken(){return {document:documentEpoch,edit:editEpoch};},
+    applyLayout(positions,token){
+      // Work in a worker can finish after edits, undo, recovery or project load.
+      // Never overwrite the newer document or its live selection in that case.
+      if(!token||token.document!==documentEpoch||token.edit!==editEpoch)return false;
+      assertWritable();
+      const checked=readFlowLayoutPositions({children:positions},nodes.map(node=>node.id));
+      const byId=new Map(checked.map(position=>[position.id,position]));
+      commit(nodes.map(node=>{const p=byId.get(node.id);return {...node,position:{x:p.x,y:p.y}};}),edges);
+      return true;
     },
     duplicateSelected(id){
       assertWritable();const found=nodes.find(n=>n.id===selectedId);if(!found)return;

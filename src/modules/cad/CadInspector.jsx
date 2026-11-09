@@ -3,8 +3,9 @@ import {cadEntityMetrics} from '../../../core/modules/cad/cad2d.mjs';
 import {cadEntityLabel,cadGeometrySummary,CAD_TYPE_LABELS} from '../../../core/modules/cad/cad-edit.mjs';
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
 import CadOperations from './CadOperations.jsx';
+import CadDimensions from './CadDimensions.jsx';
 const fmt=n=>Number(n.toFixed(4)).toLocaleString('pt-BR',{maximumFractionDigits:4});
-export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDuplicate,onToolkit,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
+export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDimensionEdit,onDimensionRemove,onDuplicate,onToolkit,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
   const panelRef=useRef(null);
   useEffect(()=>{if(panelRef.current)panelRef.current.scrollTop=0;},[selected]);
   const entity=sketch.entities.find(e=>e.id===selected);
@@ -33,6 +34,9 @@ export default function CadInspector({sketch,selected,layerId,disabled,editField
   };
   const measures=entity?cadEntityMetrics(entity):null;
   const geometry=entity?cadGeometrySummary(entity):null;
+  const roundGeometry=entity&&['circle','arc'].includes(entity.type);
+  const coordinateFields=roundGeometry?[['cx','Centro X'],['cy','Centro Y'],['radius','Raio'],
+    ...(entity.type==='arc'?[['startAngle','Ângulo inicial'],['endAngle','Ângulo final']]:[])]:[['ax','X inicial'],['ay','Y inicial'],['bx','X final'],['by','Y final']];
   return <section ref={panelRef} className="cad-inspection" aria-label="Propriedades CAD">
     <header className="cad-section-heading"><span>Propriedades</span><small>{entity?CAD_TYPE_LABELS[entity.type]:'Documento'}</small></header>
     {entity?<>
@@ -47,30 +51,41 @@ export default function CadInspector({sketch,selected,layerId,disabled,editField
         {entity.visible===false&&<p className="cad-inline-note">Objeto oculto; não será exportado.</p>}
       </div>
       <details className="cad-property-section" open><summary>Geometria <small>mm</small></summary>
-        <form onSubmit={e=>{e.preventDefault();if(geometryMode==='coordinates'||entity.type==='circle')onGeometry();else {const values=Object.fromEntries(Object.entries(sizeFields).map(([k,v])=>[k,String(v).trim()===''?NaN:Number(v)]));onDimensions(entity.id,values);}}} className="cad-property-form">
-          {entity.type!=='circle'&&<label>Método<select aria-label="Método de edição geométrica" value={geometryMode} onChange={e=>setGeometryMode(e.target.value)}><option value="coordinates">Coordenadas</option><option value="dimensions">{entity.type==='line'?'Comprimento e ângulo':'Posição e tamanho'}</option></select></label>}
+        <form noValidate onSubmit={e=>{e.preventDefault();if(geometryMode==='coordinates'||roundGeometry)onGeometry();else {const values=Object.fromEntries(Object.entries(sizeFields).map(([k,v])=>[k,String(v).trim()===''?NaN:Number(v)]));onDimensions(entity.id,values);}}} className="cad-property-form">
+          {!roundGeometry&&<label>Método<select aria-label="Método de edição geométrica" value={geometryMode} onChange={e=>setGeometryMode(e.target.value)}><option value="coordinates">Coordenadas</option><option value="dimensions">{entity.type==='line'?'Comprimento e ângulo':'Posição e tamanho'}</option></select></label>}
           <div className="cad-fields-grid">
-            {(entity.type==='circle'?[['cx','Centro X'],['cy','Centro Y'],['radius','Raio']]:geometryMode==='coordinates'?[['ax','X inicial'],['ay','Y inicial'],['bx','X final'],['by','Y final']]:[]).map(([key,label])=>
-              <label key={key}>{label}<input aria-label={label+' (mm)'} type="number" step="any" disabled={locked} value={editFields[key]??''} onChange={e=>setEditFields(old=>({...old,[key]:e.target.value}))}/></label>)}
-            {geometryMode==='dimensions'&&entity.type!=='circle'&&(entity.type==='line'?[['length','Comprimento (mm)'],['angle','Ângulo (graus)']]:[['x','Posição X (mm)'],['y','Posição Y (mm)'],['width','Largura (mm)'],['height','Altura (mm)']]).map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" step="any" disabled={locked} value={sizeFields[key]??''} onChange={e=>setSizeFields(old=>({...old,[key]:e.target.value}))}/></label>)}
+            {(roundGeometry||geometryMode==='coordinates'?coordinateFields:[]).map(([key,label])=>
+              <label key={key}>{label}<input aria-label={label+(key.endsWith('Angle')?' (graus)':' (mm)')} type="number" step="any" disabled={locked} value={editFields[key]??''} onChange={e=>setEditFields(old=>({...old,[key]:e.target.value}))}/></label>)}
+            {geometryMode==='dimensions'&&!roundGeometry&&(entity.type==='line'?[['length','Comprimento (mm)'],['angle','Ângulo (graus)']]:[['x','Posição X (mm)'],['y','Posição Y (mm)'],['width','Largura (mm)'],['height','Altura (mm)']]).map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" step="any" disabled={locked} value={sizeFields[key]??''} onChange={e=>setSizeFields(old=>({...old,[key]:e.target.value}))}/></label>)}
           </div>
+          {entity.type==='arc'&&<p className="cad-inline-note">Ângulos em graus, sentido anti-horário. O arco mantém seu raio ao editar os extremos.</p>}
           <button type="submit" className="cad-primary" disabled={locked} data-testid="cad-apply-geometry">{geometryMode==='coordinates'?'Aplicar coordenadas':'Aplicar dimensões'}</button>
         </form>
       </details>
+      <CadDimensions key={'dimensions-'+entity.id} entity={entity} disabled={locked} onApply={onDimensionEdit} onRemove={onDimensionRemove}/>
       <details className="cad-property-section"><summary>Transformar</summary>
-        <form className="cad-property-form" onSubmit={applyTransform}><div className="cad-fields-grid">
+        <form noValidate className="cad-property-form" onSubmit={applyTransform}><div className="cad-fields-grid">
           {[['dx','Deslocamento X (mm)'],['dy','Deslocamento Y (mm)'],['scale','Escala uniforme']].map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" step="any" disabled={locked} value={transform[key]} onChange={e=>setTransform(old=>({...old,[key]:e.target.value}))}/></label>)}
         </div><p className="cad-inline-note">Escala a partir do centro do objeto.</p><button type="submit" disabled={locked}>Aplicar transformação</button></form>
       </details>
-      <CadOperations key={entity.id} entity={entity} disabled={locked} onApply={onToolkit}/>
+      <CadOperations key={'operations-'+entity.id} entity={entity} disabled={locked} onApply={onToolkit}/>
       <details className="cad-property-section" open><summary>Medições</summary><dl className="cad-measurements">
-        <dt>{entity.type==='line'?'Comprimento':'Perímetro'}</dt><dd data-testid="cad-measure-length">{fmt(measures.length)} mm</dd>
-        {entity.type!=='line'&&<><dt>Área</dt><dd>{fmt(measures.area)} mm²</dd></>}
+        <dt>{['line','arc'].includes(entity.type)?'Comprimento':'Perímetro'}</dt><dd data-testid="cad-measure-length">{fmt(measures.length)} mm</dd>
+        {['circle','rectangle'].includes(entity.type)&&<><dt>Área</dt><dd>{fmt(measures.area)} mm²</dd></>}
         <dt>{entity.type==='circle'?'Diâmetro':'Largura'}</dt><dd>{fmt(geometry.width)} mm</dd>
         {entity.type!=='circle'&&<><dt>Altura</dt><dd>{fmt(geometry.height)} mm</dd></>}
-        {geometry.angle!==null&&<><dt>Ângulo</dt><dd>{fmt(geometry.angle)}°</dd></>}
+        {geometry.angle!==null&&<><dt>{entity.type==='arc'?'Abertura':'Ângulo'}</dt><dd>{fmt(geometry.angle)}°</dd></>}
       </dl></details>
       <details className="cad-property-section"><summary>Identificação</summary><code className="cad-object-id">{entity.id}</code></details>
+      {entity.source&&<details className="cad-property-section cad-source-inspection" open={entity.source.blockPath.length>0} data-testid="cad-source-inspector"><summary>Origem DXF</summary>
+        <dl className="cad-measurements"><dt>Entidade original</dt><dd>{entity.source.entityType}</dd>
+          {entity.source.handle&&<><dt>Handle original</dt><dd>{entity.source.handle}</dd></>}
+          {entity.source.blockPath.length>0&&<><dt>Bloco original</dt><dd data-testid="cad-source-block">{entity.source.blockPath.join(' › ')}</dd>
+            <dt>Instância importada</dt><dd>{entity.source.insertPath.join(' / ')}</dd>
+            <dt>Objetos desta origem</dt><dd>{sketch.entities.filter(item=>item.source?.insertPath?.join('/')===entity.source.insertPath.join('/')).length}</dd></>}
+        </dl>
+        {entity.source.blockPath.length>0&&<p className="cad-inline-note">Convertido em objeto independente. Editar este objeto não altera outras instâncias do bloco. A origem é preservada no desenho OmniForge; a exportação DXF é desagrupada.</p>}
+      </details>}
     </>:<div className="cad-property-form"><dl className="cad-measurements"><dt>Unidade</dt><dd>Milímetro</dd><dt>Objetos</dt><dd>{stats.count}</dd><dt>Visíveis</dt><dd>{stats.visible}</dd></dl><p className="cad-inline-note">Selecione um objeto na vista ou na árvore.</p></div>}
     <details className="cad-property-section" open={!entity} key={entity?'layer-collapsed':'layer-open'}><summary>Camada ativa <small>{sketch.layers.find(l=>l.id===layerId)?.name}</small></summary>
       <div className="cad-property-form">
@@ -79,7 +94,7 @@ export default function CadInspector({sketch,selected,layerId,disabled,editField
         <button type="button" disabled={disabled||sketch.layers.length<=1||layer?.locked} onClick={onRemoveLayer}>Remover camada vazia</button>
       </div>
     </details>
-    <form className="cad-add-layer" onSubmit={e=>{e.preventDefault();onAddLayer();}}>
+    <form noValidate className="cad-add-layer" onSubmit={e=>{e.preventDefault();onAddLayer();}}>
       <input aria-label="Nome da nova camada" placeholder="Nova camada" maxLength={60} disabled={disabled} value={newLayerName} onChange={e=>setNewLayerName(e.target.value)}/>
       <button type="submit" disabled={disabled||sketch.layers.length>=32}>+ Criar</button>
     </form>

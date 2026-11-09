@@ -1,4 +1,4 @@
-/** v0.7.5 desktop workbench E2E: real navigation, quick-open and no project mutations. */
+/** Desktop workbench E2E: real navigation, project reattachment and no project mutations. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -25,12 +25,19 @@ try {
   assert.equal(path.normalize(isolated).toLowerCase(),path.normalize(profile).toLowerCase());
   await app.evaluate(({dialog},folder)=>{
     // Native chooser only: every tool command and filesystem operation is real.
-    dialog.showOpenDialog=async()=>({canceled:false,filePaths:[folder]});
+    globalThis.workbenchChooserCalls=0;
+    dialog.showOpenDialog=async()=>{
+      globalThis.workbenchChooserCalls++;
+      return {canceled:false,filePaths:[folder]};
+    };
   },workspace);
 
   phase='desktop start surface and domain navigation';
   await page.getByTestId('workspace-overview').waitFor();
   await page.getByTestId('primary-sidebar').waitFor();
+  assert.equal(await page.locator('.app-shell').getAttribute('data-layout-scope'),'global');
+  assert.doesNotMatch(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
+  assert.equal(await page.evaluate(()=>window.omni.activeWorkspace()),null);
   assert.equal(await page.getByTestId('activity-rail').count(),0);
   assert.equal(await page.locator('.overview-metrics').count(),0,'A Home não é um dashboard.');
   await page.getByRole('button',{name:'Abrir projeto'}).click();
@@ -61,15 +68,26 @@ try {
   assert.equal(await fs.readFile(path.join(workspace,'main.js'),'utf8'),source);
 
   phase='sidebar preference survives reload and command palette dismisses safely';
+  const selectedProject=await page.evaluate(()=>window.omni.activeWorkspace());
+  const projectScope=await page.locator('.app-shell').getAttribute('data-layout-scope');
+  assert.equal(projectScope,selectedProject.projectId);
+  assert.notEqual(projectScope,'global');
+  assert.equal(await app.evaluate(()=>globalThis.workbenchChooserCalls),1);
   await page.keyboard.press('Control+b');
+  await page.getByRole('button',{name:'Expandir menu lateral',exact:true}).waitFor();
   assert.match(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
   await page.reload();
-  await page.getByTestId('primary-sidebar').waitFor();
-  assert.equal(await page.getByTestId('activity-rail').count(),0);
-  // Initial Home is its own profile; reopening the project restores its own layout.
-  assert.doesNotMatch(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
-  await page.getByRole('button',{name:'Abrir projeto'}).click();
+  // A renderer reload keeps the native workspace and must reattach its profile.
+  // Only a new application process starts in the separate global Home profile.
+  await page.locator('.app-shell[data-layout-scope="'+projectScope+'"]').waitFor();
   await page.getByText('Projeto aberto:',{exact:false}).waitFor();
+  await page.getByTestId('workspace-overview').waitFor();
+  assert.equal(await page.getByTestId('activity-rail').count(),0);
+  const reattachedProject=await page.evaluate(()=>window.omni.activeWorkspace());
+  assert.equal(reattachedProject.projectId,selectedProject.projectId);
+  assert.equal(reattachedProject.workspace,selectedProject.workspace);
+  assert.equal(await page.locator('.topbar-workspace').getAttribute('title'),selectedProject.workspace);
+  assert.equal(await app.evaluate(()=>globalThis.workbenchChooserCalls),1,'Reload must not open another native chooser');
   assert.match(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
   // Repeated immediate dismissals exercise focus on a newly mounted lazy
   // dialog, not just the already-loaded/warm palette from earlier commands.
@@ -83,6 +101,9 @@ try {
     await page.getByTestId('command-palette').waitFor({state:'detached',timeout:3000});
   }
   await page.keyboard.press('Control+b');
+  await page.getByRole('button',{name:'Recolher menu lateral',exact:true}).waitFor();
+  assert.doesNotMatch(await page.getByTestId('primary-sidebar').getAttribute('class'),/collapsed/);
+  assert.equal(await page.locator('.app-shell').getAttribute('data-layout-scope'),projectScope);
 
   await page.getByTestId('primary-sidebar').getByRole('button',{name:'Visão geral',exact:true}).click();
   phase='capture real workbench layout';
@@ -90,7 +111,9 @@ try {
   await page.getByTestId('workspace-overview').waitFor();
   await page.screenshot({path:path.join(root,'smoke-artifacts','workbench-v075.png')});
   assert.deepEqual((await fs.readdir(workspace)).sort(),['main.js']);
-  console.log('PASS Workbench v0.7.5 E2E: domain hierarchy, quick commands, real IDE, local-only and preference reload.');
+  assert.equal(await fs.readFile(path.join(workspace,'main.js'),'utf8'),source);
+  await fs.rm(path.join(root,'smoke-artifacts','workbench-failure.png'),{force:true});
+  console.log('PASS Workbench E2E: domain hierarchy, quick commands, real IDE, native project reattachment, preference reload and original files unchanged.');
   phase='pass';
 } catch(error) {
   console.error('[WORKBENCH E2E] phase='+phase,error);

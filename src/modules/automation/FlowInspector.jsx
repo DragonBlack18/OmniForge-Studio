@@ -1,10 +1,13 @@
 import React,{useEffect,useState} from 'react';
 import {NODE_CATALOG} from '../../../core/modules/automation/catalog.mjs';
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
+import FlowConnections from './FlowConnections.jsx';
 import './FlowAuthoring.css';
 
+const INSPECTOR_TABS=[['properties','Propriedades'],['connections','Conexões'],['outline','Estrutura'],['diagnostics','Diagnóstico']];
+
 export default function FlowInspector({selected,graph,projects,extensions,validation,lastRun,running,liveSteps,
-  busy,tabRequest,onConfig,onSelect,onRename,style}){
+  busy,tabRequest,onConfig,onSelect,onRename,onDisconnect,style}){
   const [tab,setTab]=useState('properties');
   const [query,setQuery]=useState('');
   const [name,setName]=useState(graph.name);
@@ -14,12 +17,19 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
   const normalize=text=>String(text).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   const rows=graph.nodes.filter(n=>normalize(n.id+' '+NODE_CATALOG[n.type]?.label+' '+n.type).includes(normalize(query)));
   const choose=id=>{onSelect(id);setTab('properties');};
+  const navigateTabs=event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+    const current=INSPECTOR_TABS.findIndex(([id])=>id===tab),last=INSPECTOR_TABS.length-1;
+    const next=event.key==='Home'?0:event.key==='End'?last:(current+(event.key==='ArrowRight'?1:last))%INSPECTOR_TABS.length;
+    event.preventDefault();setTab(INSPECTOR_TABS[next][0]);
+    event.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus();
+  };
   return <aside id="workbench-flow-inspector" style={style} className="inspector flow-inspector" aria-label="Inspetor de automações">
-    <div role="tablist" aria-label="Painel do fluxo" className="flow-inspector-tabs">
-      {[['properties','Propriedades'],['outline','Estrutura'],['diagnostics','Diagnóstico']].map(([id,label])=>
-        <button type="button" role="tab" key={id} aria-selected={tab===id} onClick={()=>setTab(id)}>{label}</button>)}
+    <div role="tablist" aria-label="Painel do fluxo" className="flow-inspector-tabs" onKeyDown={navigateTabs}>
+      {INSPECTOR_TABS.map(([id,label])=>
+        <button type="button" role="tab" key={id} aria-selected={tab===id} aria-controls={'flow-panel-'+id} tabIndex={tab===id?0:-1} onClick={()=>setTab(id)}>{label}</button>)}
     </div>
-    {tab==='properties' && <div role="tabpanel" aria-label="Propriedades do fluxo" className="flow-inspector-scroll">
+    {tab==='properties' && <div id="flow-panel-properties" role="tabpanel" aria-label="Propriedades do fluxo" className="flow-inspector-scroll">
       {meta ? <section className="inspector-section">
         <h3>{meta.label}</h3><code className="flow-object-id">{selected.id}</code><p>{meta.description}</p>
         <fieldset disabled={busy} className="flow-fields">
@@ -33,7 +43,7 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
           :field.kind==='capability'?<select value={selected.data.config.capabilityId||''} onChange={e=>onConfig('capabilityId',e.target.value)}>
             <option value="">Selecione uma capacidade</option>{(projects.find(x=>x.id===selected.data.config.projectId)?.capabilities||[]).map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select>
           :field.kind==='select'?<select value={selected.data.config[field.key]??field.default} onChange={e=>onConfig(field.key,e.target.value)}>{field.options.map(x=><option key={x} value={x}>{x}</option>)}</select>
-          :field.kind==='json'?<textarea rows={7} spellCheck={false} value={selected.data.config[field.key]??''} onChange={e=>onConfig(field.key,e.target.value)}/>
+          :field.kind==='json'?<textarea className="resize-none" rows={7} spellCheck={false} value={selected.data.config[field.key]??''} onChange={e=>onConfig(field.key,e.target.value)}/>
           :<input value={selected.data.config[field.key]??''} onChange={e=>onConfig(field.key,e.target.value)}/>}</label>)}
         </fieldset>
         <details className="flow-port-contract"><summary>Portas e contrato</summary>
@@ -47,7 +57,10 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
         <p>Selecione um bloco no desenho ou na aba Estrutura para editar suas propriedades.</p>
       </section>}
     </div>}
-    {tab==='outline' && <div role="tabpanel" aria-label="Estrutura do fluxo" className="flow-inspector-scroll">
+    {tab==='connections'&&<div id="flow-panel-connections" role="tabpanel" aria-label="Conexões do fluxo" className="flow-inspector-scroll">
+      <FlowConnections graph={graph} nodeId={selected?.id} busy={busy} onSelect={onSelect} onDisconnect={onDisconnect}/>
+    </div>}
+    {tab==='outline' && <div id="flow-panel-outline" role="tabpanel" aria-label="Estrutura do fluxo" className="flow-inspector-scroll">
       <div className="flow-outline-search"><NavGlyph name="search" size={14}/><input aria-label="Localizar bloco no fluxo" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Nome, tipo ou identificador"/></div>
       <div className="flow-outline-count">{rows.length} blocos · {graph.edges.length} conexões</div>
       {rows.map(n=><button type="button" key={n.id} className={'flow-outline-row '+(selected?.id===n.id?'is-active':'')}
@@ -56,7 +69,7 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
       </button>)}
       {!rows.length&&<p className="flow-panel-empty">Nenhum bloco encontrado.</p>}
     </div>}
-    {tab==='diagnostics' && <div role="tabpanel" aria-label="Diagnóstico do fluxo" className="flow-inspector-scroll diagnostic-log">
+    {tab==='diagnostics' && <div id="flow-panel-diagnostics" role="tabpanel" aria-label="Diagnóstico do fluxo" className="flow-inspector-scroll diagnostic-log">
       {running&&<div className="run-active" data-testid="flow-running" role="status">EXECUTANDO · {liveSteps.length} etapas concluídas</div>}
       {!running&&!validation&&!lastRun&&<p className="flow-panel-empty">Valide ou execute para inspecionar o fluxo atual.</p>}
       {validation&&<><div className={validation.valid?'log-success':'log-error'}>{validation.valid?'Estrutura válida':validation.errors.length+' problemas encontrados'}</div>
@@ -76,13 +89,15 @@ export default function FlowInspector({selected,graph,projects,extensions,valida
   </aside>;
 }
 
-export function FlowEditTools({name,nodeCount,edgeCount,busy,selected,canUndo,canRedo,onAction}){
+export function FlowEditTools({name,nodeCount,edgeCount,busy,selected,canUndo,canRedo,onAction,layoutBusy=false,layoutStatus='',onCancelLayout}){
   return <div className="flow-edit-tools" role="toolbar" aria-label="Edição do fluxo">
     <span className="flow-document-name" title={name}>{name}</span>
     {[['undo','undo','Desfazer fluxo',!canUndo],['redo','redo','Refazer fluxo',!canRedo],
       ['duplicate','duplicate','Duplicar bloco',!selected],['delete','trash','Excluir bloco',!selected],
-      ['arrange','layers','Organizar fluxo',!nodeCount],['fit','focus','Enquadrar fluxo',!nodeCount]].map(([id,icon,label,disabled])=>
+      ['arrange','layers','Organizar fluxo',!nodeCount||layoutBusy],['fit','focus','Enquadrar fluxo',!nodeCount]].map(([id,icon,label,disabled])=>
       <button type="button" key={id} title={label} aria-label={label} data-testid={'flow-'+id} disabled={busy||disabled} onClick={()=>onAction(id)}><NavGlyph name={icon} size={15}/></button>)}
+    {layoutBusy&&<button type="button" title="Cancelar organização" aria-label="Cancelar organização" data-testid="flow-cancel-layout" onClick={()=>onCancelLayout?.()}><NavGlyph name="close" size={14}/></button>}
+    <span className="flow-layout-status" role="status" aria-live="polite" data-testid="flow-layout-status">{layoutBusy?layoutStatus:''}</span>
     <small>{nodeCount} / {edgeCount}</small>
   </div>;
 }

@@ -6,6 +6,7 @@
 .flow-inspector .inspector-section{border:0;padding:16px}.flow-inspector .inspector-section h3{font-size:14px;margin:0 0 6px}
 .flow-inspector .inspector-section p{font-size:11px;line-height:1.6;color:var(--of-muted)}
 .flow-fields{border:0;padding:0;margin:18px 0 0;min-width:0}.flow-fields:disabled{opacity:.6}
+.flow-fields textarea.resize-none{resize:none}
 .flow-object-id{display:block;color:var(--of-subtle);font-size:10px;overflow:hidden;text-overflow:ellipsis}
 .flow-port-contract{border-top:1px solid var(--of-border);margin-top:20px;padding:12px 0;font-size:10px;color:var(--of-muted)}
 .flow-port-contract summary{cursor:pointer;color:var(--of-ink);font-size:11px;margin-bottom:10px}
@@ -29,4 +30,31 @@
 .flow-edit-tools>small{font:9px Consolas,monospace;color:var(--of-subtle);margin-left:6px;white-space:nowrap}
 .graph-node--issue{border-color:#b85e66!important}.graph-node__state{position:absolute;right:8px;top:8px;font-size:9px;color:var(--of-muted);padding:2px 4px;border-radius:3px;background:var(--of-panel)}
 .graph-node__state--FAIL,.graph-node__state--issue{color:#f09aa1}.graph-node__state--PASS{color:#9bc5ac}
+.flow-inspector-tabs button{padding-left:3px;padding-right:3px;font-size:9px}
+.flow-connections{padding:15px 12px}
+.flow-connection-heading{display:grid;gap:5px;margin-bottom:20px}
+.flow-connection-heading strong{font-size:12px;color:var(--of-ink)}
+.flow-connection-heading code{font-size:10px;color:var(--of-subtle);overflow-wrap:anywhere}
+.flow-connections section+section{margin-top:20px}
+.flow-connections h3{margin:0 0 9px;color:var(--of-muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.flow-connection-port{border:1px solid var(--of-border);border-radius:4px;overflow:hidden;margin-bottom:8px}
+.flow-connection-port-title{display:flex;align-items:center;gap:7px;padding:8px;background:var(--of-elevated);font-size:10px}
+.flow-connection-port-title code{color:var(--of-ink)}
+.flow-connection-port-title span{color:var(--of-subtle);font-size:9px}
+.flow-connection-port-title small{margin-left:auto;color:var(--of-muted);font-size:9px}
+.flow-port-empty{font-size:10px;line-height:1.5;padding:8px;margin:0;color:var(--of-subtle)}
+.flow-port-empty.is-required{color:var(--of-accent)}
+.flow-connection-wire{display:flex;align-items:stretch;min-width:0;border-top:1px solid var(--of-border)}
+.flow-connection-target{display:flex;align-items:center;gap:8px;min-width:0;flex:1;padding:9px 8px;text-align:left;background:none;border:0;color:var(--of-muted);font-size:11px}
+.flow-connection-target>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.flow-connection-target svg{flex:none}
+.flow-connection-target small{display:block;color:var(--of-subtle);font-size:9px;line-height:1.5;margin-top:3px;overflow-wrap:anywhere}
+.flow-connection-target:hover:not(:disabled){background:var(--of-accent-soft);color:var(--of-ink)}
+.flow-disconnect{display:grid;place-items:center;width:29px;flex:none;border:0;border-left:1px solid var(--of-border);background:none;color:var(--of-muted)}
+.flow-disconnect:hover:not(:disabled){background:var(--of-accent-soft);color:var(--of-accent)}
+.flow-disconnect:disabled{opacity:.35}
+.flow-connection-help{font-size:10px;line-height:1.6;color:var(--of-subtle);border-top:1px solid var(--of-border);padding-top:12px;margin-top:16px}
+.flow-layout-status{font-size:10px;color:var(--of-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.flow-layout-status:empty{display:none}
+.app-shell .react-flow__edge.selected .react-flow__edge-path{stroke:var(--of-accent)!important;stroke-width:2.5}
 @media(max-width:1300px){.flow-inspector{width:270px;flex-basis:270px}.flow-edit-tools>small{display:none}}

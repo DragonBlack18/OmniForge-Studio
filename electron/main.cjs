@@ -27,15 +27,25 @@ let scheduleService = null;
 let scheduleReady = false;
 let schedulePromptOpen = false;
 let projectTaskController = null;
+let developmentController = null;
+let terminalController = null;
+let databaseController = null;
 let diagnosticExportInProgress = false;
 const projectRoot = path.resolve(__dirname, '..');
 const devUrl = security.developmentUrl(app.isPackaged, process.env.ELECTRON_RENDERER_URL);
 const isDevelopment = Boolean(devUrl);
 const diagnostics = createDiagnostics({ version: app.getVersion(), versions: process.versions, packaged: app.isPackaged });
 const nativeBoundary = security.createBoundary({ getWindow: () => mainWindow, devUrl, record: diagnostics.record, isClosing: () => closeController?.isBusy() === true });
+// A consented terminal is an external editing tool, not a permanent save lock.
+// Only its startup consent joins the shared native operation gate.
+const nativeToolsBusy = () => Boolean(terminalController?.isPending() || databaseController?.isActive());
 const operationState = () => ({ save: saveInProgress, cad: cadMutationInProgress, registry: registryMutationInProgress,
-  execution: executionInProgress, task: Boolean(projectTaskController?.isActive()), schedulePrompt: schedulePromptOpen, taskPrompt: projectTaskController?.isPending() === true,
-  closing: closeController?.isBusy() === true, diagnosticExport: diagnosticExportInProgress, unsaved: hasUnsavedChanges });
+  execution: executionInProgress, task: Boolean(projectTaskController?.isActive() || developmentController?.isActive()), schedulePrompt: schedulePromptOpen, taskPrompt: projectTaskController?.isPending() === true || developmentController?.isPending() === true,
+  terminal: terminalController?.isActive() === true, terminalPrompt: terminalController?.isPending() === true,
+  databaseWork: databaseController?.isActive() === true, databasePrompt: databaseController?.isPending() === true,
+  databaseSave: databaseController?.isSaving() === true,
+  closing: closeController?.isBusy() === true, diagnosticExport: diagnosticExportInProgress,
+  unsaved: hasUnsavedChanges || databaseController?.hasUnsavedChanges() === true });
 function diagnosticSnapshot() {
   return diagnostics.snapshot({ preferences: mainWindow?.webContents.getLastWebPreferences(), operations: operationState(),
     recoveryAvailable: process.platform === 'win32' && safeStorage.isEncryptionAvailable() });
@@ -80,10 +90,46 @@ async function initializeIpc() {
     getUserData:() => app.getPath('userData'),
     getWindow:() => mainWindow,
     isHostBusy:() => Boolean(executionInProgress || saveInProgress ||
-      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen || closeController?.isBusy()),
+      registryMutationInProgress || cadMutationInProgress || schedulePromptOpen || developmentController?.isActive() || nativeToolsBusy() || closeController?.isBusy()),
+    onFinished:() => closeController?.workFinished()
+  });
+  developmentController = require('./modules/development-ipc.cjs').installDevelopmentIpc({
+    register, dialog, core, getWorkspace:requireWorkspace, getWindow:() => mainWindow,
+    isHostBusy:() => Boolean(executionInProgress || saveInProgress || registryMutationInProgress ||
+      cadMutationInProgress || schedulePromptOpen || projectTaskController?.isActive() || nativeToolsBusy() || closeController?.isBusy()),
+    onFinished:() => closeController?.workFinished()
+  });
+  const nativeHostBusy = () => Boolean(executionInProgress || saveInProgress || registryMutationInProgress ||
+    cadMutationInProgress || schedulePromptOpen || projectTaskController?.isActive() || developmentController?.isActive() ||
+    diagnosticExportInProgress || closeController?.isBusy());
+  terminalController = require('./modules/terminal-ipc.cjs').installTerminalIpc({
+    register, dialog, getWorkspace:requireWorkspace, getWindow:() => mainWindow,
+    isHostBusy:() => nativeHostBusy() || databaseController?.isActive(),
+    onFinished:() => closeController?.workFinished()
+  });
+  databaseController = require('./modules/database-ipc.cjs').installDatabaseIpc({
+    register, core, dialog, getWorkspace:requireWorkspace, getWindow:() => mainWindow,
+    isHostBusy:() => nativeHostBusy() || terminalController?.isPending(),
     onFinished:() => closeController?.workFinished()
   });
   register('info', () => ({ version: app.getVersion(), mode: isDevelopment ? 'DESENVOLVIMENTO' : 'PRODUÇÃO' }));
+  register('activeWorkspace', async () => {
+    // Reattach a reloaded renderer to the already selected native workspace.
+    // No project is opened, registered, executed or persisted by this read.
+    if (!workspaceRoot) return null;
+    const workspace = workspaceRoot, projectId = activeProjectId;
+    const [document, files] = await Promise.allSettled([
+      core.readFlowDocument(workspace), core.listProjectFiles(workspace)
+    ]);
+    if (workspace !== workspaceRoot || projectId !== activeProjectId)
+      throw new Error('O projeto mudou durante a recuperação da interface.');
+    const errors = [];
+    if (document.status === 'rejected') errors.push('Não foi possível carregar o fluxo salvo.');
+    if (files.status === 'rejected') errors.push('Não foi possível listar os arquivos.');
+    return { workspace, projectId, flow: document.status === 'fulfilled' ? document.value.flow : null,
+      flowRevision: document.status === 'fulfilled' ? document.value.revision : null,
+      files: files.status === 'fulfilled' ? files.value : [], reattached: true, resumeError: errors.join(' ') };
+  });
   register('runtimeDiagnostics', () => diagnosticSnapshot());
   register('exportRuntimeDiagnostics', async () => {
     if (diagnosticExportInProgress) throw Error('Uma exportação de diagnóstico já está aberta.');
@@ -105,6 +151,11 @@ async function initializeIpc() {
     return true;
   });
   register('catalog', () => core.NODE_CATALOG);
+  register('openReference', async id => {
+    const {referenceSource} = await import('../core/modules/workspace/reference-catalog.mjs');
+    await shell.openExternal(referenceSource(id));
+    return true;
+  });
   register('loadCadSketch', () => core.loadCadDocument(requireWorkspace()));
   register('saveCadSketch', async (sketch, revision) => {
     security.assertCanExecute(operationState());
@@ -113,7 +164,7 @@ async function initializeIpc() {
     finally { cadMutationInProgress = false; }
   });
   register('importCadDxf', async () => {
-    if (cadMutationInProgress || executionInProgress || registryMutationInProgress || saveInProgress) {
+    if (cadMutationInProgress || executionInProgress || registryMutationInProgress || saveInProgress || projectTaskController?.isActive() || developmentController?.isActive() || nativeToolsBusy()) {
       throw new Error('Conclua a operação atual antes de importar um DXF.');
     }
     requireWorkspace();
@@ -153,7 +204,12 @@ async function initializeIpc() {
   });
   const catalogDataRoot = app.getPath('userData');
   const ensureIdle = () => {
-    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive()) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
+    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive() || developmentController?.isActive() || nativeToolsBusy()) throw new Error('Conclua a operação atual antes de trocar ou cadastrar projetos.');
+  };
+  const ensureWorkspaceCanChange = () => {
+    if (terminalController?.isActive()) throw new Error('Encerre a sessão no Terminal antes de trocar de projeto.');
+    if (databaseController?.hasUnsavedChanges()) throw new Error('Salve uma cópia ou descarte o rascunho no Banco SQLite antes de trocar de projeto.');
+    if (databaseController?.isActive()) throw new Error('Conclua a operação do Banco SQLite antes de trocar de projeto.');
   };
   async function serialRegistryAction(action) {
     ensureIdle();
@@ -162,16 +218,19 @@ async function initializeIpc() {
     finally { registryMutationInProgress = false; }
   }
   async function activateProject(project) {
+    ensureWorkspaceCanChange();
     const candidate = project.path;
     const [document, files] = await Promise.all([core.readFlowDocument(candidate), core.listProjectFiles(candidate)]);
+    ensureWorkspaceCanChange();
     await core.markProjectOpened(catalogDataRoot, project.id);
+    await databaseController?.reset();
     workspaceRoot = candidate;
     activeProjectId = project.id;
     return { workspace: candidate, projectId: project.id, flow: document.flow, flowRevision: document.revision, files };
   }
   require('./modules/authoring-ipc.cjs').installAuthoringIpc({
     register,core,serial:serialRegistryAction,getWorkspace:requireWorkspace,getWindow:()=>mainWindow,
-    dialog,catalogRoot:catalogDataRoot,activateProject
+    dialog,catalogRoot:catalogDataRoot,activateProject,beforeActivate:ensureWorkspaceCanChange
   });
   // Declarative packages are data, never arbitrary Node or browser code.
   // Every mutation shares the project's registry mutex with flow execution.
@@ -250,7 +309,7 @@ async function initializeIpc() {
     userData:catalogDataRoot,
     acquireSlot:()=>{
       if(executionInProgress||saveInProgress||cadMutationInProgress||
-         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive()||closeController?.isBusy())return null;
+         registryMutationInProgress||schedulePromptOpen||projectTaskController?.isActive()||developmentController?.isActive()||nativeToolsBusy()||closeController?.isBusy())return null;
       executionInProgress=true;
       activeRunController=new AbortController();
       return activeRunController;
@@ -363,14 +422,13 @@ async function initializeIpc() {
   }));
   register('runScheduleNow',async id=>{
     const service=scheduler();
-    if(executionInProgress||service.busy||schedulePromptOpen||
-       registryMutationInProgress||saveInProgress||cadMutationInProgress)
-      throw new Error('Já existe uma execução em andamento.');
-    const job=await core.getSchedule(catalogDataRoot,id);
-    if(!job.enabled)throw new Error('Ative o agendamento antes de executá-lo.');
+    security.assertCanExecute(operationState());
+    if(service.busy)throw new Error('Já existe uma execução em andamento.');
     schedulePromptOpen=true;
     let approved=false;
     try{
+      const job=await core.getSchedule(catalogDataRoot,id);
+      if(!job.enabled)throw new Error('Ative o agendamento antes de executá-lo.');
       const result=await dialog.showMessageBox(mainWindow,{
         type:'warning',title:'Executar agendamento agora',
         message:'Executar '+job.label+' agora?',
@@ -404,6 +462,7 @@ async function initializeIpc() {
     return core.forgetProject(catalogDataRoot, id);
   }));
   register('selectWorkspace', () => serialRegistryAction(async () => {
+    ensureWorkspaceCanChange();
     const selected = await dialog.showOpenDialog(mainWindow, { title: 'Abrir projeto existente', properties: ['openDirectory'] });
     if (selected.canceled || selected.filePaths.length === 0) return null;
     const project = await core.registerProject(catalogDataRoot, selected.filePaths[0]);
@@ -480,14 +539,14 @@ async function initializeIpc() {
     core.discardEditorDraft(app.getPath('userData'), pinnedDraftWorkspace(claimed),
       relative, expectedDraftRevision));
   register('saveFile', async (relative, content, expectedRevision) => {
-    if (saveInProgress || executionInProgress || cadMutationInProgress || registryMutationInProgress || projectTaskController?.isActive())
+    if (saveInProgress || executionInProgress || cadMutationInProgress || registryMutationInProgress || projectTaskController?.isActive() || developmentController?.isActive() || nativeToolsBusy())
       throw new Error('Conclua a tarefa/execução antes de salvar arquivos.');
     saveInProgress = true;
     try { return await core.saveProjectFile(requireWorkspace(), relative, content, expectedRevision); }
     finally { saveInProgress = false; }
   });
   register('saveFlow', async (flow, expectedRevision) => {
-    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive()) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
+    if (saveInProgress || executionInProgress || registryMutationInProgress || cadMutationInProgress || projectTaskController?.isActive() || developmentController?.isActive() || nativeToolsBusy()) throw new Error('Conclua a operação atual antes de salvar o fluxo.');
     const root = requireWorkspace();
     saveInProgress = true;
     try { return await core.saveFlow(root, flow, expectedRevision); }
@@ -581,13 +640,14 @@ async function createWindow() {
     getState: operationState, isAlive: () => !ownedWindow.isDestroyed(),
     prompt: options => dialog.showMessageBox(ownedWindow, options),
     quit: () => app.quit(), cancelFlow: () => activeRunController?.abort(),
-    cancelTask: () => projectTaskController?.cancel(), record: diagnostics.record
+    cancelTask: () => { projectTaskController?.cancel(); developmentController?.cancel(); },
+    cancelTools: () => { terminalController?.cancel(); databaseController?.cancel(); }, record: diagnostics.record
   });
   closeController = ownedClose;
   ownedWindow.on('close', ownedClose.handleClose);
   ownedWindow.on('closed', () => {
     ownedClose.dispose();
-    scheduleService?.stop(); projectTaskController?.cancel();
+    scheduleService?.stop(); projectTaskController?.cancel(); developmentController?.cancel(); terminalController?.cancel(); databaseController?.dispose();
     if (mainWindow === ownedWindow) { mainWindow = null; closeController = null; hasUnsavedChanges = false; }
   });
   mainWindow.once('ready-to-show', () => mainWindow.show());
@@ -597,7 +657,7 @@ async function createWindow() {
   mainWindow.webContents.on('will-navigate', denyNavigation);
   mainWindow.webContents.on('will-redirect', denyNavigation);
   mainWindow.webContents.on('will-frame-navigate', denyNavigation);
-  mainWindow.webContents.on('render-process-gone', () => { diagnostics.record('renderer-gone'); activeRunController?.abort(); projectTaskController?.cancel(); scheduleService?.stop(); scheduleReady = false; });
+  mainWindow.webContents.on('render-process-gone', () => { diagnostics.record('renderer-gone'); activeRunController?.abort(); projectTaskController?.cancel(); developmentController?.cancel(); terminalController?.cancel(); databaseController?.cancel(); scheduleService?.stop(); scheduleReady = false; });
   mainWindow.on('unresponsive', () => diagnostics.record('renderer-unresponsive'));
   mainWindow.on('responsive', () => diagnostics.record('renderer-responsive'));
   if (isDevelopment) await mainWindow.loadURL(devUrl);

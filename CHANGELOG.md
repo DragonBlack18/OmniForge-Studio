@@ -1,3 +1,26 @@
+## [0.11.0] — terminal, SQLite e cotas persistentes (candidata)
+
+- Terminal real com xterm.js 6.0.0, addon-fit 0.11.0 e node-pty 1.1.0 em processo utilitário; shell selecionado pelo host, entrada, resize, Ctrl+C, cópia explícita, backpressure/ACK e encerramento confirmado.
+- Sessão interativa coexistindo com edição e runners; troca de projeto bloqueada enquanto o PTY estiver aberto. Reanexação do projeto e da sessão após reload do renderer, sem reabrir shells ao reiniciar o app.
+- Bancada SQLite nativa do Electron: esquema, consultas com parâmetros, inteiros de 64 bits preservados, BLOBs limitados, scripts transacionais, cancelamento/timeout com snapshot anterior e cópia exclusiva em arquivo novo.
+- Fontes SQLite offline até 32 MiB, sem alteração da origem; bancos WAL/auxiliares, extensões e anexos recusados. Rascunhos vivem em memória e exigem salvar cópia para sobreviver ao fechamento do aplicativo.
+- Cotas de referência e fixas por objeto CAD, integradas ao histórico, transformações, recuperação, persistência e SVG. CAD v1 continua legível; a primeira cota promove o desenho para v2. DXF exige uma decisão explícita de exportar apenas geometria.
+- Catálogo preserva identidade das 150 fontes anteriores e acrescenta o guia oficial Node SQLite, totalizando 151 referências e 11 integrações efetivas. Better-sqlite3 permanece alternativa; SolveSpace permanece referência para solver futuro.
+- Node de desenvolvimento/CI fixado em 24.22.1, licenças dos componentes do terminal incluídas e node-pty desempacotado do ASAR. Orçamento inicial de bundle preservado, com gates de carregamento tardio para terminal e SQLite.
+- Testes reais de PTY, processos SQLite, filesystem, dimensões e consentimento; três novos smokes Electron e verificações dos módulos dentro do executável instalado, mantendo os gates anteriores.
+
+## [0.10.0] — bancada de desenvolvimento e geometria (candidata)
+
+- Execução supervisionada Node/Python com argumentos literais, sintaxe sem executar o arquivo, Node test runner, Python unittest, stdout/stderr, timeout e cancelamento.
+- Aprovação nativa da revisão/executável e integração com mutex, fechamento e perda do renderer; cancelamento de preparação também corrigido no runner npm existente.
+- ELK.js 0.12.1 integrado em worker sob demanda, organização reversível e proteção contra resultados obsoletos; aba Conexões e reconexão por arraste com validação de portas/ciclos.
+- Arcos analíticos, transformações e offsets circulares; dxf-parser 1.1.2 integrado com bulges, expansão de INSERT estático, proveniência e limites geométricos/documentais.
+- Catálogo completo das 150 fontes, com estados honestos, filtros, links nativos delimitados e preparação visual explicitamente indisponível para as próximas ferramentas.
+- Confirmações editoriais acessíveis compartilhadas, foco/teclado, formulários e tokens documentados em DESIGN.md e UX-CONTRACT.md.
+- Licenças ELK/EPL, dxf-parser/MIT e loglevel/MIT incluídas; lockfile e versões exatas preservados.
+- Novos testes de processos reais, grafos, geometria e interface; quatro smokes novos tornam-se gates Windows, além dos anteriores. Sem elevar o orçamento de bundle inicial.
+- Sem migração automática de arquivos existentes. Arcos/proveniência são aditivos no schema CAD v1; versões antigas podem não abrir os novos desenhos. Consulte docs/WORKBENCH_V0100.md.
+
 ## [0.9.0] — criação de projetos + suíte de dados
 
 - Documento sem título independente de pasta; Save As exclusivo a partir do buffer; modelos de arquivo e criação de kits de projetos independentes.

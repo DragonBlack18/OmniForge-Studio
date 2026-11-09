@@ -1,5 +1,69 @@
 # OmniForge Studio
 
+## v0.11.0 — terminal interativo, SQLite e cotas persistentes
+
+Esta etapa acrescenta três ferramentas de trabalho real, mantendo o editor,
+as automações e os arquivos dos projetos existentes:
+
+- **Desenvolvimento → Terminal:** xterm.js e node-pty, com PowerShell/Prompt
+  no Windows, entrada interativa, redimensionamento do PTY, Ctrl+C, seleção,
+  cópia e encerramento. O terminal permanece aberto ao navegar e permite
+  continuar editando e executando as outras ferramentas.
+- **Desenvolvimento → Banco SQLite:** criar/abrir banco local, inspecionar
+  esquema, executar consultas com parâmetros e aplicar DDL/DML em transação.
+  **Salvar cópia** cria um arquivo novo; a origem permanece intacta.
+  Erro, cancelamento e timeout preservam a última alteração aceita da sessão.
+- **CAD Sketch 2D → Cotas persistentes:** comprimento, largura, altura,
+  raio e diâmetro conforme o objeto. Cotas de referência acompanham a forma;
+  cotas fixas controlam medidas e impedem transformações incompatíveis.
+  Salvamento, recuperação, undo/redo e SVG conservam as cotas.
+
+O catálogo mantém as 150 fontes anteriores e acrescenta a documentação do
+SQLite nativo: **151 referências, 144 repositórios e sete guias**, com
+**11 integrações efetivas** identificadas. As fontes pesquisadas continuam
+distintas das dependências instaladas.
+
+[Uso, arquitetura e limites da etapa](docs/WORKBENCH_V0110.md) ·
+[Terminal](docs/TERMINAL_WORKBENCH.md) ·
+[SQLite](docs/DATABASE_WORKBENCH.md) ·
+[Cotas CAD](docs/CAD_DIMENSIONS.md) ·
+[Mapa das 151 referências](docs/REFERENCE_MAP.md).
+
+O shell executa comandos com as permissões da conta. O banco aberto é um
+rascunho em memória, sem recuperação após fechar todo o aplicativo; salve
+uma cópia para preservá-lo. Desenhos com cotas usam schema CAD v2 e não abrem
+em versões antigas. A distribuição Windows depende dos testes do mesmo
+commit, incluindo os módulos nativos no executável instalado.
+
+## v0.10.0 — desenvolvimento executável, fluxos e CAD de precisão
+
+O Studio agora executa e testa arquivos Node/Python, organiza fluxos com ELK em
+worker e trabalha com arcos e blocos DXF estáticos. Cada módulo mantém suas
+ferramentas e seu estado de edição. A central **Ferramentas e referências**
+registra as 150 fontes pesquisadas, com busca, filtros e estado real de adoção.
+
+- **Desenvolvimento → Executar e testar:** arquivos salvos, argumentos literais,
+  verificação de sintaxe, Node test runner, Python unittest, stdout/stderr,
+  cancelamento e aprovação nativa da revisão exata.
+- **Automações:** organização topológica com cancelar/desfazer, reconexão de
+  arestas por arraste e inspetor de portas/conexões.
+- **CAD Sketch 2D:** arcos analíticos, edição numérica, paralelas concêntricas,
+  DXF com bulges e expansão de blocos estáticos com proveniência.
+- **Ambiente → Ferramentas e referências:** 144 repositórios e seis guias;
+  oito componentes/ferramentas efetivamente adotados. Recursos futuros aparecem
+  como indisponíveis e com seus requisitos de integração.
+
+[Uso e limites da etapa](docs/WORKBENCH_V0100.md) ·
+[Mapa de fontes atualizado](docs/REFERENCE_MAP.md) ·
+[Contrato de execução Node/Python](docs/DEVELOPMENT_RUNTIME.md) ·
+[Segurança](docs/SECURITY.md) · [Histórico](CHANGELOG.md).
+
+Requer Node/Python locais para as ações correspondentes. Executar código
+aprovado usa as permissões da conta. O console é supervisionado, com limite de
+120 segundos. O terminal foi integrado na v0.11.0; depurador e CAD
+paramétrico 3D permanecem planejados. A versão é experimental; publicar
+depende dos gates da revisão.
+
 ## v0.9.0 — criação de projetos e automações de dados
 
 Crie arquivos sem precisar abrir um documento existente, salve com nome e caminho,
@@ -19,8 +83,8 @@ do mesmo commit devem passar antes de integrar/publicar.
 ### Base de IDE v0.8.2
 
 Abas com buffers e histórico independentes, problemas e estrutura JS/TS, comparação
-visual, recuperação por documento e salvamentos explícitos. Python continua sem
-servidor LSP, depurador ou executor integrado.
+visual, recuperação por documento e salvamentos explícitos. A v0.10.0 adiciona execução, verificação de sintaxe e testes Python;
+servidor LSP e depurador permanecem planejados.
 
 ### Base nativa v0.8.0
 
@@ -61,17 +125,20 @@ Navegação global única, superfícies neutras com acento vermelho, editor sem 
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
 | Programação | Editor Monaco, arquivos e pastas, busca global, revisão SHA-256 e recuperação local de edições não salvas com confirmação | Não inclui LSP ou depurador; recuperação do CAD tem módulo próprio, sem backup criptografado |
 | Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
+| Executar e testar | Scripts Node/Python reais, sintaxe, testes, saída ao vivo, argumentos literais e cancelamento | Executa somente o arquivo salvo após aprovação da revisão; máximo 120 s |
+| Terminal | PTY real com xterm.js, PowerShell/Prompt no Windows, entrada, resize, Ctrl+C e cópia de seleção | Uma sessão por projeto ativo; comandos usam as permissões da conta; sem restauração após fechar o app |
+| Banco SQLite | Esquema, SQL parametrizado, DDL/DML transacional, rollback, cancelamento e cópia persistida | Snapshot offline até 32 MiB; não sobrescreve origem; sem conexões WAL vivas ou recuperação do rascunho após fechar o app |
 | Central de Tarefas | Executa scripts reais do package.json com logs ao vivo, cancelamento e histórico local de até 60 resultados por projeto | Node.js/npm instalados; scripts confiáveis somente, sem terminal arbitrário |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
 | Agendamentos locais | Intervalos de 1–1440 min, fluxo salvo preso por SHA-256, pausa/retomada, execução real supervisionada, replay de horários perdidos bloqueado, histórico e recuperação após crash | Só executa com a janela do OmniForge aberta; HTTP agendado não permitido |
 | Extensões | Hub local declarativo com importação JSON, verificação SHA-256, 10 operações sem código, grants por workspace, revogação e bloco executável de automação | Não instala nem executa VSIX/npm/JavaScript arbitrário |
-| Engenharia 2D | CAD Sketch 2D em mm, edição numérica, camadas, exportações DXF/SVG e importação DXF ASCII 2D validada | Não é CAD paramétrico 3D |
+| Engenharia 2D | CAD em mm, arcos, camadas, transformações, cotas persistentes/fixas por objeto, DXF e SVG | Cotas ficam no formato nativo/SVG; DXF exige confirmar exportação só da geometria; sem solver entre objetos ou CAD 3D |
 | Desktop | Electron com isolamento de contexto, IPC restrito, limite de execução (120 s), eventos de progresso, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
 
-A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
+Fluxos e runners de desenvolvimento têm timeout padrão de 120 segundos e botão **Cancelar**. O terminal interativo permanece ativo até ser encerrado; operações SQLite têm prazo de 10 segundos e preservam o snapshot anterior em caso de falha. Cancelar um programa ou fluxo não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
 
-Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, terminal interativo genérico/depurador, plugins de código não confiável, 3D paramétrico, CAD DWG, robótica, protocolos industriais, gatilhos webhooks externos e automações de e-mail prontas.
+Não estão implementados: plugins com código de terceiros, IA generativa nativa, agentes, Theia/Open VSX, depurador, LSP externo, solver CAD entre objetos, 3D paramétrico, CAD DWG, CAM/BIM, bancos remotos, robótica, protocolos industriais, gatilhos webhooks externos e automações de e-mail prontas.
 
 ## Recuperação da IDE v0.7.3
 
@@ -89,7 +156,7 @@ O teste E2E da IDE exige resposta visível da interface e verificação independ
 
 O OmniForge separa o domínio de **automação** (fluxos semelhantes em finalidade às ferramentas de n8n), **IDE** (editor Monaco, busca e Git), **CAD 2D**, **extensões**, **agendamentos**, **integrações** e **workspace** em diretórios de implementação independentes. O shell coordena tudo via contratos, sem que um módulo visual dependa de componentes internos de outro.
 
-Monaco e seus Web Workers, o CAD, o canvas de automações e os painéis especializados são **carregados somente quando necessários**. O CAD permanece montado depois da primeira visita para preservar undo e alterações não salvas. O Electron carrega os serviços Git, CAD e IDE conforme uso. A navegação tem agrupamentos técnicos recolhíveis e mostra a ferramenta ativa no cabeçalho.
+Monaco e seus Web Workers, o CAD, o canvas de automações, o terminal e o SQLite são **carregados somente quando necessários**. CAD, terminal e SQLite permanecem montados depois da primeira visita para preservar suas sessões ao navegar. O Electron carrega os serviços nativos conforme uso. A navegação tem agrupamentos técnicos recolhíveis e mostra a ferramenta ativa no cabeçalho.
 
 Os imports antigos do core são fachadas de reexportação para manter testes, fluxos e integrações existentes. Nenhuma migração, limpeza ou alteração das pastas de dados dos workspaces foi introduzida. O build Vite produz um manifesto com orçamento de bytes para impedir crescimento involuntário do carregamento inicial: `npm run build && npm run budget:bundle`.
 
@@ -101,9 +168,9 @@ A barra principal agora agrupa Workspace, Recursos e Acompanhamento. A bibliotec
 
 Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos, **Ctrl+Shift+F** busca texto no workspace e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. No CAD, **Ctrl+S também salva o desenho**. O atalho nunca abre a janela de salvar a página do navegador.
 
-## Importação DXF 2D (v0.2.2)
+## Importação DXF 2D (atualizada na v0.10.0)
 
-No CAD Sketch, clique em **Importar DXF**. O arquivo é lido pela janela nativa, sem gravação imediata. A importação suporta LINE, CIRCLE e LWPOLYLINE sem curvas, converte polegadas/pés/centímetros/metros em mm e exige confirmação quando o DXF não declara unidades. Objetos incompatíveis, incluindo arcos, blocos, sólidos 3D e DWG, bloqueiam a importação por completo em vez de desaparecer silenciosamente. Após conferir o resultado, clique em **Salvar desenho**.
+No CAD Sketch, clique em **Importar DXF**. O arquivo é lido pela janela nativa, sem gravação imediata. A importação suporta LINE, CIRCLE, ARC, LWPOLYLINE com bulges e INSERT estático expandido em primitivas independentes. Converte polegadas/pés/centímetros/metros em mm e exige confirmação quando o DXF não declara unidades. Objetos ou transformações incompatíveis bloqueiam a importação integralmente; não há suporte geral a DWG, sólidos 3D, atributos ou blocos dinâmicos. Após conferir o resultado, clique em **Salvar desenho**.
 
 O importador mantém o histórico anterior do CAD e permite desfazer antes de salvar. Limites de segurança: DXF ASCII/UTF-8 até 2 MB, no máximo 2.000 entidades e 32 camadas. Esta versão não é um leitor universal de DXF/AutoCAD.
 
@@ -157,10 +224,13 @@ Não executa `git init`, `push`, `pull`, `reset`, `clean`, `checkout`, `merge` o
 
 ## Instalação de desenvolvimento
 
-Use **Node.js 22.12+** e uma pasta de projeto de testes.
+Use **Node.js 24.22.1 ou superior** e uma pasta de projeto de testes.
+O CI fixa 24.22.1, alinhado ao Node incluído no Electron 45.1.0 e à API
+SQLite utilizada. Em Linux, o node-pty requer Python e ferramentas de
+compilação C/C++ (`make` e `g++`); o pacote fixado fornece prebuild Windows.
 
 ```powershell
-npm install
+npm ci
 npm test
 npm run dev
 ```
@@ -186,7 +256,7 @@ A integração contínua precisa aprovar testes Node Linux/Windows, build Vite, 
 ## Estrutura do código
 
 ```text
-core/modules/            automação, CAD, IDE, extensões, agenda, integrações e workspace
+core/modules/            automação, CAD, IDE, database, extensões, agenda, integrações e workspace
 core/host.mjs            serviços nativos carregados conforme o uso
 core/*.mjs               fachadas de compatibilidade e supervisor
 electron/                janela, ciclo de vida, IPC autorizado, preload

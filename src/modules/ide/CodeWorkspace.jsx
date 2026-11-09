@@ -1,3 +1,4 @@
+import {confirmAction} from '../../shared/confirm-action.mjs';
 import React,{useCallback,useEffect,useLayoutEffect,useRef,useState,useMemo} from 'react';
 import * as monaco from 'monaco-editor';
 import CodeEditor from './CodeEditor.jsx';
@@ -221,7 +222,7 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
         {document.draft.baseRevision===document.revision&&<button type="button" className="button button--solid" disabled={busy} onClick={()=>onRequest(async()=>{await controller.restore(document.path);onNotice('Rascunho restaurado somente no editor. Use Salvar arquivo para gravar no projeto.');})}>Restaurar no editor</button>}
         <button type="button" className="button button--outline" onClick={()=>setReview('draft')}>Comparar rascunho</button>
         <button type="button" className="button button--outline" onClick={()=>navigator.clipboard.writeText(document.draft.content).then(()=>onNotice('Texto do rascunho copiado.')).catch(()=>onNotice('Não foi possível copiar o rascunho.'))}>Copiar rascunho</button>
-        <button type="button" className="button button--subtle" disabled={busy} onClick={()=>onRequest(async()=>{if(!window.confirm('Descartar definitivamente a cópia de recuperação? O arquivo original permanecerá intacto.'))return;await controller.discardDraft(document.path);onNotice('Cópia de recuperação descartada; arquivo original preservado.');})}>Descartar rascunho</button>
+        <button type="button" className="button button--subtle" disabled={busy} onClick={()=>onRequest(async()=>{if(!await confirmAction({title:'Descartar recuperação do arquivo',message:'Descartar definitivamente a cópia de recuperação? O arquivo original permanecerá intacto.',confirmLabel:'Descartar cópia'}))return;await controller.discardDraft(document.path);onNotice('Cópia de recuperação descartada; arquivo original preservado.');})}>Descartar rascunho</button>
       </div>
     </section>}
     {document?.error&&<p className="editor-recovery__error" role="alert">{document.error}</p>}

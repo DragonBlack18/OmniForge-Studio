@@ -1,4 +1,5 @@
 import { waitForPageState } from './lib/wait-for-state.mjs';
+import { answerConfirmation } from './lib/confirm-dialog.mjs';
 /** Combined PR36+PR37 acceptance: native Windows process, real history/recovery/data tools. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -63,9 +64,9 @@ try{
   await page.getByTestId('flow-redo').click();await count(4);await checkpoint();await save();
   assert.equal(JSON.parse(await fs.readFile(source,'utf8')).nodes.length,4);
   phase='new data template survives restart and executes only on explicit consent';
-  await page.evaluate(()=>{window.confirm=()=>true;});
   await page.getByTestId('primary-sidebar').getByRole('button',{name:'Modelos de fluxo',exact:true}).click();
-  await page.locator('article').filter({hasText:'Preparar registros'}).getByRole('button',{name:'Usar modelo'}).click();await count(5);await checkpoint();
+  await page.locator('article').filter({hasText:'Preparar registros'}).getByRole('button',{name:'Usar modelo'}).click();
+  await answerConfirmation(page,true,{title:'Carregar modelo de fluxo'});await count(5);await checkpoint();
   assert.equal((await draft()).flow.name,'Preparar registros');assert.deepEqual(await page.evaluate(()=>window.omni.listRunHistory()),[]);
   await stop();await start();await count(4);await page.getByTestId('flow-restore-draft').click();await count(5);
   await page.getByText('Fluxo restaurado no editor.',{exact:false}).waitFor();await save();

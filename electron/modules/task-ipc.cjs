@@ -9,6 +9,7 @@ function installProjectTaskIpc({ register, dialog, core, getWorkspace,
   getUserData, getWindow, isHostBusy, onFinished }) {
   let runner = null;
   let pending = false, settling = 0;
+  let pendingCancelled = false;
   const isActive = () => pending || settling > 0 || Boolean(runner?.isRunning);
   const snapshot = () => runner?.snapshot() || null;
   function sendEvent(event) {
@@ -47,9 +48,11 @@ function installProjectTaskIpc({ register, dialog, core, getWorkspace,
   register('runProjectTask', async (id, revision) => {
     if (isActive() || isHostBusy()) throw new Error('Conclua a operação atual antes de executar uma tarefa.');
     pending = true;
+    pendingCancelled = false;
     try {
       const workspace = getWorkspace();
       const script = await core.assertTaskSelection(workspace, id, revision);
+      if (pendingCancelled) return null;
       const answer = await dialog.showMessageBox(getWindow(), {
         type:'warning',
         title:'Executar tarefa do projeto',
@@ -62,20 +65,25 @@ function installProjectTaskIpc({ register, dialog, core, getWorkspace,
           'Execute somente scripts de projetos confiáveis.',
         buttons:['Cancelar','Executar tarefa'], defaultId:0, cancelId:0, noLink:true
       });
-      if (answer.response !== 1) return null;
+      if (pendingCancelled || answer.response !== 1) return null;
       if (workspace !== getWorkspace() || isHostBusy())
         throw new Error('O workspace mudou ou outra operação foi iniciada. Execução bloqueada.');
       // The manifest revision is rechecked after consent by the core runner.
       if (!runner) {
         const module = await import('../../core/modules/ide/project-tasks.mjs');
+        if (pendingCancelled) return null;
         runner = new module.LocalProjectTaskRunner();
       }
-      return runner.start({workspace,id,revision,onEvent:notify});
+      return await runner.start({workspace,id,revision,onEvent:notify});
     } finally { pending = false; onFinished?.(); }
   });
   return {
     isActive, snapshot, isPending: () => pending,
-    cancel:() => Boolean(runner?.cancel('cancelled'))
+    cancel:() => {
+      if (pending) pendingCancelled = true;
+      const stopped = Boolean(runner?.cancel('cancelled'));
+      return pending || stopped;
+    }
   };
 }
 

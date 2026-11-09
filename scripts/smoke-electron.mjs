@@ -1,4 +1,5 @@
 import { waitForPageState, waitForState } from './lib/wait-for-state.mjs';
+import { answerConfirmation } from './lib/confirm-dialog.mjs';
 /** Windows gate: boots the production renderer in a real Electron process. */
 import { _electron as electron } from 'playwright-core';
 import assert from 'node:assert/strict';
@@ -197,9 +198,9 @@ try {
     const card=page.locator('article').filter({has:page.getByText(template.label,{exact:true})});
     assert.equal(await card.count(),1,`Modelo registrado deve aparecer uma vez: ${template.id}`);
   }
-  await page.evaluate(() => { window.confirm = () => true; });
   await page.locator('article').filter({has:page.getByText('Normalizar texto',{exact:true})})
     .getByRole('button',{name:'Usar modelo',exact:true}).click();
+  await answerConfirmation(page,true,{title:'Carregar modelo de fluxo'});
   await page.getByText('Modelo carregado: Normalizar texto.',{exact:false}).waitFor();
   await page.getByRole('button',{name:'Validar',exact:true}).click();
   await page.getByText('Estrutura válida',{exact:false}).waitFor();

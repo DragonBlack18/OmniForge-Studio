@@ -40,11 +40,14 @@ const chunks = Object.entries(manifest)
 const deferredEditor = chunks.some(x => /src\/modules\/ide\/(?:CodeEditor|CodeWorkspace)\.jsx/.test(x.key) && !js.has(x.file));
 const deferredCad = chunks.some(x => /src\/modules\/cad\/CadWorkbench\.jsx/.test(x.key) && !js.has(x.file));
 const deferredCanvas = chunks.some(x => /src\/modules\/automation\/FlowCanvas\.jsx/.test(x.key) && !js.has(x.file));
+const deferredTerminal = chunks.some(x => /src\/modules\/ide\/TerminalWorkbench\.jsx/.test(x.key) && !js.has(x.file));
+const deferredDatabase = chunks.some(x => /src\/modules\/database\/DatabaseWorkbench\.jsx/.test(x.key) && !js.has(x.file));
 const report = {
-  version: 2, staticEntrypoint: entry[0],
+  version: 3, staticEntrypoint: entry[0],
   initialJsBytes: initialJs, initialCssBytes: initialCss,
   initialJsChunks: [...js].sort(),
-  lazy: { monaco: deferredEditor, cad:deferredCad, flow:deferredCanvas },
+  lazy: { monaco: deferredEditor, cad:deferredCad, flow:deferredCanvas,
+    terminal:deferredTerminal, database:deferredDatabase },
   budget: { initialJsBytes:MAX_INITIAL_JS, initialCssBytes:MAX_INITIAL_CSS },
   baselineV060: { initialJsBytes:4251260, initialCssBytes:232630 },
   baselineV075: { initialJsBytes:474362, initialCssBytes:45023 },
@@ -56,7 +59,7 @@ const report = {
 };
 console.log('OmniForge production bundle:\n' + JSON.stringify(report,null,2));
 if (initialJs > MAX_INITIAL_JS || initialCss > MAX_INITIAL_CSS ||
-    !deferredEditor || !deferredCad || !deferredCanvas) {
+    !deferredEditor || !deferredCad || !deferredCanvas || !deferredTerminal || !deferredDatabase) {
   throw new Error('FAIL: startup bundle excessivo ou módulo pesado carregado sem demanda.');
 }
-console.log('PASS: v0.7.6 orçamento inicial reduzido; motor React Flow, CAD e Monaco permanecem sob demanda.');
+console.log('PASS: orçamento inicial preservado; React Flow, CAD, Monaco, terminal e SQLite carregam sob demanda.');

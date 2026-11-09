@@ -2,7 +2,7 @@ import React from 'react';
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, applyNodeChanges, applyEdgeChanges, addEdge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { NODE_CATALOG } from '../../../core/modules/automation/catalog.mjs';
-import {checkFlowConnection} from '../../../core/modules/automation/connections.mjs';
+import {checkFlowConnection,checkFlowReconnection} from '../../../core/modules/automation/connections.mjs';
 import { NavGlyph } from '../../shared/NavGlyph.jsx';
 
 const LABELS = { 'trigger.manual': 'GATILHO', 'logic.pick': 'LÓGICA', 'io.writeJson': 'ARQUIVOS', 'http.localJson': 'API LOCAL', 'project.callLocalApi': 'PROJETO' };
@@ -35,23 +35,27 @@ const BlockNode = React.memo(function BlockNode({ data, selected }) {
 });
 
 const NODE_TYPES = { block: BlockNode };
-const FIT_VIEW_OPTIONS = Object.freeze({ padding: 0.24 });
+const MIN_ZOOM = 0.1;
+const FIT_VIEW_OPTIONS = Object.freeze({ padding: 0.24, minZoom: MIN_ZOOM });
 const PRO_OPTIONS = Object.freeze({ hideAttribution: false });
 
 const EMPTY=[];
 export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange, onConnect, onNodeClick, onPaneClick,
-  graph,locked=false,diagnostics=EMPTY,runSteps=EMPTY,focusRequest,onDeleteElements }) {
+  graph,locked=false,diagnostics=EMPTY,runSteps=EMPTY,focusRequest,onDeleteElements,onReconnect }) {
   const [instance,setInstance]=React.useState(null);
+  const reconnectingEdge=React.useRef(null);
   React.useEffect(()=>{
     if(!instance||!focusRequest)return;
-    instance.fitView({nodes:focusRequest.id?[{id:focusRequest.id}]:undefined,padding:.25,maxZoom:1.1,duration:180});
+    instance.fitView({nodes:focusRequest.id?[{id:focusRequest.id}]:undefined,padding:.25,minZoom:MIN_ZOOM,maxZoom:1.1,duration:180});
   },[instance,focusRequest]);
   const displayNodes=React.useMemo(()=>{
     const issues=new Map(diagnostics.filter(d=>d.nodeId).map(d=>[d.nodeId,d.message]));
     const execution=new Map(runSteps.map(s=>[s.nodeId || s.id,s.status]));
     return nodes.map(n=>({...n,data:{...n.data,issue:issues.get(n.id),execution:execution.get(n.id)}}));
   },[nodes,diagnostics,runSteps]);
-  const valid=React.useCallback(connection=>checkFlowConnection(graph,connection).valid,[graph]);
+  const valid=React.useCallback(connection=>(reconnectingEdge.current
+    ?checkFlowReconnection(graph,reconnectingEdge.current,connection)
+    :checkFlowConnection(graph,connection)).valid,[graph]);
   // The apply/add helpers and React Flow remain inside this dynamic module.
   // The parent owns the document; leaving canvas never drops unsaved edits.
   const handleNodes = React.useCallback(changes =>
@@ -60,6 +64,9 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
     {const allowed=locked?changes.filter(c=>c.type==='select'):changes;if(allowed.length)onEdgesChange(allowed,applyEdgeChanges);}, [onEdgesChange,locked]);
   const handleConnect = React.useCallback(connection =>
     {if(!locked)onConnect(connection, addEdge);}, [onConnect,locked]);
+  const handleReconnect=React.useCallback((edge,connection)=>{
+    if(!locked&&checkFlowReconnection(graph,edge.id,connection).valid)onReconnect?.(edge,connection);
+  },[locked,graph,onReconnect]);
   const beforeDelete=React.useCallback(async selection=>{
     if(!locked)onDeleteElements(selection);
     return false; // Session already committed nodes and wires as one operation.
@@ -69,7 +76,10 @@ export default function FlowCanvas({ nodes, edges, onNodesChange, onEdgesChange,
       onBeforeDelete={beforeDelete} isValidConnection={valid} nodesDraggable={!locked} deleteKeyCode={locked?null:['Backspace','Delete']}
       onNodesChange={handleNodes} onEdgesChange={handleEdges}
       onConnect={handleConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick}
-      fitView fitViewOptions={FIT_VIEW_OPTIONS}
+      onReconnectStart={(_event,edge)=>{reconnectingEdge.current=edge.id;}}
+      onReconnect={handleReconnect} onReconnectEnd={()=>{reconnectingEdge.current=null;}}
+      edgesReconnectable={!locked&&typeof onReconnect==='function'} reconnectRadius={14}
+      fitView minZoom={MIN_ZOOM} fitViewOptions={FIT_VIEW_OPTIONS}
       proOptions={PRO_OPTIONS}
       colorMode="dark" nodesConnectable={!locked} elementsSelectable>
       <Background color="#2b292e" gap={24} size={1}/>

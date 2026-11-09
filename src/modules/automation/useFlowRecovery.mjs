@@ -1,3 +1,4 @@
+import {confirmAction} from '../../shared/confirm-action.mjs';
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { createFlowRecoveryController } from './flow-recovery-controller.mjs';
 import { saveFlowSession, restoreFlowSession } from './flow-session-recovery.mjs';
@@ -23,7 +24,7 @@ export function useFlowRecovery({workspace,graph,revision,dirty,execute,notify,s
       notify('Fluxo restaurado no editor. Salvar e executar continuam sendo ações separadas.');
   });
   const discard=()=>execute(async()=>{
-    if(!window.confirm('Descartar somente a cópia de recuperação do fluxo? O arquivo original não será alterado.'))return;
+    if(!await confirmAction({title:'Descartar recuperação do fluxo',message:'Descartar somente a cópia de recuperação do fluxo? O arquivo original não será alterado.',confirmLabel:'Descartar cópia'}))return;
     await controller.discard();
     notify('Cópia de recuperação do fluxo descartada; original preservado.');
   });

@@ -4,6 +4,7 @@
  */
 import { validateCadSketch } from './cad2d.mjs';
 import { cadEntityLabel } from './cad-edit.mjs';
+import {normalizeCadAngle} from './cad-arcs.mjs';
 
 const round = n => Number(n.toFixed(4));
 const clone = data => structuredClone(data);
@@ -26,13 +27,13 @@ function writable(sketch, id) {
   return entity;
 }
 function centre(entity) {
-  return entity.type==='circle'? entity.center : {
+  return ['circle','arc'].includes(entity.type)? entity.center : {
     x:(entity.a.x+entity.b.x)/2, y:(entity.a.y+entity.b.y)/2
   };
 }
 function coords(entity, transform, isQuarterTurn=false) {
   const output=clone(entity);
-  if(entity.type==='circle') {
+  if(entity.type==='circle'||entity.type==='arc') {
     output.center=transform(entity.center);
   } else if(entity.type==='rectangle' && isQuarterTurn) {
     // The v1 rectangle stores only opposite axis-aligned corners.
@@ -72,7 +73,12 @@ export function rotateCadEntity(sketch,id,{angle=0,pivot='center'}={}) {
   const co=Math.cos(radians),si=Math.sin(radians);
   const move=p=>({x:round(c.x+(p.x-c.x)*co-(p.y-c.y)*si),
     y:round(c.y+(p.x-c.x)*si+(p.y-c.y)*co)});
-  return replace(sketch,id,coords(entity,move,entity.type==='rectangle'));
+  const rotated=coords(entity,move,entity.type==='rectangle');
+  if(entity.type==='arc'){
+    rotated.startAngle=normalizeCadAngle(entity.startAngle+angle);
+    rotated.endAngle=normalizeCadAngle(entity.endAngle+angle);
+  }
+  return replace(sketch,id,rotated);
 }
 /** Reflect over the horizontal (X) or vertical (Y) axis through pivot. */
 export function mirrorCadEntity(sketch,id,{axis='x',pivot='center'}={}) {
@@ -82,7 +88,13 @@ export function mirrorCadEntity(sketch,id,{axis='x',pivot='center'}={}) {
   const c=pivot==='center'?centre(entity):{x:0,y:0};
   const move=p=>({x:round(axis==='y'?2*c.x-p.x:p.x),
     y:round(axis==='x'?2*c.y-p.y:p.y)});
-  return replace(sketch,id,coords(entity,move,entity.type==='rectangle'));
+  const mirrored=coords(entity,move,entity.type==='rectangle');
+  if(entity.type==='arc'){
+    // Reflection reverses orientation, so reverse endpoints to retain CCW arcs.
+    mirrored.startAngle=normalizeCadAngle(axis==='x'?-entity.endAngle:180-entity.endAngle);
+    mirrored.endAngle=normalizeCadAngle(axis==='x'?-entity.startAngle:180-entity.startAngle);
+  }
+  return replace(sketch,id,mirrored);
 }
 /** Create a truly parallel segment at a signed side of the original line. */
 export function offsetCadLine(sketch,id,newId,{distance,side='left'}={}) {
@@ -98,6 +110,21 @@ export function offsetCadLine(sketch,id,newId,{distance,side='left'}={}) {
   const step={x:-dy/len*distance*sign,y:dx/len*distance*sign};
   const move=p=>({x:round(p.x+step.x),y:round(p.y+step.y)});
   const added=newEntity(sketch,entity,coords(entity,move),newId);
+  const next={...clone(sketch),entities:[...clone(sketch.entities),added]};
+  validateCadSketch(next);return next;
+}
+/** Parallel line or concentric circle/arc; never mutates the source geometry. */
+export function offsetCadEntity(sketch,id,newId,{distance,side='left'}={}) {
+  const entity=writable(sketch,id);
+  if(entity.type==='line')return offsetCadLine(sketch,id,newId,{distance,side});
+  if(!['circle','arc'].includes(entity.type))throw new Error('Offset disponível para linhas, círculos e arcos.');
+  if(!['outward','inward'].includes(side))throw new Error('Direção do offset circular inválida.');
+  finite(distance,'Distância do offset');
+  if(distance<0.0001)throw new Error('Distância do offset precisa ser positiva.');
+  if(sketch.entities.length>=MAX_ENTITIES)throw new Error('Limite de 2.000 objetos CAD atingido.');
+  const radius=round(entity.radius+(side==='outward'?distance:-distance));
+  if(radius<0.0001)throw new Error('Offset interno excede o raio do objeto.');
+  const added=newEntity(sketch,entity,{...clone(entity),radius},newId);
   const next={...clone(sketch),entities:[...clone(sketch.entities),added]};
   validateCadSketch(next);return next;
 }

@@ -1,7 +1,8 @@
 'use strict';
 // One native trust boundary for every named IPC method; no raw URLs are logged.
 const MAX_BYTES = 2_200_000, MAX_ITEMS = 80_000, MAX_DEPTH = 64;
-const CONTROL = new Set(['cancelFlow','cancelProjectTask','cancelScheduleRun','requestExit','setUnsavedChanges','runtimeDiagnostics']);
+const CONTROL = new Set(['cancelFlow','cancelProjectTask','cancelDevelopmentTask','cancelScheduleRun',
+  'closeTerminal','acknowledgeTerminal','cancelDatabaseQuery','requestExit','setUnsavedChanges','runtimeDiagnostics']);
 
 function developmentUrl(packaged, value) {
   if (packaged || !value) return null;
@@ -79,9 +80,10 @@ function installSessionPolicy(ses, record = () => {}) {
   ses.setDevicePermissionHandler(() => false);
   ses.on('will-download', event => { event.preventDefault(); record('download-denied'); });
 }
-function commitInProgress(state) { return Boolean(state.save || state.cad || state.registry || state.taskPrompt || state.schedulePrompt || state.diagnosticExport); }
+function commitInProgress(state) { return Boolean(state.save || state.cad || state.registry || state.taskPrompt ||
+  state.schedulePrompt || state.diagnosticExport || state.terminalPrompt || state.databasePrompt || state.databaseSave); }
 function assertCanExecute(state) {
-  if (commitInProgress(state) || state.execution || state.task || state.schedulePrompt)
+  if (commitInProgress(state) || state.execution || state.task || state.schedulePrompt || state.databaseWork)
     throw Error('Conclua a operação atual antes de executar um fluxo.');
 }
 module.exports = { developmentUrl, trustedDocument, assertSender, assertPayload,

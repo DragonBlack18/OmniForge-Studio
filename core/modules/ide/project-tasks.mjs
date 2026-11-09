@@ -149,6 +149,7 @@ export class LocalProjectTaskRunner {
     this.current = null;
     this.child = null;
     this.launching = false;
+    this.launchCancelled = false;
     this.timer = null;
     this.outputBytes = 0;
     this.interruptedBy = null;
@@ -159,11 +160,13 @@ export class LocalProjectTaskRunner {
     if (this.isRunning) throw new Error('Outra tarefa já está executando.');
     if (typeof onEvent !== 'function') throw new Error('Callback de tarefas inválido.');
     this.launching = true;
+    this.launchCancelled = false;
     try {
       const selection = await assertTaskSelection(workspace, id, revision);
       const tool = await this.resolveToolchain();
       // TOCTOU guard after toolchain discovery, before invoking external code.
       await assertTaskSelection(selection.workspace, id, revision);
+      if (this.launchCancelled) throw new Error('Tarefa cancelada antes de iniciar o processo.');
       const state = {
         id:randomUUID(), name:id, command:selection.command,
         workspace:selection.workspace, status:'running',
@@ -229,6 +232,7 @@ export class LocalProjectTaskRunner {
     } finally { this.launching = false; }
   }
   cancel(reason = 'cancelled') {
+    if (this.launching && !this.child) { this.launchCancelled = true; return true; }
     if (this.current?.status !== 'running' || !this.child) return false;
     if (!this.interruptedBy) this.interruptedBy = reason;
     terminateTree(this.child,this.platform,reason);

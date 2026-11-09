@@ -1,6 +1,7 @@
 /** Immutable CAD editing commands. All mutations pass the same persistence validator. */
 import { validateCadSketch, addCadEntity, replaceCadEntity } from './cad2d.mjs';
-export const CAD_TYPE_LABELS=Object.freeze({line:'Linha',rectangle:'Retângulo',circle:'Círculo'});
+import {cadArcExtrema,cadArcSweep} from './cad-arcs.mjs';
+export const CAD_TYPE_LABELS=Object.freeze({line:'Linha',rectangle:'Retângulo',circle:'Círculo',arc:'Arco'});
 const clone=value=>structuredClone(value);
 const round=value=>Number(value.toFixed(4));
 function numeric(value,label){
@@ -55,9 +56,9 @@ export function transformCadEntity(sketch,id,{dx=0,dy=0,scale=1}={}){
   numeric(dx,'Deslocamento X');numeric(dy,'Deslocamento Y');numeric(scale,'Escala');
   if(scale<.001||scale>1000)throw new Error('Escala deve estar entre 0,001 e 1.000.');
   const next=clone(entity);
-  const centre=entity.type==='circle'?entity.center:{x:(entity.a.x+entity.b.x)/2,y:(entity.a.y+entity.b.y)/2};
+  const centre=['circle','arc'].includes(entity.type)?entity.center:{x:(entity.a.x+entity.b.x)/2,y:(entity.a.y+entity.b.y)/2};
   const move=p=>({x:round(centre.x+(p.x-centre.x)*scale+dx),y:round(centre.y+(p.y-centre.y)*scale+dy)});
-  if(entity.type==='circle'){next.center=move(entity.center);next.radius=round(entity.radius*scale);}
+  if(['circle','arc'].includes(entity.type)){next.center=move(entity.center);next.radius=round(entity.radius*scale);}
   else{next.a=move(entity.a);next.b=move(entity.b);}
   return replaceCadEntity(sketch,next);
 }
@@ -70,6 +71,10 @@ export function duplicateCadEntity(sketch,id,newId,{dx=10,dy=10}={}){
   return addCadEntity(sketch,duplicate);
 }
 export function cadGeometrySummary(entity){
+  if(entity.type==='arc'){
+    const points=cadArcExtrema(entity),xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+    return {width:round(Math.max(...xs)-Math.min(...xs)),height:round(Math.max(...ys)-Math.min(...ys)),angle:cadArcSweep(entity),x:entity.center.x,y:entity.center.y};
+  }
   if(entity.type==='circle')return {width:round(entity.radius*2),height:round(entity.radius*2),angle:null,
     x:entity.center.x,y:entity.center.y};
   const dx=entity.b.x-entity.a.x,dy=entity.b.y-entity.a.y;

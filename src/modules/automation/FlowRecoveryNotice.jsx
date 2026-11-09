@@ -19,7 +19,7 @@ export default function FlowRecoveryNotice({ recovery, revision, busy, onRestore
     </div>
     {draft && error && <p role="alert">{error}</p>}
     {draft && inspect && <label className="flow-recovery__json">Configurações podem conter dados sensíveis. Exibição somente local.
-      <textarea aria-label="JSON do fluxo recuperável" readOnly value={JSON.stringify(draft.flow, null, 2)} />
+      <textarea className="resize-none" aria-label="JSON do fluxo recuperável" readOnly value={JSON.stringify(draft.flow, null, 2)} />
     </label>}
   </section>;
 }

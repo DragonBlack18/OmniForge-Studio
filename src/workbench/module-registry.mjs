@@ -2,13 +2,17 @@
 export const NAV_GROUPS = [
   { id:'environment', title: 'AMBIENTE', icon:'home', description:'Projetos e sessão', items: [
     { mode:'home', label:'Visão geral', aria:'Visão geral', icon:'home' },
-    { mode:'projects', label:'Projetos', aria:'Catálogo de projetos', icon:'folder' }
+    { mode:'projects', label:'Projetos', aria:'Catálogo de projetos', icon:'folder' },
+    { mode:'capabilities', label:'Ferramentas e referências', aria:'Ferramentas e referências', icon:'layers' }
   ]},
   { id:'development', title: 'DESENVOLVIMENTO', icon:'code', description:'Código, Git e tarefas', items: [
     { mode:'code', label:'Editor de código', aria:'Editor de código', icon:'code' },
     { mode:'search', label:'Buscar em arquivos', aria:'Buscar no projeto', icon:'search' },
     { mode:'git', label:'Controle Git', aria:'Controle de versão Git', icon:'git' },
-    { mode:'tasks', label:'Central de Tarefas', aria:'Central de Tarefas', icon:'terminal' }
+    { mode:'tasks', label:'Central de Tarefas', aria:'Central de Tarefas', icon:'terminal' },
+    { mode:'development', label:'Executar e testar', aria:'Executar e testar', icon:'check' },
+    { mode:'terminal', label:'Terminal', aria:'Terminal interativo', icon:'terminal' },
+    { mode:'database', label:'Banco SQLite', aria:'Banco SQLite', icon:'database' }
   ]},
   { id:'automation', title: 'AUTOMAÇÃO', icon:'workflow', description:'Fluxos e extensões', items: [
     { mode:'canvas', label:'Automações', aria:'Arquitetura visual', icon:'workflow' },

@@ -7,6 +7,8 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import {runPackagedProjectChecks} from './lib/packaged-project-checks.mjs';
+import {runPackagedNativeToolsChecks} from './lib/packaged-native-tools-checks.mjs';
+import {runPackagedDatabaseChecks} from './lib/packaged-database-checks.mjs';
 
 const exe = process.argv[2];
 if (process.platform !== 'win32' || process.env.GITHUB_ACTIONS !== 'true' ||
@@ -71,8 +73,14 @@ const payload = `
     console.log('PACKAGED_EXTENSION_PASS: authorized declarative action and real JSON output.');
     const suite = await (${runPackagedProjectChecks.toString()})(path.dirname(process.argv[1]),root);
     console.log('PACKAGED_PROJECT_DATA_PASS: '+JSON.stringify(suite));
+    const nativeTools = await (${runPackagedNativeToolsChecks.toString()})(path.dirname(process.argv[1]),root);
+    console.log('PACKAGED_NATIVE_TOOLS_PASS: '+JSON.stringify(nativeTools));
+    const database = await (${runPackagedDatabaseChecks.toString()})(path.dirname(process.argv[1]),root);
+    console.log('PACKAGED_DATABASE_PASS: '+JSON.stringify(database));
   } finally {
-    await fs.rm(root,{recursive:true,force:true});
+    // Windows may release ConPTY/antivirus directory handles just after the
+    // confirmed worker exit. Retry only the temporary fixture cleanup, bounded.
+    await fs.rm(root,{recursive:true,force:true,maxRetries:8,retryDelay:100});
   }
 })().catch(error => { console.error(String(error?.stack || error)); process.exitCode=1; });
 `;
@@ -83,7 +91,7 @@ const child = spawn(exe, ['-e', payload, moduleFile], {
 let stdout='', stderr='', timedOut=false;
 const timer=setTimeout(()=>{
   timedOut=true; child.kill();
-},30_000);
+},60_000);
 child.stdout.on('data',chunk=>stdout+=String(chunk).slice(0,30_000));
 child.stderr.on('data',chunk=>stderr+=String(chunk).slice(0,30_000));
 const result=await new Promise((resolve,reject)=>{
@@ -96,7 +104,9 @@ console.log(stdout.trim());
 if (timedOut || result.code !== 0 ||
     !stdout.includes('PACKAGED_SUPERVISOR_PASS') ||
     !stdout.includes('PACKAGED_EXTENSION_PASS') ||
-    !stdout.includes('PACKAGED_PROJECT_DATA_PASS')) {
+    !stdout.includes('PACKAGED_PROJECT_DATA_PASS') ||
+    !stdout.includes('PACKAGED_NATIVE_TOOLS_PASS') ||
+    !stdout.includes('PACKAGED_DATABASE_PASS')) {
   throw new Error('Falha no supervisor do app instalado: '+
     JSON.stringify({timedOut,...result,stderr:stderr.slice(-1500),stdout:stdout.slice(-1500)}));
 }

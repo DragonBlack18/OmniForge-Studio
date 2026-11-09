@@ -54,7 +54,7 @@ export default function ScheduleCenter({
       <section className="schedule-create" aria-label="Novo agendamento">
         <div className="schedule-section-heading"><small>CONFIGURAR</small><h2>Novo agendamento</h2></div>
         <p>O agendamento fica inicialmente pausado. Para ativar, será necessária uma confirmação nativa.</p>
-        <form onSubmit={event=>{
+        <form noValidate onSubmit={event=>{
           event.preventDefault();
           onCreate({label:label.trim(),intervalMinutes:Number(minutes)});
         }} className="schedule-form">

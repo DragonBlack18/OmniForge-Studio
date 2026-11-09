@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {_electron as electron} from 'playwright-core';
+import {answerConfirmation} from './lib/confirm-dialog.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const temp=await fs.mkdtemp(path.join(os.tmpdir(),'of-flow-authoring-'));
 const workspace=path.join(temp,'workspace'),profile=path.join(temp,'profile'),artifacts=path.join(root,'smoke-artifacts');
@@ -30,6 +31,25 @@ async function connections(expected){
 }
 async function nav(name){await page.getByTestId('primary-sidebar').getByRole('button',{name,exact:true}).click();}
 async function select(id){await page.locator('.react-flow__node[data-id="'+id+'"]').click();}
+async function fitFlow(){
+  await page.getByTestId('flow-fit').click();
+  // Pointer coordinates are meaningful only after the viewport animation has
+  // finished. Frame-based observation also works on a busy software renderer.
+  await page.evaluate(async()=>{
+    const deadline=performance.now()+8000;let previous='',stable=0;
+    while(performance.now()<deadline){
+      await new Promise(requestAnimationFrame);
+      const canvas=document.querySelector('.react-flow')?.getBoundingClientRect();
+      const nodes=[...document.querySelectorAll('.react-flow__node')];
+      const transform=document.querySelector('.react-flow__viewport')?.style.transform;
+      const inside=canvas&&nodes.length&&nodes.every(node=>{const box=node.getBoundingClientRect();
+        return box.left>=canvas.left&&box.right<=canvas.right&&box.top>=canvas.top&&box.bottom<=canvas.bottom;});
+      stable=inside&&transform===previous?stable+1:0;previous=transform;
+      if(stable>=6)return;
+    }
+    throw Error('O enquadramento do fluxo não estabilizou antes da interação.');
+  });
+}
 async function connect(source,target){
   const a=await page.locator('.react-flow__node[data-id="'+source+'"] .react-flow__handle[data-handleid="out"]').boundingBox();
   const b=await page.locator('.react-flow__node[data-id="'+target+'"] .react-flow__handle[data-handleid="in"]').boundingBox();
@@ -68,8 +88,7 @@ try{
   await page.getByRole('button',{name:'Validar',exact:true}).click();await page.getByRole('tabpanel',{name:'Diagnóstico do fluxo'}).waitFor();
   await page.getByTestId('flow-diagnostic').filter({hasText:copy}).first().click();await page.getByRole('tabpanel',{name:'Propriedades do fluxo'}).waitFor();
   assert.match(await page.locator('.flow-object-id').textContent(),new RegExp(copy));
-  await page.getByTestId('flow-fit').click();
-  await page.waitForTimeout(220); // Bound the explicit 180ms viewport transition before mouse coordinates.
+  await fitFlow();
   phase='native wire connection and duplicate-input rejection';
   await connect('selecionar',copy);await connections(3);
   await connect('inicio',copy);await connections(3);
@@ -87,6 +106,7 @@ try{
   await page.getByTestId('flow-undo').click();await count(3);await connections(2);
   phase='auto arrange and outline navigation do not write to disk';
   await page.getByTestId('flow-arrange').click();
+  await page.getByText('Desfazer restaura as posições anteriores.',{exact:false}).waitFor();
   await page.getByRole('tab',{name:'Estrutura',exact:true}).click();await page.getByLabel('Localizar bloco no fluxo').fill('gravar');
   await page.getByTestId('flow-outline-gravar').click();assert.equal(await page.locator('.flow-object-id').textContent(),'gravar');
   assert.deepEqual(await fs.readFile(flowFile),original);
@@ -95,21 +115,35 @@ try{
   const restored=JSON.parse(await fs.readFile(flowFile,'utf8')),baseline=JSON.parse(original.toString('utf8'));
   assert.deepEqual(restored.nodes.map(n=>n.id).sort(),baseline.nodes.map(n=>n.id).sort());
   assert.deepEqual(restored.edges,baseline.edges);
+  phase='declining accessible template confirmation preserves the edited flow';
+  await nav('Modelos de fluxo');await page.locator('article').filter({hasText:'Preparar registros'}).getByRole('button',{name:'Usar modelo'}).click();
+  const confirmation=page.getByTestId('workbench-confirm-dialog');await confirmation.waitFor();
+  assert.equal(await confirmation.getByRole('button',{name:'Cancelar',exact:true}).evaluate(element=>element===document.activeElement),true);
+  await page.screenshot({path:path.join(artifacts,'flow-template-confirm.png')});
+  await answerConfirmation(page,false,{title:'Carregar modelo de fluxo'});
+  await nav('Arquitetura visual');await count(3);await connections(2);
+  assert.deepEqual(JSON.parse(await fs.readFile(flowFile,'utf8')),restored);
   phase='new template, real execution and file output';
-  await page.evaluate(()=>{window.confirm=()=>true;});
-  await nav('Modelos de fluxo');await page.locator('article').filter({hasText:'Preparar registros'}).getByRole('button',{name:'Usar modelo'}).click();await count(5);
+  await nav('Modelos de fluxo');await page.locator('article').filter({hasText:'Preparar registros'}).getByRole('button',{name:'Usar modelo'}).click();
+  await answerConfirmation(page,true,{title:'Carregar modelo de fluxo'});await count(5);
   await page.getByRole('button',{name:'▶ Executar',exact:true}).click();await page.getByText('Execução real concluída.',{exact:false}).waitFor();
   assert.deepEqual(JSON.parse(await fs.readFile(path.join(workspace,'.omniforge/output/registros.json'),'utf8')),[{codigo:1,total:120},{codigo:2,total:80}]);
   await page.getByRole('button',{name:'Salvar fluxo',exact:true}).click();await page.getByText('Fluxo gravado em',{exact:false}).waitFor();
   assert.equal(JSON.parse(await fs.readFile(flowFile,'utf8')).name,'Preparar registros');
   phase='capture actual window and verify compact size';
-  await page.getByTestId('flow-fit').click();await page.screenshot({path:path.join(artifacts,'flow-authoring-1440.png')});
+  await fitFlow();await page.screenshot({path:path.join(artifacts,'flow-authoring-1440.png')});
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1280,800));
+  await page.waitForFunction(()=>innerWidth<=1280);await fitFlow();
   await page.screenshot({path:path.join(artifacts,'flow-authoring-1280.png')});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+2),false);
   phase='reload reads saved graph and no renderer errors';
   await page.reload();await page.getByTestId('workspace-overview').waitFor();await page.getByRole('button',{name:'Abrir projeto',exact:true}).click();await count(5);
   assert.equal(await page.getByTestId('flow-undo').isDisabled(),true);assert.deepEqual(errors,[]);
+  await fs.writeFile(path.join(artifacts,'flow-authoring-results.json'),JSON.stringify({status:'PASS',
+    checks:['navigator-search','duplicate-keyboard-delete','diagnostic-focus','pointer-wire-connect',
+      'occupied-input-rejected','repeated-undo-redo','incident-wire-delete-undo','real-ELK-layout',
+      'template-cancel-default-focus','template-cancel-preserves-flow','template-accept-and-real-output','saved-graph-reload','compact-fit'],
+    screenshots:['flow-template-confirm.png','flow-authoring-1440.png','flow-authoring-1280.png'],rendererErrors:errors},null,2)+'\n');
   console.log('PASS flow authoring: real wires, repeated history, persisted topology, diagnostics, search, layout, new runner tools and saved JSON.');
 }catch(error){
   console.error('[FLOW AUTHORING] phase='+phase,error);process.exitCode=1;

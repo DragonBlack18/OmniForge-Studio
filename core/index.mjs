@@ -32,3 +32,4 @@ export {assertScheduleSpec,listSchedules,getSchedule,createSchedule,setScheduleE
   coalesceSchedules,blockSchedule} from './schedule-store.mjs';
 export {LocalScheduleEngine,assertOfflineScheduleFlow,
   validateScheduledDocument} from './schedule-engine.mjs';
+export { LocalDevelopmentRunner, listDevelopmentTargets, prepareDevelopmentTask } from './modules/ide/development-runtime.mjs';

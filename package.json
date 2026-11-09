@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.9.0",
+  "version": "0.11.0",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
@@ -9,7 +9,7 @@
   "main": "electron/main.cjs",
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24.22.1"
   },
   "scripts": {
     "dev": "concurrently --kill-others \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on tcp:127.0.0.1:5173 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
@@ -42,10 +42,20 @@
     "release:manifest": "node scripts/release-manifest.mjs",
     "smoke:layout": "node scripts/smoke-layout.mjs",
     "smoke:code-workspace": "node scripts/smoke-code-workspace.mjs",
-    "smoke:project-suite": "node scripts/smoke-project-suite.mjs"
+    "smoke:project-suite": "node scripts/smoke-project-suite.mjs",
+    "smoke:development": "node scripts/smoke-development.mjs",
+    "smoke:flow-topology": "node scripts/smoke-flow-topology.mjs",
+    "smoke:cad-precision": "node scripts/smoke-cad-precision.mjs",
+    "smoke:capabilities": "node scripts/smoke-capabilities.mjs",
+    "verify:references": "node scripts/generate-reference-map.mjs --check",
+    "smoke:terminal": "node scripts/smoke-terminal.mjs",
+    "smoke:database": "node scripts/smoke-database.mjs",
+    "smoke:cad-dimensions": "node scripts/smoke-cad-dimensions.mjs"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
     "@xyflow/react": "12.12.0",
     "concurrently": "9.2.1",
     "cross-env": "7.0.3",
@@ -65,6 +75,10 @@
       "output": "release"
     },
     "asar": true,
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "npmRebuild": false,
     "files": [
       "dist/**/*",
       "core/**/*",
@@ -106,5 +120,10 @@
       "onlyLoadAppFromAsar": true,
       "grantFileProtocolExtraPrivileges": false
     }
+  },
+  "dependencies": {
+    "dxf-parser": "1.1.2",
+    "elkjs": "0.12.1",
+    "node-pty": "1.1.0"
   }
 }

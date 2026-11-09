@@ -6,7 +6,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFlowRecovery } from '../modules/automation/useFlowRecovery.mjs';
 const FlowRecoveryNotice = React.lazy(() => import('../modules/automation/FlowRecoveryNotice.jsx'));
 import { useFlowSession, toUiNodes } from '../modules/automation/useFlowSession.mjs';
-import {checkFlowConnection,arrangeFlowNodes} from '../../core/modules/automation/connections.mjs';
+import {checkFlowConnection} from '../../core/modules/automation/connections.mjs';
+import {useFlowLayout} from '../modules/automation/useFlowLayout.mjs';
+import {confirmAction} from '../shared/confirm-action.mjs';
+import ConfirmationDialog from '../shared/ConfirmationDialog.jsx';
 import FlowInspector,{FlowEditTools} from '../modules/automation/FlowInspector.jsx';
 import { NODE_CATALOG, exampleFlow, createNode } from '../../core/catalog.mjs';
 import { validateFlow } from '../../core/graph.mjs';
@@ -18,6 +21,10 @@ import WorkspaceOverview from './WorkspaceOverview.jsx';
 const ExtensionsHub = React.lazy(() => import('../modules/extensions/ExtensionsHub.jsx'));
 const ScheduleCenter = React.lazy(() => import('../modules/automation/ScheduleCenter.jsx'));
 const GitSourceControl = React.lazy(() => import('../modules/ide/GitSourceControl.jsx'));
+const DevelopmentTools = React.lazy(() => import('../modules/ide/DevelopmentTools.jsx'));
+const TerminalWorkbench = React.lazy(() => import('../modules/ide/TerminalWorkbench.jsx'));
+const DatabaseWorkbench = React.lazy(() => import('../modules/database/DatabaseWorkbench.jsx'));
+const CapabilityCenter = React.lazy(() => import('../modules/capabilities/CapabilityCenter.jsx'));
 const ProjectTasks = React.lazy(() => import('../modules/ide/ProjectTasks.jsx'));
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
 import NavigationSidebar from './NavigationSidebar.jsx';
@@ -46,8 +53,11 @@ export default function AppShell() {
   const [mode, setMode] = useState('home');
   const currentModule = findWorkbenchModule(mode);
   const [cadEverOpened,setCadEverOpened] = useState(false);
+  const [terminalEverOpened,setTerminalEverOpened] = useState(false);
+  const [databaseEverOpened,setDatabaseEverOpened] = useState(false);
   const [sideMode, setSideMode] = useState('catalog');
   useEffect(() => { if(mode==='cad') setCadEverOpened(true); }, [mode]);
+  useEffect(() => { if(mode==='terminal') setTerminalEverOpened(true); if(mode==='database') setDatabaseEverOpened(true); }, [mode]);
   const [paletteScope,setPaletteScope] = useState(null);
   const [diagnosticsOpen,setDiagnosticsOpen] = useState(false);
   const [fileQuery, setFileQuery] = useState('');
@@ -92,7 +102,7 @@ export default function AppShell() {
   const [cadDirty, setCadDirty] = useState(false);
   const [createKind, setCreateKind] = useState(null);
   const [createPath, setCreatePath] = useState('');
-  const [info, setInfo] = useState({ version: '0.7.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.11.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -154,6 +164,9 @@ export default function AppShell() {
 
   const flowRecovery = useFlowRecovery({ workspace, graph, revision:flowRevision, dirty:flowDirty && recoveryEligible,
     execute, notify, session:flowSession, busy });
+  const flowLayout = useFlowLayout({session:flowSession,locked:busy || flowRecovery.locked,active:mode==='canvas',
+    onComplete:()=>{setValidation(null);setFlowFocus({id:null,at:Date.now()});notify('Fluxo organizado. Desfazer restaura as posições anteriores.');},
+    onError:error=>notify(error.message)});
   const flowEditAllowed = () => !flowRecovery.locked || (notify('Resolva o rascunho de fluxo antes de editar.'), false);
 
   const applyProject = async result => {
@@ -161,7 +174,8 @@ export default function AppShell() {
     setWorkspace(result.workspace);
     setActiveProjectId(result.projectId);
     setFiles(result.files);
-    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null, false);
+    replaceDocument(result.flow || {schemaVersion:1,name:'Fluxo não carregado',nodes:[],edges:[]},
+      result.flowRevision, Boolean(result.flow) && result.flowRevision === null && !result.reattached, false);
     const initialScratch=!workspace&&code.controller.getSnapshot().documents.length>0&&
       code.controller.getSnapshot().documents.every(d=>d.untitled);
     if(initialScratch)code.controller.attachInitialWorkspace(result.workspace);
@@ -173,16 +187,37 @@ export default function AppShell() {
     setSelectedHistory(null);
     setProjects(await window.omni.listProjects());
     setExtensions(await window.omni.listExtensions());
-    setMode('canvas');
+    setMode(result.resumeError || result.reattached ? 'home' : 'canvas');
     await recoveryReady;
-    notify(`Projeto aberto: ${result.workspace}`);
+    notify(result.resumeError ? `Projeto reanexado. ${result.resumeError} Os arquivos originais foram preservados.` : `Projeto aberto: ${result.workspace}`);
   };
 
-  const confirmProjectSwitch = () => !workspace || !(dirty || flowDirty || cadDirty) ||
-    window.confirm('Existem alterações não salvas. Trocar de projeto? Alterações sem cópia de recuperação serão perdidas.');
+  useEffect(() => {
+    if (!window.omni?.activeWorkspace) return;
+    // Once per renderer lifetime. The native host owns the selected project;
+    // reload must not strand a live terminal or an in-memory SQLite document.
+    void execute(async () => {
+      const context = await window.omni.activeWorkspace();
+      if (context) await applyProject(context);
+    });
+  }, []);
+
+  const confirmProjectSwitch = async () => {
+    if (workspace) {
+      const [terminal, database] = await Promise.all([window.omni.terminalState(), window.omni.databaseState()]);
+      if (terminal && ['starting','running','closing'].includes(terminal.status)) {
+        setMode('terminal'); notify('Encerre a sessão no Terminal antes de trocar de projeto.'); return false;
+      }
+      if (database?.dirty || database?.running) {
+        setMode('database'); notify('Conclua a operação e salve uma cópia ou descarte o rascunho no Banco SQLite antes de trocar de projeto.'); return false;
+      }
+    }
+    return !workspace || !(dirty || flowDirty || cadDirty) ||
+      confirmAction({title:'Trocar de projeto',message:'Existem alterações não salvas. Alterações sem cópia de recuperação serão perdidas ao trocar de projeto.',confirmLabel:'Trocar de projeto'});
+  };
 
   const openWorkspace = () => execute(async () => {
-    if (!confirmProjectSwitch()) return;
+    if (!await confirmProjectSwitch()) return;
     await flowRecovery.controller.flush();
     if (!await code.controller.flush({allowUntitled:!workspace})) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
     const result = await window.omni.selectWorkspace();
@@ -197,7 +232,7 @@ export default function AppShell() {
   });
 
   const openProjectById = id => execute(async () => {
-    if (!confirmProjectSwitch()) return;
+    if (!await confirmProjectSwitch()) return;
     await flowRecovery.controller.flush();
     if (!await code.controller.flush({allowUntitled:!workspace})) throw new Error('Não foi possível proteger todas as abas. Salve ou feche os documentos pendentes antes de trocar de projeto.');
     await applyProject(await window.omni.openProject(id));
@@ -208,7 +243,7 @@ export default function AppShell() {
 
   const forgetProjectById = id => execute(async () => {
     if (id === activeProjectId) throw new Error('Abra outro projeto antes de remover o projeto ativo do catálogo.');
-    if (!window.confirm('Esquecer este projeto apenas no catálogo? A pasta e os arquivos permanecerão intactos.')) return;
+    if (!await confirmAction({title:'Esquecer projeto',message:'Remover este projeto apenas do catálogo? A pasta e os arquivos permanecerão intactos.',confirmLabel:'Esquecer projeto'})) return;
     await window.omni.forgetProject(id);
     setProjects(await window.omni.listProjects());
     notify('Projeto removido apenas do catálogo. Os arquivos originais foram preservados.');
@@ -226,7 +261,7 @@ export default function AppShell() {
   });
 
   const forgetCapability = (projectId, id) => execute(async () => {
-    if (!window.confirm('Remover esta capacidade do catálogo? Fluxos que dependem dela deixarão de validar até sua configuração ser corrigida.')) return;
+    if (!await confirmAction({title:'Remover capacidade',message:'Fluxos que dependem desta capacidade deixarão de validar até sua configuração ser corrigida.',confirmLabel:'Remover capacidade'})) return;
     await window.omni.forgetCapability(projectId, id);
     setProjects(await window.omni.listProjects());
     notify('Capacidade removida do catálogo; projetos e arquivos intactos.');
@@ -300,12 +335,20 @@ export default function AppShell() {
   });
   const insertExtensionAction=(extensionId,actionId)=>addNode('extension.call',{extensionId,actionId});
 
-  const applyTemplate = template => {
-    if(busy || !flowEditAllowed())return;
-    if (!window.confirm('Carregar modelo de fluxo? Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.')) return;
-    const copy=structuredClone(template.flow);
-    applyFlowTemplate(copy);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');
-    notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
+  const applyTemplate = async template => {
+    if(busy || operationGate.current.busy || !flowEditAllowed())return;
+    const token=flowSession.captureLayoutToken();
+    if (!await confirmAction({title:'Carregar modelo de fluxo',message:'Alterações não salvas serão descartadas. O fluxo atual em disco não será apagado até você salvar.',confirmLabel:'Carregar modelo'})) return;
+    const current=flowSession.captureLayoutToken();
+    if(current.document!==token.document || current.edit!==token.edit)
+      return notify('O fluxo mudou durante a confirmação. Escolha o modelo novamente.');
+    // Request consent outside the edit lock. The mutation itself is synchronous
+    // inside the existing single-flight gate, before React applies busy state.
+    return execute(()=>{
+      const copy=structuredClone(template.flow);
+      applyFlowTemplate(copy);setValidation(null);setLastRun(null);setMode('canvas');setSideMode('catalog');
+      notify(`Modelo carregado: ${template.label}. Valide e salve quando estiver satisfeito.`);
+    });
   };
 
   const addNode = (type, extraConfig = {}) => {
@@ -350,10 +393,10 @@ export default function AppShell() {
       else if(action==='redo')redo();
       else if(action==='delete')deleteSelected();
       else if(action==='duplicate')duplicateSelected('n_'+crypto.randomUUID().replaceAll('-','').slice(0,18));
-      else if(action==='arrange'){setNodes(arrangeFlowNodes(nodes,edges));setFlowFocus({id:null,at:Date.now()});}
+      else if(action==='arrange')flowLayout.arrange();
       else if(action==='fit')setFlowFocus({id:null,at:Date.now()});
     }catch(error){notify(error.message);}
-  },[busy,flowRecovery.locked,nodes,edges,undo,redo,deleteSelected,duplicateSelected,setNodes,notify]);
+  },[busy,flowRecovery.locked,nodes,edges,undo,redo,deleteSelected,duplicateSelected,setNodes,notify,flowLayout.arrange]);
   useEffect(()=>{
     if(mode!=='canvas')return;
     const handle=event=>{
@@ -490,6 +533,8 @@ export default function AppShell() {
   });
   useEffect(()=>{
     const handleShortcut=event=>{
+      // Terminal keystrokes belong to the shell (Ctrl+B/P/S included).
+      if (event.target?.closest?.('.xterm')) return;
       if(authoring.request){if((event.ctrlKey||event.metaKey)&&['n','s','p','w'].includes(event.key.toLowerCase()))event.preventDefault();return;}
       if((event.ctrlKey||event.metaKey)&&!event.altKey&&event.key.toLowerCase()==='n'){
         event.preventDefault();if(!busy&&!event.repeat)authoring.begin(event.shiftKey?'project':'new');return;
@@ -603,7 +648,7 @@ export default function AppShell() {
                 <button type="button" disabled={busy} onClick={()=>{setCreateKind('file');setCreatePath('');}}>+ Novo arquivo</button>
                 <button type="button" disabled={busy} onClick={()=>{setCreateKind('folder');setCreatePath('');}}>+ Nova pasta</button>
               </div>
-              {createKind && <form className="workspace-create-form" data-testid="workspace-create-form" onSubmit={createProjectEntry}>
+              {createKind && <form noValidate className="workspace-create-form" data-testid="workspace-create-form" onSubmit={createProjectEntry}>
                 <label>{createKind==='file'?'Criar arquivo':'Criar pasta'}
                   <input aria-label="Caminho do novo item" value={createPath} maxLength={260}
                     onChange={event=>setCreatePath(event.target.value)}
@@ -668,10 +713,12 @@ export default function AppShell() {
               {(flowRecovery.draft || flowRecovery.error) && <React.Suspense fallback={null}><FlowRecoveryNotice
                 recovery={flowRecovery} revision={flowRevision} busy={busy} onRestore={flowRecovery.restore} onDiscard={flowRecovery.discard}/></React.Suspense>}
               <FlowEditTools name={graph.name} nodeCount={nodes.length} edgeCount={edges.length}
-                busy={busy || flowRecovery.locked} selected={selected} canUndo={canUndo} canRedo={canRedo} onAction={editFlow}/>
+                busy={busy || flowRecovery.locked} selected={selected} canUndo={canUndo} canRedo={canRedo} onAction={editFlow}
+                layoutBusy={flowLayout.running} layoutStatus={flowLayout.status} onCancelLayout={flowLayout.cancel}/>
               <ModuleErrorBoundary label="Automação visual"><React.Suspense fallback={<ModuleLoading label="automações"/>}>
                 <FlowCanvas nodes={nodes} edges={edges} onNodesChange={handleNodesChange}
-                  onEdgesChange={handleEdgesChange} onConnect={onConnect} locked={busy || flowRecovery.locked}
+                  onEdgesChange={handleEdgesChange} onConnect={onConnect}
+                  onReconnect={(edge,connection)=>{if(busy||flowRecovery.locked)return;try{flowSession.reconnectEdge(edge.id,connection);setValidation(null);}catch(error){notify(error.message);}}} locked={busy || flowRecovery.locked}
                   graph={graph} diagnostics={validation?.diagnostics} runSteps={running?liveSteps:lastRun?.steps}
                   focusRequest={flowFocus} onDeleteElements={deleteElements}
                   onNodeClick={(_event,node)=>{setSelectedId(node.id);setInspectorOpen(true);setFlowTab({tab:'properties',at:Date.now()});}}
@@ -727,6 +774,10 @@ export default function AppShell() {
             </>
           )}
           {mode === 'git' && <ModuleErrorBoundary label="Controle Git"><React.Suspense fallback={<ModuleLoading label="Git"/>}><GitSourceControl workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
+          {mode === 'development' && <ModuleErrorBoundary key={workspace} label="Executar e testar"><React.Suspense fallback={<ModuleLoading label="desenvolvimento"/>}><DevelopmentTools workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
+          {(terminalEverOpened || mode==='terminal') && <div hidden={mode!=='terminal'} style={{display:mode==='terminal'?'flex':'none',flex:1,minHeight:0,minWidth:0}}><ModuleErrorBoundary key={workspace || '__terminal__'} label="Terminal"><React.Suspense fallback={<ModuleLoading label="terminal"/>}><TerminalWorkbench key={workspace || '__terminal__'} workspace={workspace} visible={mode==='terminal'} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary></div>}
+          {(databaseEverOpened || mode==='database') && <div hidden={mode!=='database'} style={{display:mode==='database'?'flex':'none',flex:1,minHeight:0,minWidth:0}}><ModuleErrorBoundary key={workspace || '__database__'} label="Banco SQLite"><React.Suspense fallback={<ModuleLoading label="banco de dados"/>}><DatabaseWorkbench key={workspace || '__database__'} workspace={workspace} visible={mode==='database'} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary></div>}
+          {mode === 'capabilities' && <ModuleErrorBoundary label="Ferramentas e referências"><React.Suspense fallback={<ModuleLoading label="referências"/>}><CapabilityCenter onNavigate={navigate}/></React.Suspense></ModuleErrorBoundary>}
           {mode === 'tasks' && <ModuleErrorBoundary label="Central de Tarefas"><React.Suspense fallback={<ModuleLoading label="tarefas"/>}><ProjectTasks workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
           {mode === 'schedules' && <ModuleErrorBoundary label="Agendamentos"><React.Suspense fallback={<ModuleLoading label="agendamentos"/>}><ScheduleCenter
             schedules={schedules} projects={projects} workspace={workspace}
@@ -750,7 +801,7 @@ export default function AppShell() {
               <section className="integrations-page">
                 <p className="projects-intro">Cadastre a API HTTP local de um projeto. O OmniForge NÃO executa scripts, instala dependências nem inicia servidores. O projeto precisa expor uma API real em 127.0.0.1. A cada execução haverá autorização e verificação de entrada/saída.</p>
                 <div className="integrations-layout">
-                  <form className="capability-form" onSubmit={event => { event.preventDefault(); addCapability(); }}>
+                  <form noValidate className="capability-form" onSubmit={event => { event.preventDefault(); addCapability(); }}>
                     <h3>Adicionar capacidade</h3>
                     <label>Projeto que oferece a API
                       <select required value={connectorProjectId} onChange={event => setConnectorProjectId(event.target.value)}>
@@ -762,8 +813,8 @@ export default function AppShell() {
                       ['id','Identificador único'], ['label','Nome da capacidade'], ['url','URL HTTP local'], ['timeoutMs','Timeout (ms)']
                     ].map(([key,label]) => <label key={key}>{label}<input required value={newCapability[key]} onChange={e => setNewCapability(old => ({ ...old, [key]: e.target.value }))}/></label>)}
                     <label>Método<select value={newCapability.method} onChange={e => setNewCapability(old => ({ ...old, method: e.target.value }))}><option>POST</option><option>GET</option></select></label>
-                    <label>Schema de entrada (JSON, subconjunto tipado)<textarea rows={4} spellCheck={false} value={newCapability.inputSchema} onChange={e => setNewCapability(old => ({ ...old, inputSchema: e.target.value }))}/></label>
-                    <label>Schema de saída (JSON, subconjunto tipado)<textarea rows={4} spellCheck={false} value={newCapability.outputSchema} onChange={e => setNewCapability(old => ({ ...old, outputSchema: e.target.value }))}/></label>
+                    <label>Schema de entrada (JSON, subconjunto tipado)<textarea className="resize-none" rows={4} spellCheck={false} value={newCapability.inputSchema} onChange={e => setNewCapability(old => ({ ...old, inputSchema: e.target.value }))}/></label>
+                    <label>Schema de saída (JSON, subconjunto tipado)<textarea className="resize-none" rows={4} spellCheck={false} value={newCapability.outputSchema} onChange={e => setNewCapability(old => ({ ...old, outputSchema: e.target.value }))}/></label>
                     <button type="submit" disabled={busy || !connectorProjectId} className="button button--solid">Registrar API local</button>
                   </form>
                   <section className="capabilities-list">
@@ -834,6 +885,7 @@ export default function AppShell() {
         {mode==='canvas' && inspectorOpen && <FlowInspector style={{width:panels.inspectorWidth,flexBasis:panels.inspectorWidth,display:panels.inspectorVisible?undefined:'none'}}
           selected={selected} graph={graph} projects={projects} extensions={extensions}
           validation={validation} lastRun={lastRun} running={running} liveSteps={liveSteps}
+          onDisconnect={id=>{if(busy||flowRecovery.locked)return;try{flowSession.disconnectEdge(id);setValidation(null);}catch(error){notify(error.message);}}}
           busy={busy || flowRecovery.locked} tabRequest={flowTab} onConfig={changeConfig} onSelect={selectFlowNode}
           onRename={value=>{if(busy || !flowEditAllowed())return;try{rename(value);}catch(error){notify(error.message);}}}/>}
 
@@ -846,7 +898,8 @@ export default function AppShell() {
         hasWorkspace={Boolean(workspace)} onClose={()=>setPaletteScope(null)}
         onExecute={executePaletteCommand}/></React.Suspense>}
       {diagnosticsOpen && <React.Suspense fallback={null}><RuntimeDiagnostics onClose={()=>setDiagnosticsOpen(false)}/></React.Suspense>}
-      <footer className="statusbar"><span className="statusbar-left"><span className={`indicator-dot ${lastRun&&!lastRun.ok?'indicator-dot--error':''}`}/> {status}</span><button type="button" className="runtime-diagnostics-trigger" aria-label="Abrir diagnóstico local" title="Versões e diagnóstico local" onClick={()=>setDiagnosticsOpen(true)}>OmniForge {info.version} <span className="statusbar-separator">·</span> Local</button></footer>
+      <ConfirmationDialog/>
+      <footer className="statusbar" role="status" aria-live="polite"><span className="statusbar-left"><span className={`indicator-dot ${lastRun&&!lastRun.ok?'indicator-dot--error':''}`}/> {status}</span><button type="button" className="runtime-diagnostics-trigger" aria-label="Abrir diagnóstico local" title="Versões e diagnóstico local" onClick={()=>setDiagnosticsOpen(true)}>OmniForge {info.version} <span className="statusbar-separator">·</span> Local</button></footer>
     </div>
   );
 }

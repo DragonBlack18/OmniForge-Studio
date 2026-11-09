@@ -3,9 +3,9 @@ const { commitInProgress } = require('./boundary.cjs');
 
 /** One close decision per native window. Never force-exit an active commit. */
 function createCloseController({ getState, isAlive, prompt, quit, cancelFlow,
-  cancelTask, record = () => {}, defer = setImmediate }) {
+  cancelTask, cancelTools = () => {}, record = () => {}, defer = setImmediate }) {
   let phase = 'idle', disposed = false, queued = false;
-  const active = state => Boolean(state.execution || state.task);
+  const active = state => Boolean(state.execution || state.task || state.terminal || state.databaseWork);
   const reset = code => { phase = 'idle'; if (code) record(code); };
   function workFinished() {
     if (disposed || phase !== 'draining' || !isAlive()) return;
@@ -59,6 +59,7 @@ function createCloseController({ getState, isAlive, prompt, quit, cancelFlow,
       const current = getState();
       if (current.execution) cancelFlow();
       if (current.task) cancelTask();
+      if (current.terminal || current.databaseWork) cancelTools();
       workFinished();
     }).catch(() => { if (!disposed) reset('close-error'); });
   }

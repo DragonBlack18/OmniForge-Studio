@@ -32,6 +32,55 @@ export function checkFlowConnection(flow, candidate) {
   return {valid:true,code:'ok',message:''};
 }
 
+/** A reconnect validates the replacement while excluding only the original wire.
+ * The input occupied by that wire is available; every other input stays protected.
+ */
+export function checkFlowReconnection(flow, edgeId, candidate) {
+  if (!Array.isArray(flow?.edges) || typeof edgeId !== 'string' ||
+    flow.edges.filter(edge => edge?.id === edgeId).length !== 1) {
+    return {valid:false,code:'missing',message:'A conexão original não está mais disponível.'};
+  }
+  return checkFlowConnection({...flow,edges:flow.edges.filter(edge => edge?.id !== edgeId)},candidate);
+}
+
+/** Keep the wire identity stable for selection, history and saved documents. */
+export function reconnectFlowEdge(flow, edgeId, candidate) {
+  const result = checkFlowReconnection(flow,edgeId,candidate);
+  if (!result.valid) throw new Error(result.message);
+  return flow.edges.map(edge => edge?.id === edgeId ? {
+    ...edge,source:candidate.source,target:candidate.target,
+    sourceHandle:candidate.sourceHandle,targetHandle:candidate.targetHandle
+  } : edge);
+}
+
+/** Inspector projection. No execution data or node configuration is exposed. */
+export function getFlowNodeConnections(flow, nodeId) {
+  const nodes = Array.isArray(flow?.nodes) ? flow.nodes : [];
+  const edges = Array.isArray(flow?.edges) ? flow.edges : [];
+  const node = nodes.find(item => item?.id === nodeId);
+  const definition = node && getNodeDefinition(node.type);
+  if (!definition) return null;
+  const describe = (edge,side) => {
+    const remoteId = side === 'input' ? edge.source : edge.target;
+    const remote = nodes.find(item => item?.id === remoteId);
+    return {
+      edgeId:edge.id,nodeId:remoteId,
+      port:side === 'input' ? edge.sourceHandle : edge.targetHandle,
+      label:getNodeDefinition(remote?.type)?.label || remoteId,
+      available:Boolean(remote)
+    };
+  };
+  return {
+    nodeId,
+    inputs:definition.inputs.map(port => ({...port,connections:edges
+      .filter(edge => edge?.target === nodeId && edge.targetHandle === port.id)
+      .map(edge => describe(edge,'input'))})),
+    outputs:definition.outputs.map(port => ({...port,connections:edges
+      .filter(edge => edge?.source === nodeId && edge.sourceHandle === port.id)
+      .map(edge => describe(edge,'output'))}))
+  };
+}
+
 /** Stable left-to-right layout. Does not change configuration, edges or execution order. */
 export function arrangeFlowNodes(nodes, edges) {
   if(nodes.length>400 || edges.length>800)throw Error('Fluxo excede o limite de tamanho.');

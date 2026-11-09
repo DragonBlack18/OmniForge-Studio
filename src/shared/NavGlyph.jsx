@@ -1,6 +1,7 @@
 import React from 'react';
 // Small, original line icon set; no runtime icon library or remote asset dependency.
 const SHAPES = {
+  arc:'M4 19a15 15 0 0 1 15-15 M4 16v3h3 M16 4h3v3',
   eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
   'eye-off':'M3 3l18 18 M2 12s3-7 10-7c2 0 4 1 6 3 M22 12s-3 7-10 7c-4 0-7-3-10-7',
   lock:'M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0v3 M12 14v3',
@@ -22,6 +23,7 @@ const SHAPES = {
   calendar: 'M3 6h18v15H3z M3 10h18 M8 3v6 M16 3v6 M8 15h4 M14 15h3 M14 19h3',
   git: 'M7 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4 M7 7v10 M7 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4 M7 10h7a3 3 0 0 1 3 3v2 M17 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4',
   terminal: 'M3 5h18v14H3z m4 4 3 3-3 3 m5 0h5',
+  database: 'M4 6a8 3 0 1 0 16 0 8 3 0 1 0-16 0 M4 6v12a8 3 0 0 0 16 0V6 M4 12a8 3 0 0 0 16 0',
   history: 'M4 7V3 M4 7h4 M4.4 7a9 9 0 1 1-1.1 9 M12 7v5l3.5 2',
   info: 'M12 17v-5 M12 8h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',
   panel: 'M3 4h18v16H3z M10 4v16',
