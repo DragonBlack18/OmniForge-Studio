@@ -24,6 +24,9 @@ export async function verifyReleaseContract(root = process.cwd()) {
     components++;
   }
   assert.equal(pkg.build.asar,true);
+  assert.equal(pkg.engines.node,'>=24.22.1','O runtime de desenvolvimento deve incluir as APIs SQLite verificadas.');
+  assert.equal(pkg.build.npmRebuild,false,'Usar os binários Node-API verificados, sem rebuild implícito do PTY.');
+  assert.ok(pkg.build.asarUnpack?.includes('node_modules/node-pty/**'),'PTY e componentes ConPTY precisam ficar fora do ASAR.');
   for(const [key,value] of Object.entries({enableNodeOptionsEnvironmentVariable:false,enableNodeCliInspectArguments:false,
     enableEmbeddedAsarIntegrityValidation:true,onlyLoadAppFromAsar:true,grantFileProtocolExtraPrivileges:false}))
     assert.equal(pkg.build.electronFuses?.[key],value,'Proteção binária alterada: '+key);
@@ -35,8 +38,9 @@ export async function verifyReleaseContract(root = process.cwd()) {
     assert.doesNotMatch(yaml,/npm install/,'Instalação mutável no workflow: '+name);
     assert.match(yaml,/npm run verify:release/);
     assert.match(yaml,/npm run smoke:native-security/);
-    for(const capability of ['development','flow-topology','cad-precision','capabilities'])
-      assert.ok(yaml.includes('npm run smoke:'+capability),'Gate v0.10.0 ausente: '+capability+' em '+name);
+    for(const capability of ['development','flow-topology','cad-precision','capabilities','terminal','database','cad-dimensions'])
+      assert.ok(yaml.includes('npm run smoke:'+capability),'Gate de ferramenta ausente: '+capability+' em '+name);
+    assert.match(yaml,/node-version: '24\.22\.1'/,'Runtime Node verificado ausente: '+name);
     assert.match(yaml,/actions\/setup-python@v5/,'Python real obrigatório nos testes de desenvolvimento.');
   }
   return {version:pkg.version,components,lockfileVersion:lock.lockfileVersion};

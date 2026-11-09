@@ -1,4 +1,4 @@
-# Modelo de segurança e limitações — 0.10.0
+# Modelo de segurança e limitações — 0.11.0
 
 Este documento descreve as fronteiras implementadas no código atual. Os
 subtítulos com versões anteriores identificam a origem de cada componente;
@@ -17,6 +17,8 @@ ao sistema operacional efetivamente verificados.
 | Grafo | Nós/portas conhecidos, DAG, configurações validadas; conexões editadas e layout não executam o fluxo | A validação estrutural não prova a correção de um processo de negócio |
 | Fluxo declarativo | Processo filho supervisionado, operações conhecidas, HTTP local sujeito a aprovação | Sem sandbox de sistema operacional, cota de CPU/memória ou rollback |
 | Código do workspace | Tarefas npm e arquivos Node/Python somente após confirmação nativa; revisão e ambiente conferidos | O código aprovado conserva permissões da conta e pode usar rede/arquivos |
+| Terminal interativo | Shell do sistema aprovado, PTY em utility process, sessão/workspace fixados, entrada/saída limitadas e ACK | Comandos reais com permissões da conta; sem rollback, confinamento ao workspace ou garantia contra processos desvinculados |
+| SQLite | Snapshot offline, processo descartável, authorizer, limites, transação controlada e cópia exclusiva | Rascunho em memória; sem banco WAL vivo ou recuperação após queda de todo o app |
 | Segredos | Sem catálogo geral de credenciais; ambiente dos executores filtrado | Código aprovado ainda pode ler arquivos acessíveis à conta; recuperação de fluxo protegida disponível apenas quando o serviço Windows responde |
 | Atualização | Sem atualização automática; configuração de integridade/fuses para os pacotes | Assinatura e evidências de cada artefato precisam ser verificadas separadamente |
 | Industrial | Sem escrita/controladores industriais | Approval gates, simulação, segregação OT, análise funcional |
@@ -45,8 +47,9 @@ permanece exclusivamente leitura.
 
 ## IPC, coordenação e fechamento
 
-O preload não expõe `ipcRenderer`, `child_process`, um comando de shell
-genérico ou um caminho de executável escolhido pelo renderer. A fronteira
+O preload não expõe `ipcRenderer`, `child_process` ou um caminho de
+executável escolhido pelo renderer. O terminal possui entrada interativa
+somente para uma sessão de shell já aprovada pelo usuário. A fronteira
 nativa aceita chamadas somente da janela registrada e de seu frame principal.
 O limite estrutural geral é 2,2 MB, 80 mil itens e profundidade 64; validações
 de cada recurso podem impor limites menores. Existem até 32 chamadas de
@@ -59,12 +62,24 @@ operação; salvar arquivos, trocar workspace e outras mutações conflitantes
 são bloqueados. Esses gates coordenam esta instância do aplicativo, não
 processos externos que acessam o mesmo filesystem.
 
+O consentimento de abertura do terminal participa do gate; a sessão aberta
+pode coexistir com edição e runners. Trocar workspace exige encerrá-la.
+Operações e confirmações SQLite entram no gate, e a cópia em andamento é
+tratada como commit não interrompível. Alterações SQLite não salvas são
+contabilizadas pelo host, independentemente de o renderer informar dirty.
+
 O fechamento normal aguarda commits e confirmações pendentes. Havendo
 execução ativa, a confirmação de saída solicita cancelamento e aguarda a
 conclusão antes de encerrar. A perda do renderer solicita cancelamento;
 no módulo de desenvolvimento, isso também invalida consentimento pendente
 antes da criação do processo. Encerramento forçado do sistema ou do processo
 principal não equivale a esse fluxo normal de fechamento.
+
+Recarregar somente o renderer permite consultar `activeWorkspace` e reanexar
+o contexto que o host já abriu. A rota é somente leitura e não seleciona
+pastas nem executa programas. Uma falha de leitura do fluxo é retornada com
+o contexto nativo, permitindo encerrar o terminal ou preservar uma cópia do
+banco em vez de deixar essas sessões inacessíveis.
 
 ## Requisitos de implantação futura
 
@@ -132,8 +147,9 @@ Interromper tenta terminar a árvore normal de subprocessos usando um grupo
 de processos em POSIX e `taskkill /T /F` no Windows. Isso não é um Job Object
 ou sandbox nativa, e não garante contenção de processos que se desvinculem
 ou sobrevivam à falha abrupta do host. Arquivos já alterados e chamadas de
-rede concluídas não são revertidos. Processos persistentes e programas
-interativos devem usar ferramentas externas adequadas.
+rede concluídas não são revertidos. Programas interativos podem usar o
+módulo Terminal, com consentimento e ciclo de vida próprios; não passam a
+ser compatíveis com este runner.
 
 Tarefas npm continuam em módulo separado e exigem confirmação do comando
 definido no `package.json`, além de revisão do manifesto. O comando escolhido
@@ -152,6 +168,57 @@ em workspace/perfil temporários. Ver [DEVELOPMENT_RUNTIME.md](DEVELOPMENT_RUNTI
 para comandos e requisitos. Testes Linux executados como root com um wrapper
 externo `--no-sandbox` validam a funcionalidade nesse fixture, **não** a sandbox
 do renderer nem o empacotamento Windows; o produto preserva `sandbox: true`.
+
+## Terminal interativo v0.11.0
+
+xterm.js recebe somente texto e eventos validados. O addon node-pty roda em
+processo utilitário Electron, nunca no renderer ou no processo principal.
+PowerShell inicia sem perfil, Prompt sem AutoRun e Bash sem rc/perfil; o
+host resolve caminhos conhecidos e filtra o ambiente. Após o consentimento,
+o shell executa a entrada digitada normalmente, inclusive comandos que
+alteram arquivos ou acessam a rede com as permissões da conta.
+
+Entrada, dimensões, retenção e fila de saída são limitadas. O host recebe
+ACK após o parser xterm consumir a saída, e o worker pausa/retoma o PTY para
+controlar o produtor. OSC 52 e OSC 8 não disparam clipboard ou navegação.
+Copiar seleção é um método próprio, limitado a 64 KB e vinculado à sessão;
+não relaxa a política de permissões do Chromium.
+
+Fechar espera confirmação de término do worker. A limpeza de subprocessos
+usa recursos do sistema, sem Job Object ou contêiner; processos que se
+desvinculem deliberadamente não têm contenção garantida. Saída, comandos e
+entrada não entram no diagnóstico persistido pelo OmniForge, mas o shell
+e seus programas podem manter seus próprios históricos e arquivos.
+
+O pacote node-pty fica fora do ASAR para carregar o addon e os auxiliares.
+O helper de encerramento do addon usa o Electron instalado com RunAsNode;
+essa flag não é passada ao shell. O gate do executável instalado abre um
+PTY, redimensiona, escreve um arquivo e verifica o encerramento. Ver
+[TERMINAL_WORKBENCH.md](TERMINAL_WORKBENCH.md).
+
+## SQLite local v0.11.0
+
+O host lê apenas arquivos regulares selecionados dentro do workspace, com
+limite de 32 MiB. Recusa links, cabeçalho WAL e auxiliares `-wal`, `-shm` ou
+`-journal`; não faz checkpoint nem remove arquivos da origem. A imagem é
+validada em SQLite e conservada no processo principal. Ela não representa
+uma conexão viva ou um backup consistente de um banco simultaneamente aberto.
+
+Cada consulta/alteração executa em processo descartável com SQLite nativo.
+O authorizer recusa anexos, PRAGMA do usuário, transações/savepoints próprios,
+extensões e tabelas temporárias/virtuais. `trusted_schema` fica desligado;
+temporários ficam em memória. Consulta é somente leitura. Aplicar executa
+o script inteiro em uma transação sobre uma imagem candidata. Falha,
+cancelamento ou prazo de 10 segundos descartam essa imagem, preservando a
+última aceita. Resultados têm limites de linhas, colunas, bytes e prévias.
+
+Salvar cópia exige destino novo e consentimento nativo com a revisão atual;
+a gravação usa `wx` e sincronização. A origem nunca é sobrescrita. O hash
+da origem identifica o snapshot lido e não é uma promessa de sincronização
+com alterações externas. A sessão sobrevive à recarga do renderer, mas não
+ao encerramento de todo o aplicativo. Copiar JSON usa uma rota específica
+vinculada à sessão e limitada a 2 MiB. Ver
+[DATABASE_WORKBENCH.md](DATABASE_WORKBENCH.md).
 
 ## Importação DXF 2D v0.2.2
 

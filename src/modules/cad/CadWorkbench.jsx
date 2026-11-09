@@ -8,6 +8,9 @@ import { useCadRecovery } from './useCadRecovery.mjs';
 import './CadWorkbench.css';
 import CadOutliner from './CadOutliner.jsx';
 import CadInspector from './CadInspector.jsx';
+import {CadDimensionAnnotations} from './CadDimensions.jsx';
+import {hasCadDimensions} from '../../../core/modules/cad/cad-dimensions.mjs';
+import {setCadDimension,removeCadDimension,cadGeometryOnlySketch} from '../../../core/modules/cad/cad-dimension-commands.mjs';
 import {createCadPointer} from './cad-pointer.mjs';
 import {CadPointerOverlay,CadCoordinates} from './CadPointer.jsx';
 import { editCadIdentity, editCadLayer, duplicateCadEntity, transformCadEntity, setCadDimensions } from '../../../core/modules/cad/cad-edit.mjs';
@@ -41,6 +44,11 @@ export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorW
   const [working,setWorking]=useState(false);
   const [loadError,setLoadError]=useState(false);
   const operationRef=useRef(false);
+  const exportConfirmationRef=useRef(false);
+  const mountedRef=useRef(true);
+  const documentRef=useRef({workspace,sketch});
+  documentRef.current={workspace,sketch};
+  useEffect(()=>{mountedRef.current=true;return()=>{mountedRef.current=false;};},[]);
   const [tool,setTool]=useState('select');
   const [layerId,setLayerId]=useState('principal');
   const [selected,setSelected]=useState(null);
@@ -235,7 +243,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorW
   }
   function fitDrawing(id){
     const object=typeof id==='string'?sketch.entities.find(e=>e.id===id):null;
-    const bounds=cadBounds(object?{...sketch,entities:[object]}:sketch,{visibleOnly:!object});
+    const bounds=cadBounds(object?{...sketch,entities:[object]}:sketch,{visibleOnly:!object,includeDimensions:true});
     if(!bounds){setView({cx:0,cy:0,zoom:4});return;}
     const w=Math.max(1,bounds.maxX-bounds.minX),h=Math.max(1,bounds.maxY-bounds.minY);
     setView({cx:(bounds.minX+bounds.maxX)/2,cy:(bounds.minY+bounds.maxY)/2,
@@ -295,6 +303,19 @@ export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorW
   function resizeObject(id,values){
     if(editBlocked||operationRef.current)return;
     try{record(setCadDimensions(sketch,id,values));setStatus('Dimensões aplicadas.');}catch(e){setStatus(e.message);}
+  }
+  function editPersistentDimension(id,dimension){
+    if(editBlocked||operationRef.current)return 'Edição CAD indisponível neste momento.';
+    try{
+      record(setCadDimension(sketch,id,dimension));
+      setStatus(dimension.mode==='fixed'?'Cota fixa aplicada à geometria. Use Salvar desenho para persistir.':'Cota de referência adicionada ao desenho. Use Salvar desenho para persistir.');
+      return null;
+    }catch(error){setStatus('Cota recusada: '+error.message);return error.message;}
+  }
+  function removePersistentDimension(id,kind){
+    if(editBlocked||operationRef.current)return 'Edição CAD indisponível neste momento.';
+    try{record(removeCadDimension(sketch,id,kind));setStatus('Cota removida; geometria preservada.');return null;}
+    catch(error){setStatus('Cota recusada: '+error.message);return error.message;}
   }
   function technicalOperation(kind,id,values){
     if(editBlocked||operationRef.current)return;
@@ -392,11 +413,27 @@ export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorW
     } finally {operationRef.current=false;setWorking(false);}
   }
   async function exportFormat(format){
-    if(!workspace||working||loadError||operationRef.current)return;
+    if(!workspace||working||loadError||operationRef.current||exportConfirmationRef.current)return;
+    const snapshot=sketch,project=workspace;
+    let exportedSketch=snapshot,geometryOnly=false;
+    if(format==='dxf'&&hasCadDimensions(snapshot)){
+      exportConfirmationRef.current=true;
+      let accepted;
+      try{accepted=await confirmAction({title:'Exportar DXF somente com geometria',
+        message:'O DXF desta versão não preserva cotas nem dimensões fixas. O arquivo exportado conterá somente a geometria. As cotas continuam no desenho OmniForge; use SVG para exportar o desenho cotado.',
+        confirmLabel:'Exportar só geometria'});}
+      finally{exportConfirmationRef.current=false;}
+      if(!mountedRef.current)return;
+      if(!accepted){setStatus('Exportação DXF cancelada. Cotas e geometria preservadas.');return;}
+      if(documentRef.current.workspace!==project||documentRef.current.sketch!==snapshot||operationRef.current){
+        setStatus('O desenho mudou durante a confirmação. Solicite a exportação novamente.');return;
+      }
+      exportedSketch=cadGeometryOnlySketch(snapshot);geometryOnly=true;
+    }
     operationRef.current=true;setWorking(true);
     try{
-      const result=await window.omni.exportCadSketch(format,sketch);
-      setStatus(`Arquivo ${format.toUpperCase()} real exportado: ${result.relativePath} (${result.bytes} bytes).`);
+      const result=await window.omni.exportCadSketch(format,exportedSketch);
+      setStatus(`Arquivo ${format.toUpperCase()} real exportado: ${result.relativePath} (${result.bytes} bytes).${geometryOnly?' Somente geometria; cotas mantidas no desenho OmniForge.':''}`);
     }catch(e){setStatus(`Erro na exportação: ${e.message}`);}finally{operationRef.current=false;setWorking(false);}
   }
   function toggleLayer(id,key){
@@ -465,6 +502,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorW
           <line x1="-1000000" x2="1000000" y1="0" y2="0" stroke="#4a3a40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
           <line y1="-1000000" y2="1000000" x1="0" x2="0" stroke="#3b3b40" strokeWidth="1" vectorEffect="non-scaling-stroke"/>
           {visibleEntities.map(e=><CadShape key={e.id} entity={e} color={layerColor(e.layerId)} selected={e.id===selected} onSelect={selectFromCanvas}/>)}
+          <CadDimensionAnnotations entities={visibleEntities} selected={selected} onSelect={selectFromCanvas}/>
           {from&&hover&&<g opacity="0.85" pointerEvents="none"><CadShape entity={{id:'preview',type:tool,layerId,a:from,b:hover,center:from,radius:Math.hypot(hover.x-from.x,hover.y-from.y)}} color="#C8515E" selected={false} onSelect={()=>{}}/></g>}
           {tool==='arc'&&arcPoints.length>0&&hover&&<g opacity="0.85" pointerEvents="none" data-testid="cad-arc-preview">
             <line x1={arcPoints[0].x} y1={-arcPoints[0].y} x2={hover.x} y2={-hover.y} stroke="#9e757c" strokeDasharray="3 3" vectorEffect="non-scaling-stroke"/>
@@ -495,6 +533,7 @@ export default function CadWorkbench({workspace,visible,onDirtyChange,inspectorW
         <CadInspector sketch={sketch} selected={selected} layerId={layerId} disabled={editBlocked}
           editFields={editFields} setEditFields={setEditFields} onGeometry={applyGeometry} onIdentity={editIdentity}
           onTransform={transform} onDimensions={resizeObject} onDuplicate={duplicate} onToolkit={technicalOperation} onFocus={fitDrawing} onLayerEdit={editLayer}
+          onDimensionEdit={editPersistentDimension} onDimensionRemove={removePersistentDimension}
           newLayerName={newLayerName} setNewLayerName={setNewLayerName} onAddLayer={addLayerFromName}
           onRemoveLayer={deleteActiveLayer} stats={stats}/>
       </aside>

@@ -9,6 +9,7 @@ const sourcePath = (...p) => path.join(root, ...p);
 const allowed = {
   automation:new Set(['automation','cad','workspace','integrations','extensions']),
   cad:new Set(['cad','workspace']),
+  database:new Set(['database','workspace']),
   ide:new Set(['ide','workspace']),
   integrations:new Set(['integrations']),
   extensions:new Set(['extensions','workspace']),
@@ -99,7 +100,7 @@ test('heavy modules have isolated render-error fallbacks without automatic reloa
   const shell=await fs.readFile(sourcePath('src','workbench','AppShell.jsx'),'utf8');
   const boundary=await fs.readFile(sourcePath('src','workbench','ModuleErrorBoundary.jsx'),'utf8');
   for(const label of ['Busca no projeto','CAD 2D','Automação visual','Editor de código',
-    'Controle Git','Central de Tarefas','Agendamentos','Extensões']) {
+    'Controle Git','Central de Tarefas','Agendamentos','Extensões','Terminal','Banco SQLite']) {
     assert.ok(shell.includes('<ModuleErrorBoundary') &&
       shell.includes('label="'+label+'"'), 'missing failure boundary: '+label);
   }

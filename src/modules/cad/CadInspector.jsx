@@ -3,8 +3,9 @@ import {cadEntityMetrics} from '../../../core/modules/cad/cad2d.mjs';
 import {cadEntityLabel,cadGeometrySummary,CAD_TYPE_LABELS} from '../../../core/modules/cad/cad-edit.mjs';
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
 import CadOperations from './CadOperations.jsx';
+import CadDimensions from './CadDimensions.jsx';
 const fmt=n=>Number(n.toFixed(4)).toLocaleString('pt-BR',{maximumFractionDigits:4});
-export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDuplicate,onToolkit,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
+export default function CadInspector({sketch,selected,layerId,disabled,editFields,setEditFields,onGeometry,onIdentity,onTransform,onDimensions,onDimensionEdit,onDimensionRemove,onDuplicate,onToolkit,onFocus,onLayerEdit,newLayerName,setNewLayerName,onAddLayer,onRemoveLayer,stats}){
   const panelRef=useRef(null);
   useEffect(()=>{if(panelRef.current)panelRef.current.scrollTop=0;},[selected]);
   const entity=sketch.entities.find(e=>e.id===selected);
@@ -61,12 +62,13 @@ export default function CadInspector({sketch,selected,layerId,disabled,editField
           <button type="submit" className="cad-primary" disabled={locked} data-testid="cad-apply-geometry">{geometryMode==='coordinates'?'Aplicar coordenadas':'Aplicar dimensões'}</button>
         </form>
       </details>
+      <CadDimensions key={'dimensions-'+entity.id} entity={entity} disabled={locked} onApply={onDimensionEdit} onRemove={onDimensionRemove}/>
       <details className="cad-property-section"><summary>Transformar</summary>
         <form noValidate className="cad-property-form" onSubmit={applyTransform}><div className="cad-fields-grid">
           {[['dx','Deslocamento X (mm)'],['dy','Deslocamento Y (mm)'],['scale','Escala uniforme']].map(([key,label])=><label key={key}>{label}<input aria-label={label} type="number" step="any" disabled={locked} value={transform[key]} onChange={e=>setTransform(old=>({...old,[key]:e.target.value}))}/></label>)}
         </div><p className="cad-inline-note">Escala a partir do centro do objeto.</p><button type="submit" disabled={locked}>Aplicar transformação</button></form>
       </details>
-      <CadOperations key={entity.id} entity={entity} disabled={locked} onApply={onToolkit}/>
+      <CadOperations key={'operations-'+entity.id} entity={entity} disabled={locked} onApply={onToolkit}/>
       <details className="cad-property-section" open><summary>Medições</summary><dl className="cad-measurements">
         <dt>{['line','arc'].includes(entity.type)?'Comprimento':'Perímetro'}</dt><dd data-testid="cad-measure-length">{fmt(measures.length)} mm</dd>
         {['circle','rectangle'].includes(entity.type)&&<><dt>Área</dt><dd>{fmt(measures.area)} mm²</dd></>}

@@ -78,10 +78,12 @@ test('native session denies permission checks, requests, devices and renderer do
 });
 test('native flow cannot start during write, project registration, CAD, task or scheduling consent', () => {
   assert.doesNotThrow(()=>assertCanExecute({}));
-  for(const key of ['save','cad','registry','execution','task','schedulePrompt'])
+  for(const key of ['save','cad','registry','execution','task','schedulePrompt','terminalPrompt','databasePrompt','databaseSave','databaseWork'])
     assert.throws(()=>assertCanExecute({[key]:true}),/operação atual/);
   for(const key of ['save','cad','registry'])assert.equal(commitInProgress({[key]:true}),true);
   assert.equal(commitInProgress({unsaved:true,execution:true}),false);
+  assert.doesNotThrow(()=>assertCanExecute({terminal:true}));
+  assert.equal(commitInProgress({terminal:true}),false);
 });
 test('custom protocol rejects traversal, credentials, ports, alternate methods and NTFS streams', () => {
   assert.equal(resolveResource({url:'omni://app/'},'/dist').absolute,path.resolve('/dist','index.html'));
@@ -103,5 +105,8 @@ test('closing rejects new operations while keeping diagnostic/cancel control lan
   assert.equal(calls,0);
   assert.equal(await invoke('runtimeDiagnostics',()=>true,event,[]),true);
   assert.equal(await invoke('cancelFlow',()=>true,event,[]),true);
+  assert.equal(await invoke('closeTerminal',()=>true,event,['session-id']),true);
+  assert.equal(await invoke('cancelDatabaseQuery',()=>true,event,[]),true);
+  await assert.rejects(invoke('writeTerminal',()=>true,event,['session-id','echo forbidden']),/Fechamento/);
   closing=false;assert.equal(await invoke('saveFlow',()=>42,event,[]),42);
 });

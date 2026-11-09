@@ -18,7 +18,8 @@ function createDiagnostics({ version, versions, packaged, platform = process.pla
     },
     snapshot({ preferences = {}, operations = {}, recoveryAvailable = false } = {}) {
       const active = {};
-      for (const key of ['save','cad','registry','execution','task','schedulePrompt','taskPrompt','closing','diagnosticExport','unsaved']) active[key] = operations[key] === true;
+      for (const key of ['save','cad','registry','execution','task','schedulePrompt','taskPrompt','closing','diagnosticExport','unsaved',
+        'terminal','terminalPrompt','databaseWork','databasePrompt','databaseSave']) active[key] = operations[key] === true;
       return {
         schemaVersion: 1, generatedAt: new Date(clock()).toISOString(),
         application: { name: 'OmniForge Studio', version, packaged: Boolean(packaged), channel: 'experimental' },

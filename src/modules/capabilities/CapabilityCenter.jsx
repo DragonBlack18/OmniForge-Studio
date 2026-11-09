@@ -3,13 +3,12 @@ import {REFERENCE_CATALOG,REFERENCE_GROUPS,REFERENCE_STATUS,filterReferences} fr
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
 import './CapabilityCenter.css';
 
-const MODULE_NAMES={canvas:'Automações',code:'Editor de código',development:'Executar e testar',cad:'CAD Sketch 2D'};
+const MODULE_NAMES={canvas:'Automações',code:'Editor de código',development:'Executar e testar',cad:'CAD Sketch 2D',terminal:'Terminal',database:'Banco SQLite'};
 const FUTURE_TOOLS=[
   ['Depurador','DAP + debugpy / vscode-js-debug','Breakpoints, variáveis e pilha precisam de um host de depuração testado.'],
-  ['Terminal interativo','xterm.js + node-pty','Depende de PTY nativo e testes de distribuição Windows. O console de execução já está disponível.'],
   ['Modelagem de sólidos','OpenCascade.js + Replicad','Depende de kernel, viewport 3D, unidades, seleção e persistência de topologia.'],
-  ['Restrições de esboço','SolveSpace','Depende de solver, indicação de conflitos e testes numéricos.'],
-  ['Bancos de dados','SQLite / DuckDB','Depende de conexões locais, migrações e consulta cancelável.'],
+  ['Restrições entre objetos','SolveSpace','Cotas por entidade estão disponíveis. Relações entre objetos ainda precisam de um solver geral.'],
+  ['Bancos externos e análise','PostgreSQL / DuckDB','SQLite local está disponível. Conexões externas e análise com DuckDB permanecem planejadas.'],
   ['CAM e BIM','OpenCAMLib / web-ifc','Depende de modelos, formatos, perfis e validação de unidades.']
 ];
 export default function CapabilityCenter({onNavigate}) {

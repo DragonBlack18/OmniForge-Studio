@@ -4,13 +4,13 @@ Complementa `DESIGN.md`, `docs/SECURITY.md` e os contratos de cada módulo. UI e
 
 | Capability | Canonical owner | Source of truth | Allowed variants | Verification |
 |---|---|---|---|---|
-| Table Selection | CapabilityCenter e sessões de documento | Modelo de seleção de cada domínio | Linha única identificada; nenhuma seleção total implícita | smoke:capabilities; smoke:code-workspace |
+| Table Selection | CapabilityCenter, sessões de documento e esquema SQLite | Modelo de seleção de cada domínio | Linha única identificada; nenhuma seleção total implícita | smoke:capabilities; smoke:code-workspace; smoke:database |
 | Select/Listbox | Controle HTML nativo | Sistema operacional e rótulo no JSX | native; popup do sistema aceito | Teclado e filtros nos smokes |
 | Date | Agendador existente | Contrato do LocalScheduleEngine | Campos declarados pelo agendador; sem calendário novo | smoke:schedules |
-| Form | Validação do domínio + operação exclusiva | Schemas/core e formulários existentes | noValidate, erro local, valores preservados | Testes core; smokes de desenvolvimento, CAD e criação |
+| Form | Validação do domínio + operação exclusiva | Schemas/core e formulários existentes | noValidate, erro local, valores preservados; foco no primeiro campo inválido | Testes core; smokes de desenvolvimento, cotas CAD, SQLite e criação |
 | Scrollbar | src/studio.css | Tokens --of-scroll-thumb / --of-scroll-track | Geometria por superfície | Capturas e rolagem em 1040/1280/1440 |
 | Toast | AppShell statusbar | notify + role=status | Status persistente; erros locais na operação | smoke:capabilities; smoke:development |
-| CRUD | Serviços nativos e sessões por módulo | Revisão SHA-256 e workspace fixado | Criar, editar, salvar, copiar, mover, remover cópia | smoke:project-suite; smoke:cad-precision; recovery |
+| CRUD | Serviços nativos e sessões por módulo | Revisão SHA-256 ou revisão monotônica da sessão SQLite, com workspace fixado | Criar, editar, salvar, copiar, mover, remover cópia | smoke:project-suite; smoke:cad-dimensions; smoke:database; recovery |
 
 ## Confirmação e foco
 
@@ -23,6 +23,34 @@ Solicitar consentimento antes de adquirir um bloqueio de edição quando a açã
 Ao atualizar listas, ignorar resultados de workspace antigo. Impedir submissões simultâneas com mutex real; estado React sozinho não é bloqueio. Exibir carregamento, ausência de resultados, indisponibilidade de runtime, erro e conclusão real. Saída de scripts distingue execução, verificação de sintaxe e testes. Uma saída concluída com código diferente de zero representa falha.
 
 Formulários usam validação própria; errors não eliminam os valores fornecidos. Operações com revisão divergente preservam o arquivo e oferecem atualização explícita. Catálogo e recursos planejados são somente informativos: não baixam ou executam projetos automaticamente.
+
+## Sessões nativas v0.11.0
+
+O terminal possui uma sessão ativa. Sua abertura exige consentimento nativo;
+depois disso os comandos digitados são executados pelo shell real. A sessão
+permanece consumindo saída ao navegar, com retenção limitada e ACK. Não
+bloqueia salvar arquivos nem executar outros runners. Trocar de projeto
+exige encerrar o terminal primeiro. Ctrl+C interrompe o comando; Encerrar
+usa a confirmação editorial compartilhada e espera o processo terminar.
+
+O SQLite possui uma imagem aceita no processo principal. Consultar usa
+leitura; Aplicar alterações confirma uma transação completa. Salvar cópia
+confirma a criação de arquivo novo e nunca substitui a origem. Erro, prazo
+ou cancelamento descartam somente a operação atual. Uma sessão suja exige
+salvar uma cópia ou confirmar descarte antes de trocar projeto/fechar.
+Texto SQL e parâmetros ficam preservados entre módulos; não são autosave.
+
+`activeWorkspace` reanexa o contexto já aberto quando apenas o renderer
+recarrega. Não escolhe um projeto, executa programas ou recria uma sessão
+depois de reiniciar o aplicativo. Terminal e banco retornam o estado que
+o host ainda possui; falha na leitura de arquivos não pode tornar esse
+estado inacessível. A tela explica erros de reanexação sem sobrescrever
+arquivos ou inventar uma revisão salva.
+
+Ao adicionar a primeira cota, o CAD promove o desenho para schema v2.
+Uma cota fixa participa do validador central; transformações incompatíveis
+são recusadas integralmente. DXF exige confirmar a perda das anotações na
+cópia exportada; o documento nativo permanece completo.
 
 ## Evidência
 

@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Never expose ipcRenderer itself: only this explicit method allowlist.
 contextBridge.exposeInMainWorld('omni', Object.freeze({
   info: () => ipcRenderer.invoke('omni:info'),
+  activeWorkspace: () => ipcRenderer.invoke('omni:activeWorkspace'),
   runtimeDiagnostics: () => ipcRenderer.invoke('omni:runtimeDiagnostics'),
   exportRuntimeDiagnostics: () => ipcRenderer.invoke('omni:exportRuntimeDiagnostics'),
   setUnsavedChanges: dirty => ipcRenderer.invoke('omni:setUnsavedChanges', dirty),
@@ -58,6 +59,38 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   developmentState: () => ipcRenderer.invoke('omni:developmentState'),
   runDevelopmentTask: request => ipcRenderer.invoke('omni:runDevelopmentTask', request),
   cancelDevelopmentTask: id => ipcRenderer.invoke('omni:cancelDevelopmentTask', id),
+  terminalAvailability: () => ipcRenderer.invoke('omni:terminalAvailability'),
+  terminalState: () => ipcRenderer.invoke('omni:terminalState'),
+  attachTerminal: id => ipcRenderer.invoke('omni:attachTerminal', id),
+  detachTerminal: id => ipcRenderer.invoke('omni:detachTerminal', id),
+  openTerminal: options => ipcRenderer.invoke('omni:openTerminal', options),
+  writeTerminal: (id, data) => ipcRenderer.invoke('omni:writeTerminal', id, data),
+  copyTerminalSelection: (id, text) => ipcRenderer.invoke('omni:copyTerminalSelection', id, text),
+  resizeTerminal: (id, cols, rows) => ipcRenderer.invoke('omni:resizeTerminal', id, cols, rows),
+  acknowledgeTerminal: (id, sequence) => ipcRenderer.invoke('omni:acknowledgeTerminal', id, sequence),
+  closeTerminal: id => ipcRenderer.invoke('omni:closeTerminal', id),
+  onTerminalEvent: callback => {
+    if (typeof callback !== 'function') throw new TypeError('Callback de terminal inválido.');
+    const handler = (_event, details) => callback(details);
+    ipcRenderer.on('omni:terminalEvent', handler);
+    return () => ipcRenderer.removeListener('omni:terminalEvent', handler);
+  },
+  listDatabaseFiles: () => ipcRenderer.invoke('omni:listDatabaseFiles'),
+  databaseState: () => ipcRenderer.invoke('omni:databaseState'),
+  createDatabase: () => ipcRenderer.invoke('omni:createDatabase'),
+  openDatabase: relativePath => ipcRenderer.invoke('omni:openDatabase', relativePath),
+  queryDatabase: request => ipcRenderer.invoke('omni:queryDatabase', request),
+  copyDatabaseResult: (sessionId, text) => ipcRenderer.invoke('omni:copyDatabaseResult', sessionId, text),
+  applyDatabaseSql: request => ipcRenderer.invoke('omni:applyDatabaseSql', request),
+  cancelDatabaseQuery: request => ipcRenderer.invoke('omni:cancelDatabaseQuery', request),
+  saveDatabaseCopy: request => ipcRenderer.invoke('omni:saveDatabaseCopy', request),
+  closeDatabase: sessionId => ipcRenderer.invoke('omni:closeDatabase', sessionId),
+  onDatabaseEvent: callback => {
+    if (typeof callback !== 'function') throw new TypeError('Callback de banco de dados inválido.');
+    const handler = (_event, details) => callback(details);
+    ipcRenderer.on('omni:databaseEvent', handler);
+    return () => ipcRenderer.removeListener('omni:databaseEvent', handler);
+  },
   onDevelopmentEvent: callback => {
     if (typeof callback !== 'function') throw new TypeError('Callback de desenvolvimento inválido.');
     const handler = (_event, details) => callback(details);

@@ -1,8 +1,8 @@
-# Mapa das 150 referências
+# Mapa das 151 referências
 
 Gerado por `npm run verify:references` a partir do mesmo catálogo exibido no aplicativo. Para regenerar: `node scripts/generate-reference-map.mjs`.
 
-O estado **Integrado** identifica um componente efetivamente utilizado, incluindo ferramentas de teste/build. **Referência de produto** orienta a experiência. **Planejado** descreve uma possibilidade ainda indisponível. **Alternativa em avaliação** concorre com outra solução para a mesma função. Não são 150 dependências instaladas.
+As 150 fontes originais conservam seus identificadores; o guia oficial de SQLite do Node foi acrescentado na v0.11.0. O estado **Integrado** identifica um componente efetivamente utilizado, incluindo ferramentas de teste/build. **Referência de produto** orienta a experiência. **Planejado** descreve uma possibilidade ainda indisponível. **Alternativa em avaliação** concorre com outra solução para a mesma função. A quantidade de fontes não é a quantidade de dependências instaladas.
 
 ## Automação
 
@@ -71,8 +71,8 @@ O estado **Integrado** identifica um componente efetivamente utilizado, incluind
 | 46 | [Pyright](https://github.com/microsoft/pyright) | Planejado | Servidor de linguagem Python com ambiente e versão explicitamente selecionados. | Próxima etapa / referência |
 | 47 | [debugpy](https://github.com/microsoft/debugpy) | Planejado | Depuração Python com processo, portas locais e encerramento supervisionados. | Próxima etapa / referência |
 | 48 | [vscode-js-debug](https://github.com/microsoft/vscode-js-debug) | Planejado | Depuração Node via DAP, com testes de encerramento de sessão. | Próxima etapa / referência |
-| 49 | [xterm.js](https://github.com/xtermjs/xterm.js) | Planejado | Terminal real depende de PTY nativo; saída atual é console supervisionado. | Próxima etapa / referência |
-| 50 | [node-pty](https://github.com/microsoft/node-pty) | Planejado | PTY Windows/Linux: empacotar binários e controlar processo e ambiente. | Próxima etapa / referência |
+| 49 | [xterm.js](https://github.com/xtermjs/xterm.js) | Integrado | Terminal interativo com teclado, cores, redimensionamento e controle de saída. | @xterm/xterm@6.0.0 + @xterm/addon-fit@0.11.0 |
+| 50 | [node-pty](https://github.com/microsoft/node-pty) | Integrado | PTY nativo em processo supervisionado, com consentimento por sessão e encerramento controlado. | node-pty@1.1.0 |
 | 51 | [isomorphic-git](https://github.com/isomorphic-git/isomorphic-git) | Alternativa em avaliação | Alternativa para operações Git sem executável externo. | Próxima etapa / referência |
 | 52 | [simple-git](https://github.com/steveukx/git-js) | Alternativa em avaliação | Comparar camada Git com os comandos nativos delimitados atuais. | Próxima etapa / referência |
 | 53 | [ripgrep](https://github.com/BurntSushi/ripgrep) | Planejado | Busca indexada e cancelável em projetos grandes. | Próxima etapa / referência |
@@ -120,7 +120,7 @@ O estado **Integrado** identifica um componente efetivamente utilizado, incluind
 | 80 | [Replicad](https://github.com/sgenoud/replicad) | Planejado | Modelagem paramétrica por código sobre um kernel geométrico. | Próxima etapa / referência |
 | 81 | [Chili3D](https://github.com/xiangechen/chili3d) | Referência de produto | Referência de seleção, comandos e ferramentas CAD web. | Próxima etapa / referência |
 | 82 | [FreeCAD](https://github.com/FreeCAD/FreeCAD) | Referência de produto | Referência de árvore paramétrica e bancadas; possível adaptador externo. | Próxima etapa / referência |
-| 83 | [SolveSpace](https://github.com/solvespace/solvespace) | Planejado | Solver de restrições com indicação de conflitos e graus de liberdade. | Próxima etapa / referência |
+| 83 | [SolveSpace](https://github.com/solvespace/solvespace) | Planejado | Solver geral entre objetos ainda planejado; cotas fixas por entidade usam fórmulas próprias delimitadas. | Próxima etapa / referência |
 | 84 | [CadQuery](https://github.com/CadQuery/cadquery) | Planejado | Adaptador Python para gerar peças por código. | Próxima etapa / referência |
 | 85 | [build123d](https://github.com/gumyr/build123d) | Alternativa em avaliação | Alternativa Python para modelagem programática. | Próxima etapa / referência |
 | 86 | [OpenSCAD](https://github.com/openscad/openscad) | Planejado | Compilação externa de modelos CSG e captura de erros. | Próxima etapa / referência |
@@ -174,7 +174,7 @@ O estado **Integrado** identifica um componente efetivamente utilizado, incluind
 
 | Nº | Fonte | Estado | Aplicação / decisão | Evidência |
 |---|---|---|---|---|
-| 117 | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Planejado | Dados locais SQLite em processo dedicado, com migrações e backup. | Próxima etapa / referência |
+| 117 | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) | Alternativa em avaliação | Alternativa ao node:sqlite já incluído no Electron; não é dependência instalada. | Próxima etapa / referência |
 | 118 | [DuckDB](https://github.com/duckdb/duckdb) | Planejado | Consultas analíticas locais e importação de conjuntos de dados. | Próxima etapa / referência |
 | 119 | [TanStack Table](https://github.com/TanStack/table) | Planejado | Inspeção de dados tabulares com ordenação, filtros e colunas tipadas. | Próxima etapa / referência |
 | 120 | [TanStack Virtual](https://github.com/TanStack/virtual) | Planejado | Virtualização de tabelas e logs extensos. | Próxima etapa / referência |
@@ -218,3 +218,4 @@ O estado **Integrado** identifica um componente efetivamente utilizado, incluind
 | 148 | [VS Code UX](https://code.visualstudio.com/api/ux-guidelines/overview) | Referência de produto | Referência de padrões para comandos, painéis e extensões. | Próxima etapa / referência |
 | 149 | [Electron Performance](https://www.electronjs.org/docs/latest/tutorial/performance) | Referência de produto | Carregamento sob demanda e medidas de inicialização. | Próxima etapa / referência |
 | 150 | [Node-RED Embedding](https://nodered.org/docs/user-guide/runtime/embedding) | Referência de produto | Avaliar incorporação de runtime separado e suas fronteiras. | Próxima etapa / referência |
+| 151 | [Node.js SQLite](https://nodejs.org/download/release/v24.22.1/docs/api/sqlite.html) | Integrado | Banco SQLite local com consultas canceláveis, transações em rascunho e gravação explícita de cópia. | node:sqlite — runtime do Electron 45.1.0 |

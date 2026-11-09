@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
+        with: {node-version: '24.22.1'}
       - run: npm ci --no-audit --no-fund
       - run: node --check core/schedule-store.mjs
       - run: node --check core/schedule-engine.mjs
@@ -32,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
+        with: {node-version: '24.22.1'}
       - run: npm ci --no-audit --no-fund
       - run: npm run build
   windows:
@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: {node-version: '22'}
+        with: {node-version: '24.22.1'}
       - run: npm ci --no-audit --no-fund
       - run: npm run build
       - name: Schedule Center real Electron E2E

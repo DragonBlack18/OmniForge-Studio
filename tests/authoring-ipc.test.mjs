@@ -2,13 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url),{installAuthoringIpc}=require('../electron/modules/authoring-ipc.cjs');
-function fixture(){let root='/project',confirm=0;const routes=new Map(),calls=[],parent={canceled:false,filePaths:['/chosen']};
+function fixture({beforeActivate=()=>{}}={}){let root='/project',confirm=0;const routes=new Map(),calls=[],parent={canceled:false,filePaths:['/chosen']};
   const core=Object.fromEntries(['createAuthoredFile','createAuthoredFolder','authoredFileInfo','duplicateAuthoredFile','relocateAuthoredFile'].map(name=>[name,async(...args)=>{calls.push([name,...args]);return {path:'created'};}]));
   core.authoringPath=async p=>{if(typeof p!=='string'||/[\x00-\x1f]/.test(p))throw Error('Caminho inválido.');};
   core.createProjectScaffold=async(...args)=>{calls.push(['createProjectScaffold',...args]);return {workspace:'/chosen/project',files:['README.md']};};
   core.registerProject=async(...args)=>{calls.push(['register',...args]);return {id:'p',path:'/chosen/project'};};
   const dialog={showOpenDialog:async()=>parent,showMessageBox:async()=>({response:confirm})};
-  installAuthoringIpc({register:(name,fn)=>routes.set(name,fn),core,serial:async fn=>fn(),getWorkspace:()=>root,getWindow:()=>({}),dialog,catalogRoot:'/profile',activateProject:async p=>({workspace:p.path,projectId:p.id,files:[]})});
+  installAuthoringIpc({register:(name,fn)=>routes.set(name,fn),core,serial:async fn=>fn(),getWorkspace:()=>root,getWindow:()=>({}),dialog,catalogRoot:'/profile',activateProject:async p=>({workspace:p.path,projectId:p.id,files:[]}),beforeActivate});
   return {routes,calls,dialog,parent,set root(value){root=value;},set confirm(value){confirm=value;}};
 }
 test('file creation and metadata are pinned to current native workspace; forged roots never reach filesystem',async()=>{
@@ -34,5 +34,14 @@ test('project creation uses only the native chosen parent, registers after succe
 test('cancelled or ambiguous folder chooser creates and registers nothing',async()=>{
   for(const selection of [{canceled:true,filePaths:[]},{canceled:false,filePaths:[]},{canceled:false,filePaths:['/one','/two']}]){
     const f=fixture();Object.assign(f.parent,selection);assert.equal(await f.routes.get('createProjectFromTemplate')('project','blank'),null);assert.deepEqual(f.calls,[]);
+  }
+});
+test('project creation checks terminal/database transition guards before native choice and filesystem writes',async()=>{
+  for (const late of [false,true]) {
+    let guarded=0, choosers=0;
+    const f=fixture({beforeActivate:()=>{if(++guarded>(late?1:0))throw Error('Sessão de ferramenta impede troca.');}});
+    f.dialog.showOpenDialog=async()=>{choosers++;return f.parent;};
+    await assert.rejects(f.routes.get('createProjectFromTemplate')('project','blank'),/Sessão de ferramenta/);
+    assert.equal(choosers,late?1:0);assert.deepEqual(f.calls,[]);
   }
 });

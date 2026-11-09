@@ -61,8 +61,8 @@ const groups = [
     ['Pyright','microsoft/pyright','Servidor de linguagem Python com ambiente e versão explicitamente selecionados.'],
     ['debugpy','microsoft/debugpy','Depuração Python com processo, portas locais e encerramento supervisionados.'],
     ['vscode-js-debug','microsoft/vscode-js-debug','Depuração Node via DAP, com testes de encerramento de sessão.'],
-    ['xterm.js','xtermjs/xterm.js','Terminal real depende de PTY nativo; saída atual é console supervisionado.'],
-    ['node-pty','microsoft/node-pty','PTY Windows/Linux: empacotar binários e controlar processo e ambiente.'],
+    ['xterm.js','xtermjs/xterm.js','Terminal interativo com teclado, cores, redimensionamento e controle de saída.','integrated','@xterm/xterm@6.0.0 + @xterm/addon-fit@0.11.0','terminal'],
+    ['node-pty','microsoft/node-pty','PTY nativo em processo supervisionado, com consentimento por sessão e encerramento controlado.','integrated','node-pty@1.1.0','terminal'],
     ['isomorphic-git','isomorphic-git/isomorphic-git','Alternativa para operações Git sem executável externo.','alternative'],
     ['simple-git','steveukx/git-js','Comparar camada Git com os comandos nativos delimitados atuais.','alternative'],
     ['ripgrep','BurntSushi/ripgrep','Busca indexada e cancelável em projetos grandes.'],
@@ -101,7 +101,7 @@ const groups = [
     ['Replicad','sgenoud/replicad','Modelagem paramétrica por código sobre um kernel geométrico.'],
     ['Chili3D','xiangechen/chili3d','Referência de seleção, comandos e ferramentas CAD web.','reference'],
     ['FreeCAD','FreeCAD/FreeCAD','Referência de árvore paramétrica e bancadas; possível adaptador externo.','reference'],
-    ['SolveSpace','solvespace/solvespace','Solver de restrições com indicação de conflitos e graus de liberdade.'],
+    ['SolveSpace','solvespace/solvespace','Solver geral entre objetos ainda planejado; cotas fixas por entidade usam fórmulas próprias delimitadas.'],
     ['CadQuery','CadQuery/cadquery','Adaptador Python para gerar peças por código.'],
     ['build123d','gumyr/build123d','Alternativa Python para modelagem programática.','alternative'],
     ['OpenSCAD','openscad/openscad','Compilação externa de modelos CSG e captura de erros.'],
@@ -143,7 +143,7 @@ const groups = [
     ['xeokit','xeokit/xeokit-sdk','Alternativa de viewport BIM; revisar termos do SDK.','alternative']
   ]],
   ['data','Dados e desempenho','canvas',[
-    ['better-sqlite3','WiseLibs/better-sqlite3','Dados locais SQLite em processo dedicado, com migrações e backup.'],
+    ['better-sqlite3','WiseLibs/better-sqlite3','Alternativa ao node:sqlite já incluído no Electron; não é dependência instalada.','alternative'],
     ['DuckDB','duckdb/duckdb','Consultas analíticas locais e importação de conjuntos de dados.'],
     ['TanStack Table','TanStack/table','Inspeção de dados tabulares com ordenação, filtros e colunas tipadas.'],
     ['TanStack Virtual','TanStack/virtual','Virtualização de tabelas e logs extensos.'],
@@ -180,7 +180,8 @@ const groups = [
     ['Adobe Spectrum','https://spectrum.adobe.com/','Referência de estados, foco, densidade e componentes.','reference'],
     ['VS Code UX','https://code.visualstudio.com/api/ux-guidelines/overview','Referência de padrões para comandos, painéis e extensões.','reference'],
     ['Electron Performance','https://www.electronjs.org/docs/latest/tutorial/performance','Carregamento sob demanda e medidas de inicialização.','reference'],
-    ['Node-RED Embedding','https://nodered.org/docs/user-guide/runtime/embedding','Avaliar incorporação de runtime separado e suas fronteiras.','reference']
+    ['Node-RED Embedding','https://nodered.org/docs/user-guide/runtime/embedding','Avaliar incorporação de runtime separado e suas fronteiras.','reference'],
+    ['Node.js SQLite','https://nodejs.org/download/release/v24.22.1/docs/api/sqlite.html','Banco SQLite local com consultas canceláveis, transações em rascunho e gravação explícita de cópia.','integrated','node:sqlite — runtime do Electron 45.1.0','database']
   ]]
 ];
 let nextId=0;

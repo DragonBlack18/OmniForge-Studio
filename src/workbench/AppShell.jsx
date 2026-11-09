@@ -22,6 +22,8 @@ const ExtensionsHub = React.lazy(() => import('../modules/extensions/ExtensionsH
 const ScheduleCenter = React.lazy(() => import('../modules/automation/ScheduleCenter.jsx'));
 const GitSourceControl = React.lazy(() => import('../modules/ide/GitSourceControl.jsx'));
 const DevelopmentTools = React.lazy(() => import('../modules/ide/DevelopmentTools.jsx'));
+const TerminalWorkbench = React.lazy(() => import('../modules/ide/TerminalWorkbench.jsx'));
+const DatabaseWorkbench = React.lazy(() => import('../modules/database/DatabaseWorkbench.jsx'));
 const CapabilityCenter = React.lazy(() => import('../modules/capabilities/CapabilityCenter.jsx'));
 const ProjectTasks = React.lazy(() => import('../modules/ide/ProjectTasks.jsx'));
 const WorkspaceSearch = React.lazy(() => import('../modules/ide/WorkspaceSearch.jsx'));
@@ -51,8 +53,11 @@ export default function AppShell() {
   const [mode, setMode] = useState('home');
   const currentModule = findWorkbenchModule(mode);
   const [cadEverOpened,setCadEverOpened] = useState(false);
+  const [terminalEverOpened,setTerminalEverOpened] = useState(false);
+  const [databaseEverOpened,setDatabaseEverOpened] = useState(false);
   const [sideMode, setSideMode] = useState('catalog');
   useEffect(() => { if(mode==='cad') setCadEverOpened(true); }, [mode]);
+  useEffect(() => { if(mode==='terminal') setTerminalEverOpened(true); if(mode==='database') setDatabaseEverOpened(true); }, [mode]);
   const [paletteScope,setPaletteScope] = useState(null);
   const [diagnosticsOpen,setDiagnosticsOpen] = useState(false);
   const [fileQuery, setFileQuery] = useState('');
@@ -97,7 +102,7 @@ export default function AppShell() {
   const [cadDirty, setCadDirty] = useState(false);
   const [createKind, setCreateKind] = useState(null);
   const [createPath, setCreatePath] = useState('');
-  const [info, setInfo] = useState({ version: '0.10.0', mode: '...' });
+  const [info, setInfo] = useState({ version: '0.11.0', mode: '...' });
   const [connectorProjectId, setConnectorProjectId] = useState('');
   const [newCapability, setNewCapability] = useState({ id: 'registrar-venda', label: 'Registrar venda', method: 'POST', url: 'http://127.0.0.1:8000/api/vendas', timeoutMs: '3000', inputSchema: '{"type":"object"}', outputSchema: '{"type":"object"}' });
   const selected = nodes.find(node => node.id === selectedId);
@@ -169,7 +174,8 @@ export default function AppShell() {
     setWorkspace(result.workspace);
     setActiveProjectId(result.projectId);
     setFiles(result.files);
-    replaceDocument(result.flow, result.flowRevision, result.flowRevision === null, false);
+    replaceDocument(result.flow || {schemaVersion:1,name:'Fluxo não carregado',nodes:[],edges:[]},
+      result.flowRevision, Boolean(result.flow) && result.flowRevision === null && !result.reattached, false);
     const initialScratch=!workspace&&code.controller.getSnapshot().documents.length>0&&
       code.controller.getSnapshot().documents.every(d=>d.untitled);
     if(initialScratch)code.controller.attachInitialWorkspace(result.workspace);
@@ -181,13 +187,34 @@ export default function AppShell() {
     setSelectedHistory(null);
     setProjects(await window.omni.listProjects());
     setExtensions(await window.omni.listExtensions());
-    setMode('canvas');
+    setMode(result.resumeError || result.reattached ? 'home' : 'canvas');
     await recoveryReady;
-    notify(`Projeto aberto: ${result.workspace}`);
+    notify(result.resumeError ? `Projeto reanexado. ${result.resumeError} Os arquivos originais foram preservados.` : `Projeto aberto: ${result.workspace}`);
   };
 
-  const confirmProjectSwitch = async () => !workspace || !(dirty || flowDirty || cadDirty) ||
-    confirmAction({title:'Trocar de projeto',message:'Existem alterações não salvas. Alterações sem cópia de recuperação serão perdidas ao trocar de projeto.',confirmLabel:'Trocar de projeto'});
+  useEffect(() => {
+    if (!window.omni?.activeWorkspace) return;
+    // Once per renderer lifetime. The native host owns the selected project;
+    // reload must not strand a live terminal or an in-memory SQLite document.
+    void execute(async () => {
+      const context = await window.omni.activeWorkspace();
+      if (context) await applyProject(context);
+    });
+  }, []);
+
+  const confirmProjectSwitch = async () => {
+    if (workspace) {
+      const [terminal, database] = await Promise.all([window.omni.terminalState(), window.omni.databaseState()]);
+      if (terminal && ['starting','running','closing'].includes(terminal.status)) {
+        setMode('terminal'); notify('Encerre a sessão no Terminal antes de trocar de projeto.'); return false;
+      }
+      if (database?.dirty || database?.running) {
+        setMode('database'); notify('Conclua a operação e salve uma cópia ou descarte o rascunho no Banco SQLite antes de trocar de projeto.'); return false;
+      }
+    }
+    return !workspace || !(dirty || flowDirty || cadDirty) ||
+      confirmAction({title:'Trocar de projeto',message:'Existem alterações não salvas. Alterações sem cópia de recuperação serão perdidas ao trocar de projeto.',confirmLabel:'Trocar de projeto'});
+  };
 
   const openWorkspace = () => execute(async () => {
     if (!await confirmProjectSwitch()) return;
@@ -506,6 +533,8 @@ export default function AppShell() {
   });
   useEffect(()=>{
     const handleShortcut=event=>{
+      // Terminal keystrokes belong to the shell (Ctrl+B/P/S included).
+      if (event.target?.closest?.('.xterm')) return;
       if(authoring.request){if((event.ctrlKey||event.metaKey)&&['n','s','p','w'].includes(event.key.toLowerCase()))event.preventDefault();return;}
       if((event.ctrlKey||event.metaKey)&&!event.altKey&&event.key.toLowerCase()==='n'){
         event.preventDefault();if(!busy&&!event.repeat)authoring.begin(event.shiftKey?'project':'new');return;
@@ -746,6 +775,8 @@ export default function AppShell() {
           )}
           {mode === 'git' && <ModuleErrorBoundary label="Controle Git"><React.Suspense fallback={<ModuleLoading label="Git"/>}><GitSourceControl workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
           {mode === 'development' && <ModuleErrorBoundary key={workspace} label="Executar e testar"><React.Suspense fallback={<ModuleLoading label="desenvolvimento"/>}><DevelopmentTools workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
+          {(terminalEverOpened || mode==='terminal') && <div hidden={mode!=='terminal'} style={{display:mode==='terminal'?'flex':'none',flex:1,minHeight:0,minWidth:0}}><ModuleErrorBoundary key={workspace || '__terminal__'} label="Terminal"><React.Suspense fallback={<ModuleLoading label="terminal"/>}><TerminalWorkbench key={workspace || '__terminal__'} workspace={workspace} visible={mode==='terminal'} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary></div>}
+          {(databaseEverOpened || mode==='database') && <div hidden={mode!=='database'} style={{display:mode==='database'?'flex':'none',flex:1,minHeight:0,minWidth:0}}><ModuleErrorBoundary key={workspace || '__database__'} label="Banco SQLite"><React.Suspense fallback={<ModuleLoading label="banco de dados"/>}><DatabaseWorkbench key={workspace || '__database__'} workspace={workspace} visible={mode==='database'} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary></div>}
           {mode === 'capabilities' && <ModuleErrorBoundary label="Ferramentas e referências"><React.Suspense fallback={<ModuleLoading label="referências"/>}><CapabilityCenter onNavigate={navigate}/></React.Suspense></ModuleErrorBoundary>}
           {mode === 'tasks' && <ModuleErrorBoundary label="Central de Tarefas"><React.Suspense fallback={<ModuleLoading label="tarefas"/>}><ProjectTasks workspace={workspace} busy={busy} onNotice={notify}/></React.Suspense></ModuleErrorBoundary>}
           {mode === 'schedules' && <ModuleErrorBoundary label="Agendamentos"><React.Suspense fallback={<ModuleLoading label="agendamentos"/>}><ScheduleCenter

@@ -10,7 +10,9 @@ export const NAV_GROUPS = [
     { mode:'search', label:'Buscar em arquivos', aria:'Buscar no projeto', icon:'search' },
     { mode:'git', label:'Controle Git', aria:'Controle de versão Git', icon:'git' },
     { mode:'tasks', label:'Central de Tarefas', aria:'Central de Tarefas', icon:'terminal' },
-    { mode:'development', label:'Executar e testar', aria:'Executar e testar', icon:'check' }
+    { mode:'development', label:'Executar e testar', aria:'Executar e testar', icon:'check' },
+    { mode:'terminal', label:'Terminal', aria:'Terminal interativo', icon:'terminal' },
+    { mode:'database', label:'Banco SQLite', aria:'Banco SQLite', icon:'database' }
   ]},
   { id:'automation', title: 'AUTOMAÇÃO', icon:'workflow', description:'Fluxos e extensões', items: [
     { mode:'canvas', label:'Automações', aria:'Arquitetura visual', icon:'workflow' },

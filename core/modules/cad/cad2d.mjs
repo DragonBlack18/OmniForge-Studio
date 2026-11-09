@@ -1,8 +1,9 @@
-/** OmniForge CAD Sketch v1 — original, deterministic 2D geometry model.
+/** OmniForge CAD Sketch v1/v2 — deterministic 2D geometry and local dimensions.
  * Coordinates are real millimetres with Y increasing upwards.
- * This is not a parametric solid kernel. Analytic arcs are additive to v1.
+ * Analytic arcs belong to v1; persistent dimensions explicitly promote to v2.
  */
 import {cadArcExtrema,cadArcPoint,cadArcSweep,cadArcPath,normalizeCadAngle} from './cad-arcs.mjs';
+import {validateCadDimensions,cadDimensionLayout,hasCadDimensions} from './cad-dimensions.mjs';
 
 const MAX_COORD = 1_000_000;
 const MAX_ENTITIES = 2000;
@@ -36,7 +37,7 @@ export function initialCadSketch() {
 
 /** All serialized data is checked on both input and output boundaries. */
 export function validateCadSketch(raw) {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || raw.schemaVersion !== 1 || raw.units !== 'mm' ||
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || ![1,2].includes(raw.schemaVersion) || raw.units !== 'mm' ||
       typeof raw.name !== 'string' || raw.name.length > 100 || !Array.isArray(raw.layers) ||
       !raw.layers.length || raw.layers.length > MAX_LAYERS || !Array.isArray(raw.entities) ||
       raw.entities.length > MAX_ENTITIES) throw new Error('Documento CAD incompatível ou excede os limites.');
@@ -56,6 +57,8 @@ export function validateCadSketch(raw) {
         entity.name.length>80 || /[\u0000-\u001f\u007f]/.test(entity.name))) throw new Error('Nome do objeto CAD inválido.');
     for (const key of ['visible','locked']) if (entity[key] !== undefined && typeof entity[key] !== 'boolean')
       throw new Error('Estado do objeto CAD inválido.');
+    if(raw.schemaVersion===1&&entity.dimensions!==undefined)
+      throw new Error('Cotas persistentes exigem documento CAD versão 2.');
     if(entity.source!==undefined){
       const source=entity.source;
       if(!source||typeof source!=='object'||Array.isArray(source)||source.format!=='DXF'||
@@ -82,6 +85,7 @@ export function validateCadSketch(raw) {
       if (same(a,b)) throw new Error('Entidade CAD não pode ter tamanho nulo.');
       if (entity.type === 'rectangle' && (Math.abs(a.x-b.x) < 1e-6 || Math.abs(a.y-b.y) < 1e-6)) throw new Error('Retângulo precisa de largura e altura.');
     }
+    validateCadDimensions(entity);
   }
   return raw;
 }
@@ -135,6 +139,8 @@ export function replaceCadEntity(sketch, replacement) {
   const previous=sketch.entities[index];
   if(previous.type!==replacement.type || previous.layerId!==replacement.layerId)
     throw new Error('A edição numérica não altera tipo nem camada.');
+  if(JSON.stringify(previous.dimensions??null)!==JSON.stringify(replacement.dimensions??null))
+    throw new Error('Use o editor de cotas para alterar ou remover uma dimensão persistente.');
   if(previous.locked || sketch.layers.find(l=>l.id===previous.layerId)?.locked)
     throw new Error('Camada bloqueada para edição.');
   const next=clone(sketch);
@@ -164,7 +170,7 @@ export function removeCadLayer(sketch, id) {
   validateCadSketch(next);
   return next;
 }
-export function cadBounds(sketch, { visibleOnly=true } = {}) {
+export function cadBounds(sketch, { visibleOnly=true, includeDimensions=false } = {}) {
   validateCadSketch(sketch);
   const pts=[];
   for(const e of sketch.entities) {
@@ -175,6 +181,10 @@ export function cadBounds(sketch, { visibleOnly=true } = {}) {
       {x:e.center.x+e.radius,y:e.center.y+e.radius}
     );
     else pts.push(e.a,e.b);
+    if(includeDimensions)for(const dimension of e.dimensions||[]){
+      const bounds=cadDimensionLayout(e,dimension).bounds;
+      pts.push({x:bounds.minX,y:bounds.minY},{x:bounds.maxX,y:bounds.maxY});
+    }
   }
   if(!pts.length)return null;
   return {
@@ -233,6 +243,10 @@ export function cadSvg(sketch, { padding = 20 } = {}) {
     if(e.type==='arc')points.push(...cadArcExtrema(e));
     else if(e.type==='circle')points.push({x:e.center.x-e.radius,y:e.center.y-e.radius},{x:e.center.x+e.radius,y:e.center.y+e.radius});
     else points.push(e.a,e.b);
+    for(const dimension of e.dimensions||[]){
+      const bounds=cadDimensionLayout(e,dimension).bounds;
+      points.push({x:bounds.minX,y:bounds.minY},{x:bounds.maxX,y:bounds.maxY});
+    }
   }
   if(!points.length)points.push({x:-50,y:-50},{x:50,y:50});
   const x0=Math.min(...points.map(p=>p.x))-padding,y0=Math.min(...points.map(p=>p.y))-padding;
@@ -246,6 +260,12 @@ export function cadSvg(sketch, { padding = 20 } = {}) {
     if(e.type==='rectangle')output.push(`<rect x="${fmt(Math.min(e.a.x,e.b.x))}" y="${fmt(Math.min(e.a.y,e.b.y))}" width="${fmt(Math.abs(e.a.x-e.b.x))}" height="${fmt(Math.abs(e.a.y-e.b.y))}" fill="none" stroke="${color}"/>`);
     if(e.type==='circle')output.push(`<circle cx="${fmt(e.center.x)}" cy="${fmt(e.center.y)}" r="${fmt(e.radius)}" fill="none" stroke="${color}"/>`);
     if(e.type==='arc')output.push(`<path d="${cadArcPath(e)}" fill="none" stroke="${color}"/>`);
+    for(const dimension of e.dimensions||[]){
+      const annotation=cadDimensionLayout(e,dimension);
+      output.push(`<g data-cad-dimension="${dimension.kind}" stroke="${color}" stroke-width="0.35">`);
+      for(const segment of annotation.lines)output.push(`<line x1="${fmt(segment.a.x)}" y1="${fmt(segment.a.y)}" x2="${fmt(segment.b.x)}" y2="${fmt(segment.b.y)}"/>`);
+      output.push(`<text x="${fmt(annotation.text.x)}" y="${fmt(-annotation.text.y)}" transform="scale(1,-1)" fill="${color}" stroke="none" font-family="Consolas,monospace" font-size="${annotation.text.height}" text-anchor="middle" dominant-baseline="middle">${annotation.label}</text></g>`);
+    }
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${fmt(x0)} ${fmt(-y0-height)} ${fmt(width)} ${fmt(height)}"><title>OmniForge CAD — milímetros</title><g transform="scale(1,-1)" stroke-width="0.75" vector-effect="non-scaling-stroke">${output.join('')}</g></svg>\n`;
 }
@@ -255,6 +275,7 @@ export function cadSvg(sketch, { padding = 20 } = {}) {
  */
 export function cadDxf(sketch) {
   validateCadSketch(sketch);
+  if(hasCadDimensions(sketch))throw new Error('DXF não preserva cotas persistentes. Confirme a exportação somente da geometria ou use SVG.');
   const lines=[];
   const emit=(...pairs)=>{for(let i=0;i<pairs.length;i+=2)lines.push(String(pairs[i]),String(pairs[i+1]));};
   emit(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',9,'$MEASUREMENT',70,1,0,'ENDSEC');

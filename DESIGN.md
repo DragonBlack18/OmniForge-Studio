@@ -60,6 +60,13 @@ Janela desktop mínima: 1040 × 680 no processo nativo. Verificar também 1280 �
 
 O catálogo possui filtros acima de uma tabela rolável e detalhes laterais. O módulo de desenvolvimento separa arquivo, ação, argumentos e saída. No CAD, ferramentas numéricas e propriedades pertencem ao inspetor. Caixas de resultado possuem limites e rolagem, mantendo ações acessíveis. A central de referências é carregada sob demanda, assim como editor, CAD e worker de organização dos fluxos.
 
+Na v0.11.0, o terminal ocupa uma superfície contínua de texto com ações de
+sessão acima, preservando espaço para comandos. O tamanho do PTY acompanha
+o painel; ocultar o módulo não encerra o processo. O SQLite separa esquema
+lateral, editor SQL, resultado tabular rolável e destino da cópia. Em janelas
+menores, a área mantém rolagem própria e controles acessíveis. Cotas CAD
+permanecem no inspetor existente e no desenho, sem uma segunda navegação.
+
 ## Elevation & Depth
 
 Hierarquia por superfície, borda e espaço. Sombras ficam restritas a overlays e nós. O diálogo compartilhado usa backdrop escuro e limita sua altura à janela. Tabelas usam cabeçalho fixo no próprio contêiner; nada cobre a navegação global.
@@ -76,10 +83,18 @@ Selects nativos são uma escolha mantida para o desktop: o sistema operacional c
 
 O status global pertence ao `AppShell` e usa live region discreta. Erros recuperáveis permanecem junto à operação. Filtros sem resultados apresentam explicação e limpeza. Não aplicar animações decorativas aos resultados. Transições existentes de aproximadamente 120 ms são desativadas com `prefers-reduced-motion`.
 
+No xterm, os atalhos de teclado pertencem ao shell enquanto o terminal tem
+foco. Existe opção de suporte a leitor de tela e ação explícita para copiar
+seleção. A saída do processo não abre links ou escreve no clipboard. No
+SQLite, Ctrl+Enter consulta; alterações e salvar cópia têm ações distintas.
+Campos numéricos de cotas preservam a entrada inválida, exibem o erro junto
+ao campo e focam o primeiro erro após a submissão. O Outliner permite
+selecionar geometria por teclado para operar o inspetor.
+
 ## Do's and Don'ts
 
 - Preservar buffers, histórico de edição, revisões e cópias recuperáveis ao navegar.
 - Mostrar a ferramenta adequada ao módulo e o efeito concreto de cada ação.
 - Manter fonte oficial, versão e estado de adoção separados no catálogo.
 - Não afirmar que uma integração incorpora o produto inteiro de origem.
-- Não mostrar terminal, depurador, kernel 3D, CAM ou BIM como executáveis antes de sua integração e seus testes.
+- Mostrar terminal, SQLite e cotas locais com seus limites atuais; manter depurador, solver entre objetos, kernel 3D, CAM e BIM indisponíveis até sua integração e seus testes.
