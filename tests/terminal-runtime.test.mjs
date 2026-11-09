@@ -25,10 +25,22 @@ function createWorker(entry, options) {
 async function fixture(t, { onEvent = () => {} } = {}) {
   const workspace = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-pty-test-'));
   const plan = await prepareTerminalOpen(workspace, { shellId: process.platform === 'win32' ? 'cmd' : 'sh', cols: 90, rows: 28 });
-  const session = new TerminalSession({ createWorker, onEvent });
+  let worker = null, workerClosed = false;
+  const session = new TerminalSession({ createWorker: (entry, options) => {
+    worker = createWorker(entry, options);
+    worker.once('close', () => { workerClosed = true; });
+    return worker;
+  }, onEvent });
   t.after(async () => {
-    session.close(); await until(() => !session.isRunning).catch(() => {});
-    await fs.rm(workspace, { recursive: true, force: true });
+    session.close();
+    // Session completion follows process exit; close also confirms that the
+    // fork's IPC/stdio handles have closed before removing its working folder.
+    await until(() => !session.isRunning && (!worker || workerClosed));
+    assert.ok(['closed', 'exited'].includes(session.snapshot()?.status), session.snapshot()?.message);
+    // Windows may briefly retain a ConPTY helper/directory sharing handle.
+    // Built-in transient retries are bounded (six retries); failure propagates.
+    await fs.rm(workspace, { recursive: true, force: true,
+      maxRetries: process.platform === 'win32' ? 6 : 0, retryDelay: 100 });
   });
   await session.start(plan);
   return { workspace, session, plan };

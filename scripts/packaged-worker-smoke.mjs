@@ -78,7 +78,9 @@ const payload = `
     const database = await (${runPackagedDatabaseChecks.toString()})(path.dirname(process.argv[1]),root);
     console.log('PACKAGED_DATABASE_PASS: '+JSON.stringify(database));
   } finally {
-    await fs.rm(root,{recursive:true,force:true});
+    // Windows may release ConPTY/antivirus directory handles just after the
+    // confirmed worker exit. Retry only the temporary fixture cleanup, bounded.
+    await fs.rm(root,{recursive:true,force:true,maxRetries:8,retryDelay:100});
   }
 })().catch(error => { console.error(String(error?.stack || error)); process.exitCode=1; });
 `;
