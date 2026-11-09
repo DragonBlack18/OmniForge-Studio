@@ -79,7 +79,7 @@ try{
   await docAction('Reabrir aba fechada');await page.waitForFunction(()=>document.querySelectorAll('[data-testid="code-document-tab"]').length===2);
   await docAction('Fechar abas salvas');await page.getByRole('button',{name:'Criar documento vazio',exact:true}).waitFor();checks.push('reopen-and-close-only-saved-tabs');
   phase='new project wizard generates independent CLI with tests';
-  await nativePicker(parent);await create('Novo projeto…');await modal().getByLabel('Nome do projeto novo').fill('Oficina-CLI');await modal().getByLabel('Modelo de criação').selectOption('node-cli');
+  await nativePicker(parent);await create('Novo projeto… Ctrl ⇧ N');await modal().getByLabel('Nome do projeto novo').fill('Oficina-CLI');await modal().getByLabel('Modelo de criação').selectOption('node-cli');
   await screenshot('project-wizard');await modal().getByRole('button',{name:'Criar projeto',exact:true}).click();await waitClosed();
   const cli=path.join(parent,'Oficina-CLI');
   for(const [relative,content]of Object.entries(projectTemplate('node-cli').files))assert.equal(await fs.readFile(path.join(cli,relative),'utf8'),content);

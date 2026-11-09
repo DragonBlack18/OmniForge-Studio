@@ -6,6 +6,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
+import {runPackagedProjectChecks} from './lib/packaged-project-checks.mjs';
 
 const exe = process.argv[2];
 if (process.platform !== 'win32' || process.env.GITHUB_ACTIONS !== 'true' ||
@@ -68,6 +69,8 @@ const payload = `
     if(converted.massaGramas!==2250)
       throw new Error('Operação declarativa empacotada não calculou o valor real.');
     console.log('PACKAGED_EXTENSION_PASS: authorized declarative action and real JSON output.');
+    const suite = await (${runPackagedProjectChecks.toString()})(path.dirname(process.argv[1]),root);
+    console.log('PACKAGED_PROJECT_DATA_PASS: '+JSON.stringify(suite));
   } finally {
     await fs.rm(root,{recursive:true,force:true});
   }
@@ -92,7 +95,8 @@ clearTimeout(timer);
 console.log(stdout.trim());
 if (timedOut || result.code !== 0 ||
     !stdout.includes('PACKAGED_SUPERVISOR_PASS') ||
-    !stdout.includes('PACKAGED_EXTENSION_PASS')) {
+    !stdout.includes('PACKAGED_EXTENSION_PASS') ||
+    !stdout.includes('PACKAGED_PROJECT_DATA_PASS')) {
   throw new Error('Falha no supervisor do app instalado: '+
     JSON.stringify({timedOut,...result,stderr:stderr.slice(-1500),stdout:stdout.slice(-1500)}));
 }
