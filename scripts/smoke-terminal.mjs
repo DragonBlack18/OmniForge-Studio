@@ -33,6 +33,7 @@ async function command(text) {
 }
 const output = () => page.getByTestId('terminal-surface').innerText();
 async function shown(text) { await until(async () => (await output()).includes(text), 'output ' + text); }
+const promptCount = text => (text.match(process.platform === 'win32' ? /^PS [^\r\n]*?>/gm : /^bash-[\d.]+[#$]/gm) || []).length;
 try {
   app = await electron.launch({ args: ['.'], cwd: root, timeout: 45_000,
     env: { ...process.env, ELECTRON_RENDERER_URL: '', OMNIFORGE_E2E: '1', OMNIFORGE_E2E_USER_DATA: profile } });
@@ -92,10 +93,22 @@ try {
   await page.getByTestId('primary-sidebar').getByRole('button', { name: 'Editor de código', exact: true }).click();
   await page.getByTestId('primary-sidebar').getByRole('button', { name: 'Terminal interativo', exact: true }).click();
   assert.equal((await state()).id, oldId); await shown('TERMINAL_READY_ação');
+  const sidebar = page.getByTestId('primary-sidebar');
+  const sidebarClass = await sidebar.getAttribute('class'), sidebarWidth = (await sidebar.boundingBox()).width;
+  const promptsBeforeShortcut = promptCount(await output());
   await page.getByTestId('terminal-input').focus(); await page.keyboard.press('Control+b');
   assert.equal(await page.getByTestId('terminal-workbench').isVisible(), true);
+  assert.equal(await sidebar.getAttribute('class'), sidebarClass, 'Ctrl+B must not toggle the application sidebar');
+  assert.equal((await sidebar.boundingBox()).width, sidebarWidth, 'Ctrl+B must not resize the application sidebar');
+  // Ctrl+B is deliberately forwarded to the shell. Unlike Bash's Emacs mode,
+  // Windows PSReadLine may insert that unbound control character into the line.
+  // Cancel this edit and observe a fresh prompt before testing another command.
+  await page.keyboard.press('Control+c');
+  await until(async () => promptCount(await output()) > promptsBeforeShortcut, 'fresh shell prompt after shortcut');
+  assert.equal((await state()).id, oldId);
+  const previousColumns = (await state()).cols;
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1280, 800));
-  await pause(100);
+  await until(async () => (await state()).cols < previousColumns, 'PTY resize after navigation');
   await command("node -e \"require('node:fs').writeFileSync('terminal-size.json',JSON.stringify([process.stdout.columns,process.stdout.rows]));console.log('RESIZE'+'_DONE')\"");
   await shown('RESIZE_DONE');
   const resized = await state();
@@ -174,12 +187,21 @@ try {
   await closed;
   checks.push('native-close-drains-terminal-before-exit');
   await fs.rm(path.join(artifacts, 'terminal-failure.png'), { force: true });
+  await fs.rm(path.join(artifacts, 'terminal-failure.json'), { force: true });
   await fs.writeFile(path.join(artifacts, 'terminal-results.json'), JSON.stringify({ schemaVersion: 1,
     result: 'PASS', checks, platform: process.platform, shell: process.platform === 'win32' ? 'Windows PowerShell' : 'Bash',
     scope: 'Real PTY and utility process. Disposable workspace/profile; native approval mocked only by E2E harness.' }, null, 2) + '\n');
   console.log('PASS Terminal Electron E2E: ' + checks.join(', '));
 } catch (error) {
   console.error('[TERMINAL E2E] stage=' + stage, error); process.exitCode = 1;
+  const diagnostic = { stage, error: error.message, platform: process.platform, checks, pageErrors };
+  // Only this disposable fixture's output is recorded, never application logs.
+  if (page && !page.isClosed()) {
+    diagnostic.terminal = await state().catch(() => null);
+    diagnostic.output = await output().then(text => text.slice(-8192)).catch(() => null);
+  }
+  diagnostic.resizeProof = await fs.readFile(path.join(workspace, 'terminal-size.json'), 'utf8').catch(() => null);
+  await fs.writeFile(path.join(artifacts, 'terminal-failure.json'), JSON.stringify(diagnostic, null, 2) + '\n').catch(() => {});
   if (page && !page.isClosed()) await page.screenshot({ path: path.join(artifacts, 'terminal-failure.png') }).catch(() => {});
 } finally {
   if (app && appProcess?.exitCode === null && !appProcess.signalCode) {

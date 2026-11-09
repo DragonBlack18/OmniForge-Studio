@@ -9,7 +9,9 @@ const require = createRequire(import.meta.url);
 const { installDatabaseIpc } = require('../electron/modules/database-ipc.cjs');
 
 async function fixture(t) {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-sqlite-ipc-'));
+  // Native getWorkspace() returns project.path after realpath. Windows TEMP may
+  // contain an 8.3 alias or different casing; the fixture must honor that contract.
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'omni-sqlite-ipc-')));
   let workspace = root, response = 1, hook = () => {}, hostBusy = false;
   const handlers = new Map(), events = [], dialogs = [], copied = [];
   const controller = installDatabaseIpc({ register: (name, callback) => handlers.set(name, callback),
@@ -25,6 +27,24 @@ async function fixture(t) {
   return { root, controller, call, request, events, dialogs, copied,
     respond: value => { response = value; }, onDialog: value => { hook = value; },
     workspace: value => { workspace = value; }, busy: value => { hostBusy = value; } };
+}
+
+function holdConsent(fixture, t, timeoutMs = 5000) {
+  let release, announce;
+  const entered = new Promise(resolve => { announce = resolve; });
+  fixture.onDialog(() => new Promise(resolve => { release = resolve; announce(); }));
+  // An assertion failure must not leave the native consent fixture unresolved.
+  t.after(() => release?.());
+  return { release: () => release?.(), wait: async operation => {
+    let timer;
+    try {
+      await Promise.race([
+        entered,
+        operation.then(() => { throw new Error('A operação terminou antes de abrir o consentimento esperado.'); }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Tempo excedido aguardando consentimento SQLite.')), timeoutMs); })
+      ]);
+    } finally { clearTimeout(timer); }
+  } };
 }
 
 test('native approval pins source/revision and real SQL; decline leaves schema unchanged', async t => {
@@ -44,15 +64,14 @@ test('native approval pins source/revision and real SQL; decline leaves schema u
 
 test('approval copies validated SQL and parameters, blocks duplicate requests and rejects host changes', async t => {
   const f = await fixture(t); await f.call('createDatabase');
-  let finish;
-  f.onDialog(() => new Promise(resolve => { finish = resolve; }));
+  const consent = holdConsent(f, t);
   const source = f.request('CREATE TABLE approved(x);');
   const pending = f.call('applyDatabaseSql', source);
-  while (!finish) await new Promise(resolve => setImmediate(resolve));
+  await consent.wait(pending);
   assert.equal(f.controller.isPending(), true);
   await assert.rejects(f.call('queryDatabase', f.request('SELECT 1')), /Conclua a operação/);
   source.sql = 'CREATE TABLE replaced(x);'; source.params.push('changed');
-  finish(); await pending;
+  consent.release(); await pending;
   assert.equal(f.controller.snapshot().schema.objects[0].name, 'approved');
   f.onDialog(() => { f.busy(true); });
   await assert.rejects(f.call('applyDatabaseSql', f.request('CREATE TABLE blocked(x);')), /Outra operação/);
@@ -62,11 +81,10 @@ test('approval copies validated SQL and parameters, blocks duplicate requests an
 test('cancel during native consent invalidates later approval without destroying accepted image', async t => {
   const f = await fixture(t); await f.call('createDatabase');
   await f.call('applyDatabaseSql', f.request('CREATE TABLE accepted(x);'));
-  let finish;
-  f.onDialog(() => new Promise(resolve => { finish = resolve; }));
+  const consent = holdConsent(f, t);
   const pending = f.call('applyDatabaseSql', f.request('CREATE TABLE late(x);'));
-  while (!finish) await new Promise(resolve => setImmediate(resolve));
-  assert.equal(f.controller.cancel(), true); finish();
+  await consent.wait(pending);
+  assert.equal(f.controller.cancel(), true); consent.release();
   assert.equal(await pending, null); assert.equal(f.controller.snapshot().schema.objects.length, 1);
   assert.equal(f.controller.hasUnsavedChanges(), true);
 });
@@ -117,4 +135,12 @@ test('native result clipboard requires current session/workspace and bounded pla
   }
   f.workspace('/other'); assert.throws(() => f.call('copyDatabaseResult', id, text), /outro workspace/);
   assert.equal(f.copied.length, 1);
+});
+
+test('consent fixture observes rejection before the dialog and bounds an absent dialog', async t => {
+  const consent = holdConsent({ onDialog() {} }, t, 40);
+  const failure = new Error('Rejected before native consent');
+  await assert.rejects(consent.wait(Promise.reject(failure)), error => error === failure);
+  await assert.rejects(consent.wait(Promise.resolve()), /terminou antes de abrir/);
+  await assert.rejects(consent.wait(new Promise(() => {})), /Tempo excedido aguardando consentimento/);
 });
