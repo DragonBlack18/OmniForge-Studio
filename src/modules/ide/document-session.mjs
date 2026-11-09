@@ -195,11 +195,22 @@ export function createDocumentSession(api, {
     }
   };
   const saveAll = async () => {
-    const paths = [...documents.values()].filter(d=>d.content !== d.baseline).map(d=>d.path);
+    // Pin document identities, not just relative names. A late response from
+    // project A must never cause the next write to a same-named tab in B.
+    const generation = epoch;
+    const pending = [...documents.values()].filter(d=>d.content !== d.baseline);
     const saved = [];
-    for (const path of paths) {
-      try { saved.push(await save(path)); }
-      catch (cause) { throw new Error(`${saved.length}/${paths.length} arquivo(s) salvos. Interrompido em ${path}: ${cause.message}`); }
+    for (const document of pending) {
+      if (!valid(document,generation)) throw new Error('Projeto alterado durante Salvar todos. A sequência foi interrompida.');
+      try {
+        const result = await save(document.path);
+        if (!valid(document,generation) || result.stale)
+          throw new Error('Projeto alterado durante Salvar todos. Confira o resultado da gravação em andamento.');
+        saved.push(result);
+      } catch (cause) {
+        if (epoch !== generation || disposed) throw new Error('Projeto alterado durante Salvar todos. Nenhum próximo documento será salvo.');
+        throw new Error(`${saved.length}/${pending.length} arquivo(s) salvos. Interrompido em ${document.path}: ${cause.message}`);
+      }
     }
     return saved;
   };
@@ -235,11 +246,19 @@ export function createDocumentSession(api, {
     }
     cancelTimer(d); await d.queue;
     if (!valid(d,generation)) return false;
-    if (choice === 'discard' && d.edit !== editVersion) throw new Error('O arquivo mudou durante a confirmação. Revise antes de fechar.');
+    if (choice === 'discard' && d.edit !== editVersion) return false;
+    if (choice !== 'discard' && d.content !== d.baseline) return false;
     if (choice === 'discard' && d.draftToken && !d.draft) {
       await api.discardEditorDraft(capturedRoot,d.path,d.draftToken);
       if (!valid(d,generation)) return false;
+      // Native deletion can yield to a new keystroke. Retire only the token
+      // actually deleted, keep that edit/model, and checkpoint it afresh.
+      d.draftToken = null; d.lastProtected = null; d.protectedBase = null;
+      d.protection = d.content === d.baseline ? 'idle' : 'pending';
+      if (d.edit !== editVersion) { schedule(d); publish(); return false; }
     }
+    // There is no await between this decision and model removal.
+    if (choice !== 'discard' && d.content !== d.baseline) return false;
     const keys = [...documents.keys()], index = keys.indexOf(d.key);
     documents.delete(d.key); disposeResource(d.key);
     if (active === d.key) active = keys[index+1] || keys[index-1] || null;

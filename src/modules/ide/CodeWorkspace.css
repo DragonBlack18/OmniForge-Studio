@@ -34,3 +34,10 @@
 .code-close-overlay button:first-child{background:#6b293b}.code-close-overlay button:focus-visible{outline:2px solid #d88499;outline-offset:2px}
 @media(max-width:1300px){.code-workspace .workspace-editor-position{font-size:10px;white-space:nowrap;flex:none}.code-optional-label{display:none}.code-analysis>header>small{display:none}.code-commandbar{padding:3px 8px}.code-analysis__list small{max-width:190px;overflow:hidden;text-overflow:ellipsis}}
 @media(prefers-reduced-motion:reduce){.code-close-overlay{backdrop-filter:none}}
+
+/* Cursor coordinates remain available at compact widths. Wrap actions instead
+   of removing status data; long paths retain the existing ellipsis behavior. */
+.app-shell .code-workspace > .main-toolbar{flex:0 0 auto;flex-wrap:wrap;gap:8px 12px;padding:8px 12px;min-height:49px}
+.code-workspace > .main-toolbar > .toolbar-heading{flex:1 1 160px;min-width:0}
+.code-workspace > .main-toolbar > .toolbar-actions{flex:0 1 auto;min-width:0;max-width:100%;flex-wrap:wrap;justify-content:flex-end}
+.code-workspace .workspace-editor-position{display:inline-flex;align-items:center;flex:0 0 auto}

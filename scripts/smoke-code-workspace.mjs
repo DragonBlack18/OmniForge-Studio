@@ -124,13 +124,22 @@ try{
   const visible=await page.locator('.code-live-editor .view-lines').textContent();assert.match(visible,/edicao\s+posterior/);
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1280,800));
   await page.getByRole('tab',{name:/Problemas/}).click();
+  // Status must remain visible in the compact layout, not merely present in DOM.
+  await page.getByTestId('editor-position').waitFor({state:'visible'});
+  const positionBox=await page.getByTestId('editor-position').boundingBox();
+  const viewport=await page.evaluate(()=>({width:innerWidth,height:innerHeight}));
+  assert.ok(positionBox && positionBox.width>0 && positionBox.height>0 &&
+    positionBox.x>=0 && positionBox.y>=0 &&
+    positionBox.x+positionBox.width<=viewport.width &&
+    positionBox.y+positionBox.height<=viewport.height,'Coordenadas do cursor devem caber na janela compacta.');
+  assert.match(await page.getByTestId('editor-position').innerText(),/^Ln \d+ · Col \d+$/);
   await shot('compact-conflict');
   assert.deepEqual(pageErrors,[],'Exceções de renderer não podem ser ignoradas.');
   await fs.writeFile(path.join(artifacts,'ide-workspace-v082-results.json'),JSON.stringify({
     schemaVersion:1,version:'0.8.2',result:'PASS',screenshots:5,
     checks:['typescript-real-error-2322','cross-document-F12','semantic-outline','independent-dirty-tabs',
       'native-model-undo-after-tab-switch','two-real-draft-checkpoints','CAD-navigation-retains-tabs','read-only-diff',
-      'explicit-save-all-real-files','cancel-dirty-close','discard-only-selected-tab','external-change-refuses-overwrite'],
+      'explicit-save-all-real-files','cancel-dirty-close','discard-only-selected-tab','external-change-refuses-overwrite','compact-cursor-status-visible-in-viewport'],
     data:'Synthetic temporary engineering workspace, no personal content.',limitations:'JS/TS services cover opened models; Python LSP/DAP and terminal are not part of this test.'
   },null,2)+'\n');
   console.log('PASS IDE workspace: multi-document editing, real TypeScript services, diff, checkpoints, save-all and conflicts.');
