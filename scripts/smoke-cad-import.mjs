@@ -13,7 +13,7 @@ const isolatedEnv=process.platform==='win32'
   ? {APPDATA:isolatedProfile,LOCALAPPDATA:isolatedProfile}
   : {XDG_CONFIG_HOME:isolatedProfile};
 const dxf=path.join(workspace,'desenho-mm.dxf');
-const invalid=path.join(workspace,'unsupported-arc.dxf');
+const invalid=path.join(workspace,'unsupported-ellipse.dxf');
 const pairs=(...values)=>values.join('\n')+'\n';
 const header=pairs(0,'SECTION',2,'HEADER',9,'$INSUNITS',70,4,0,'ENDSEC');
 const source=header+pairs(0,'SECTION',2,'ENTITIES',
@@ -22,7 +22,7 @@ const source=header+pairs(0,'SECTION',2,'ENTITIES',
   0,'ENDSEC',0,'EOF');
 const unsafe=header+pairs(0,'SECTION',2,'ENTITIES',
   0,'LINE',10,0,20,0,11,10,21,0,
-  0,'ARC',10,0,20,0,40,10,50,0,51,90,
+  0,'ELLIPSE',10,0,20,0,11,10,21,0,40,0.5,41,0,42,Math.PI*2,
   0,'ENDSEC',0,'EOF');
 await fs.writeFile(dxf,source,'utf8');
 await fs.writeFile(invalid,unsafe,'utf8');
@@ -77,7 +77,8 @@ try {
   assert.match(exported,/\nCIRCLE\n/);
   assert.deepEqual(await fs.readFile(dxf),original);
 
-  // Refuse partial import of an ARC and do not dirty or overwrite the CAD.
+  // Refuse partial import of an unsupported ELLIPSE without dirtying or
+  // overwriting the CAD. ARC is supported and covered by smoke:cad-precision.
   await client.evaluate(({dialog},file)=>{
     dialog.showOpenDialog=async()=>({canceled:false,filePaths:[file]});
   },invalid);
