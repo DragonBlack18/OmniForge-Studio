@@ -84,3 +84,16 @@ do store. FlexLayout foi avaliado como candidato, não distribuído aqui.
 Não integrar nem rotular como release aprovada com qualquer gate falhando.
 Certificação estável, assinatura, auditoria de licenças/vulnerabilidades,
 LSP/DAP completo, terminal, Node-RED, serviço e CAD 3D continuam pendentes.
+
+## Cancelamento de navegação e realce (verificação v0.8.2)
+
+O E2E real encontrou `Canceled` ao trocar o modelo com uma requisição de
+realce pendente. A navegação agora reconhece o comando antes de trocar a aba,
+revalida projeto/origem/destino no próximo ciclo, e ignora solicitações
+obsoletas. Isso sozinho não corrige a promise do realce interno do Monaco.
+
+Foi aplicado um backport MIT restrito de três handlers do WordHighlighter
+upstream, sem desativar o realce ou suprimir erros globalmente. Origem,
+versão, alcance e hashes estão em `third-party-notices/monaco-word-highlight-backport.md`
+e `dist/vendor-patches.json`. Os testes recusam mudança do contrato do pacote.
+O E2E continua exigindo zero exceções do renderer e texto integral nas abas.
