@@ -1,4 +1,5 @@
 import { waitForPageState } from './lib/wait-for-state.mjs';
+import { answerConfirmation } from './lib/confirm-dialog.mjs';
 /** Real Windows Electron: OS-encrypted draft, complete process restart, restore,
  * explicit save, conflict, consent, filesystem integrity and no auto execution. */
 import assert from 'node:assert/strict';
@@ -114,10 +115,10 @@ try {
   assert.deepEqual(await fs.readFile(FLOW),externalBytes);
   await page.getByRole('button',{name:'Inspecionar JSON',exact:true}).click();
   assert.equal(JSON.parse(await page.getByLabel('JSON do fluxo recuperável').inputValue()).nodes.length,6);
-  await page.evaluate(()=>{window.confirm=()=>false;});
-  await page.getByRole('button',{name:'Descartar cópia',exact:true}).click();assert.notEqual(await draft(),null);
-  await page.evaluate(()=>{window.confirm=()=>true;});
   await page.getByRole('button',{name:'Descartar cópia',exact:true}).click();
+  await answerConfirmation(page,false);assert.notEqual(await draft(),null);
+  await page.getByRole('button',{name:'Descartar cópia',exact:true}).click();
+  await answerConfirmation(page,true);
   await page.getByText('Cópia de recuperação do fluxo descartada; original preservado.',{exact:true}).waitFor();
   assert.equal(await draft(),null);assert.deepEqual(await fs.readFile(FLOW),externalBytes);
   await assert.rejects(page.evaluate(()=>window.omni.readFlowDraft('C:/not-the-active-project')),/Workspace alterado/);

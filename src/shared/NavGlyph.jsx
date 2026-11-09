@@ -1,6 +1,7 @@
 import React from 'react';
 // Small, original line icon set; no runtime icon library or remote asset dependency.
 const SHAPES = {
+  arc:'M4 19a15 15 0 0 1 15-15 M4 16v3h3 M16 4h3v3',
   eye:'M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7 M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
   'eye-off':'M3 3l18 18 M2 12s3-7 10-7c2 0 4 1 6 3 M22 12s-3 7-10 7c-4 0-7-3-10-7',
   lock:'M6 10h12v11H6z M8 10V7a4 4 0 0 1 8 0v3 M12 14v3',

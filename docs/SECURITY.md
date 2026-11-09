@@ -1,28 +1,70 @@
-# Modelo de segurança e limitações — 0.1.0
+# Modelo de segurança e limitações — 0.10.0
+
+Este documento descreve as fronteiras implementadas no código atual. Os
+subtítulos com versões anteriores identificam a origem de cada componente;
+não são declarações de certificação ou de aprovação de uma release.
+Os resultados de testes e de empacotamento devem corresponder ao commit e
+ao sistema operacional efetivamente verificados.
 
 ## Fronteiras de confiança
 
 | Superfície | Política atual | Lacuna/expansão |
 |---|---|---|
-| Renderer Electron | `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true` | E2E Electron ainda não testado |
-| IPC | API allowlist, verificação de renderer e frame | Fuzzing de payload e limites por método |
-| Conteúdo de janela | URL de app própria `omni://app`, bloqueio de popups/navegação | CSP de desenvolvimento e worker Monaco precisam ser confirmados no build |
-| Arquivos | Pasta escolhida, bloqueio de `..`, symlink e arquivos grandes | Testes adversariais de races e reparse points Windows |
-| Grafo | Nó/porta conhecido, DAG, config validada, recusa nós órfãos | Tipos semânticos além de JSON, schema por nó |
-| Execução | Três nós declarativos; sem shell nem `eval` | Isolamento em workers na fase 0.7 |
-| Segredos | Não há catálogo de credenciais nesta versão | Windows Credential Manager / keychain ou vault separado |
-| Atualização | Não há atualização automática na 0.1 | Assinatura, integridade e migrações |
+| Renderer Electron | `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, `webSecurity: true` | Validar também o artefato empacotado; sandbox do renderer não contém scripts aprovados |
+| IPC | Métodos nomeados no preload; verificação da janela, frame principal e documento; limites de payload/concurrency | Fuzzing adicional e testes adversariais por método |
+| Conteúdo de janela | `omni://app`, CSP de produção, bloqueio de popups, navegação, downloads e permissões da sessão | Desenvolvimento usa somente a origem local explicitamente configurada; manter gates do build e Monaco |
+| Arquivos | Workspace escolhido no host, validação de caminhos/revisões, rejeição de symlinks e limites de tamanho | Races com processos hostis e reparse points exigem auditoria específica Windows |
+| Grafo | Nós/portas conhecidos, DAG, configurações validadas; conexões editadas e layout não executam o fluxo | A validação estrutural não prova a correção de um processo de negócio |
+| Fluxo declarativo | Processo filho supervisionado, operações conhecidas, HTTP local sujeito a aprovação | Sem sandbox de sistema operacional, cota de CPU/memória ou rollback |
+| Código do workspace | Tarefas npm e arquivos Node/Python somente após confirmação nativa; revisão e ambiente conferidos | O código aprovado conserva permissões da conta e pode usar rede/arquivos |
+| Segredos | Sem catálogo geral de credenciais; ambiente dos executores filtrado | Código aprovado ainda pode ler arquivos acessíveis à conta; recuperação de fluxo protegida disponível apenas quando o serviço Windows responde |
+| Atualização | Sem atualização automática; configuração de integridade/fuses para os pacotes | Assinatura e evidências de cada artefato precisam ser verificadas separadamente |
 | Industrial | Sem escrita/controladores industriais | Approval gates, simulação, segregação OT, análise funcional |
 
 ## Limites conhecidos
 
-O MVP **não** é uma sandbox geral de programas do usuário. `node:vm` não seria suficiente para executar código não confiável. Os nós não executam JS livremente, e a interface não apresenta uma função dessa natureza como pronta.
+O aplicativo **não** é uma sandbox geral de programas do usuário. Os nós
+de fluxo e extensões continuam declarativos, sem `eval` ou código livre.
+As ferramentas de desenvolvimento executam código real do workspace após
+autorização específica. Essa autorização não confere isolamento ao código:
+ele mantém as permissões da conta que abriu o OmniForge.
 
-O editor de arquivos altera arquivos existentes quando o usuário ordena salvar. Ainda não há histórico automático de arquivos editados: abra uma pasta de testes na validação inicial, e use Git para versionar arquivos importantes.
+O editor grava arquivos quando o usuário ordena salvar e confere a revisão
+esperada para detectar conflitos. Recuperação de rascunhos não equivale a
+histórico completo ou backup: use Git e backups para preservar versões
+importantes. Scripts, ferramentas externas e outros processos podem alterar
+os mesmos arquivos fora dos controles do editor.
 
 Escritas em `.omniforge/` verificam diretórios e links simbólicos antes da operação. Em ambientes com concorrência maliciosa no filesystem, verificações entre `lstat` e `rename` não eliminam todas as condições de corrida; o produto exige auditoria adicional antes de manipular conteúdo hostil.
 
-O modo simulação **não** executa efeitos externos, mas versões futuras precisarão definir simulações por conector. Para dispositivos físicos, toda operação de controle deve exigir permissão específica, e a primeira etapa industrial será exclusivamente leitura.
+O modo simulação de **fluxos declarativos** não executa efeitos externos.
+Executar arquivo, Executar testes e tarefas npm são operações reais; não
+herdam um modo simulação. Para dispositivos físicos, toda operação de
+controle deve exigir permissão específica, e a primeira etapa industrial
+permanece exclusivamente leitura.
+
+## IPC, coordenação e fechamento
+
+O preload não expõe `ipcRenderer`, `child_process`, um comando de shell
+genérico ou um caminho de executável escolhido pelo renderer. A fronteira
+nativa aceita chamadas somente da janela registrada e de seu frame principal.
+O limite estrutural geral é 2,2 MB, 80 mil itens e profundidade 64; validações
+de cada recurso podem impor limites menores. Existem até 32 chamadas de
+dados e 12 de controle em andamento. Cancelamento tem uma via de controle
+para continuar disponível durante o fechamento.
+
+Tarefas npm, execução Node/Python, fluxos manuais e scheduler compartilham
+gates no host. A preparação e a confirmação de código também reservam a
+operação; salvar arquivos, trocar workspace e outras mutações conflitantes
+são bloqueados. Esses gates coordenam esta instância do aplicativo, não
+processos externos que acessam o mesmo filesystem.
+
+O fechamento normal aguarda commits e confirmações pendentes. Havendo
+execução ativa, a confirmação de saída solicita cancelamento e aguarda a
+conclusão antes de encerrar. A perda do renderer solicita cancelamento;
+no módulo de desenvolvimento, isso também invalida consentimento pendente
+antes da criação do processo. Encerramento forçado do sistema ou do processo
+principal não equivale a esse fluxo normal de fechamento.
 
 ## Requisitos de implantação futura
 
@@ -43,14 +85,85 @@ A análise estrutural de grafos indica problemas conhecidos, mas não certifica 
 
 O fluxo declarativo é executado por `core/run-child.cjs` como processo filho do motor, não no processo privilegiado da janela. O processo recebe apenas grafo, workspace, projetos autorizados e consentimento para API local; o ambiente herdado é restrito às variáveis operacionais permitidas. Existe limite temporal padrão de 120 segundos (máximo interno 180 segundos) e cancelamento por `AbortController`. A UI não recebe acesso a `child_process`, e os eventos de progresso contêm apenas metadados de etapas.
 
-**Limitação:** isolamento em processo NÃO é sandbox de segurança para plugins ou execução de código não confiável. Não existe limitação de memória/CPU do sistema operacional nem garantia de rollback. Cancelamento ou crash podem interromper operações não idempotentes depois de efeitos externos parciais. Execução arbitrária de JS/Python/PowerShell permanece desabilitada até existir isolamento e autorização específicos. Avaliar casos de desligamento forçado, crashes, assinatura do binário e comportamento do processo filho empacotado antes de qualquer classificação como pronto para produção.
+**Limitação:** isolamento em processo NÃO é sandbox de segurança para plugins ou execução de código não confiável. Não existe limitação de memória/CPU do sistema operacional nem garantia de rollback. Cancelamento ou crash podem interromper operações não idempotentes depois de efeitos externos parciais. Os nós do grafo não executam JS/Python/PowerShell arbitrário. Execução de código Node/Python e scripts npm é uma operação distinta, com confirmação própria, descrita abaixo. Avaliar casos de desligamento forçado, crashes, assinatura do binário e comportamento do processo filho empacotado antes de qualquer classificação como pronto para produção.
 
 ### Falha do processo principal
 Se o canal IPC entre o executor e o processo principal cair, o worker encerra imediatamente sem continuar etapas assíncronas. Isso reduz execuções órfãs após crash, mas não desfaz gravações ou chamadas de rede concluídas. O teste de regressão simula desconexão de IPC durante HTTP lento.
 
+## Desenvolvimento local — Node.js, Python e tarefas npm
+
+O módulo **Executar e testar** aceita somente arquivos `.js`, `.cjs`, `.mjs`
+e `.py` salvos no workspace. A solicitação IPC contém apenas caminho relativo,
+SHA-256, ação e argumentos; campos adicionais são rejeitados. A descoberta
+não executa o projeto ou interpretadores, ignora symlinks, diretórios ocultos,
+dependências e pastas geradas, e limita profundidade/quantidade de entradas.
+Fonte acima de 1 MB, caminho protegido, revisão divergente ou arquivo não
+regular não se torna um alvo executável.
+
+Node é localizado por caminho absoluto no PATH. Python procura um ambiente
+`.venv`/`venv` do workspace e depois o PATH; aliases da Windows Store não
+comprovam instalação. O diálogo nativo mostra o executável, arquivo salvo,
+hash e argumentos, com **Cancelar** como opção padrão. O usuário deve
+confiar também no interpretador e nas dependências daquele projeto.
+Encontrar um arquivo executável não comprova sua autenticidade.
+
+O arquivo e a identidade de caminho do interpretador são conferidos de novo
+após a aprovação. Isso detecta alterações comuns, mas não oferece pinning
+criptográfico do conteúdo do interpretador, das bibliotecas importadas ou
+de todos os arquivos do projeto. Também não elimina races entre a última
+checagem e a abertura pelo sistema operacional.
+
+O processo inicia com `shell: false` e argumentos separados. O renderer não
+controla flags do interpretador, ambiente ou diretório de trabalho. O ambiente
+herdado conserva apenas variáveis operacionais permitidas: `NODE_OPTIONS`,
+`PYTHONPATH`, `PYTHONHOME` e credenciais arbitrárias não são repassados.
+Python não grava bytecode automaticamente. A verificação Python usa AST em
+modo isolado, sem importar o módulo selecionado; Node usa `--check`.
+Executar testes importa/executa o código: Node usa seu test runner e Python
+usa `unittest`, com falha explícita se a suíte estiver vazia.
+
+Há limite de 120 segundos, 96 KB de saída e captura dos últimos 48 mil
+caracteres. Argumentos são limitados a 64 valores, 2 KB por valor e 16 KB
+no conjunto. A entrada padrão é fechada. Excesso de saída, timeout, erro de
+inicialização, código de saída não zero e cancelamento aparecem como estados
+distintos; nenhuma dessas situações é apresentada como sucesso.
+
+Interromper tenta terminar a árvore normal de subprocessos usando um grupo
+de processos em POSIX e `taskkill /T /F` no Windows. Isso não é um Job Object
+ou sandbox nativa, e não garante contenção de processos que se desvinculem
+ou sobrevivam à falha abrupta do host. Arquivos já alterados e chamadas de
+rede concluídas não são revertidos. Processos persistentes e programas
+interativos devem usar ferramentas externas adequadas.
+
+Tarefas npm continuam em módulo separado e exigem confirmação do comando
+definido no `package.json`, além de revisão do manifesto. O comando escolhido
+é executado por `npm --ignore-scripts run`: o script solicitado ainda executa
+código e pode usar o shell interno do npm, instalar dependências ou iniciar
+outros processos. A flag não transforma o script aprovado em uma operação
+sem efeitos. O histórico desse módulo grava metadados finais; a nova execução
+direta Node/Python mantém argumentos e saída apenas na memória da sessão.
+Nenhum mecanismo impede o próprio script de persistir o que desejar.
+
+Os testes específicos cobrem Node/Python reais, saída/Unicode, argumentos
+literais, sintaxe, testes que passam/falham, revisão alterada, ambiente
+filtrado, conflitos, timeout, excesso de saída, cancelamento e consentimento
+tardio. O smoke de desenvolvimento cobre UI → preload → IPC → processo real
+em workspace/perfil temporários. Ver [DEVELOPMENT_RUNTIME.md](DEVELOPMENT_RUNTIME.md)
+para comandos e requisitos. Testes Linux executados como root com um wrapper
+externo `--no-sandbox` validam a funcionalidade nesse fixture, **não** a sandbox
+do renderer nem o empacotamento Windows; o produto preserva `sandbox: true`.
+
 ## Importação DXF 2D v0.2.2
 
-A fonte é selecionada pelo diálogo nativo de arquivo e nunca por um caminho arbitrário do renderer. Extensão .dxf, tamanho até 2 MB, arquivo regular, sem symlink e UTF-8 válido. O parser não executa código nem plugins e valida unidades/geometrias antes de criar o documento em memória. Sem INSUNITS, o usuário deve aceitar explicitamente interpretar milímetros; o padrão é cancelar. A importação não grava nem substitui documentos automaticamente e usa as revisões SHA-256 existentes ao salvar. Não há importação parcial de ARC, INSERT, SPLINE, DWG ou geometria 3D.
+A fonte é selecionada pelo diálogo nativo de arquivo e nunca por um caminho arbitrário do renderer. Extensão .dxf, tamanho até 2 MB, arquivo regular, sem symlink e UTF-8 válido. O parser não executa código nem plugins e valida unidades/geometrias antes de criar o documento em memória. Sem INSUNITS, o usuário deve aceitar explicitamente interpretar milímetros; o padrão é cancelar. A importação não grava nem substitui documentos automaticamente e usa as revisões SHA-256 existentes ao salvar.
+
+Na 0.10.0, ARC e segmentos com bulge de LWPOLYLINE são convertidos em arcos
+2D; INSERT pode expandir blocos suportados com transformações verificadas.
+O importador limita grupos, camadas, entidades e expansão de blocos, rejeita
+ciclos e profundidade superior a 8. Blocos dinâmicos, atributos, XREF, matrizes
+de INSERT, SPLINE, DWG, paper space e geometria 3D não são aceitos. Entidade
+ou transformação incompatível cancela a importação inteira, evitando que
+uma importação parcial seja apresentada como desenho completo.
 
 ## Extension Hub declarativo v0.3.0
 

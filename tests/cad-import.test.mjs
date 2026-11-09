@@ -13,7 +13,7 @@ const entities=(...items)=>groups(0,'SECTION',2,'ENTITIES',...items,0,'ENDSEC',0
 const line=(a=0,b=25)=>[0,'LINE',8,'0',10,a,20,0,30,0,11,b,21,0,31,0];
 const circle=[0,'CIRCLE',8,'cotas',10,10,20,20,30,0,40,5];
 const polyline=[0,'LWPOLYLINE',8,'Peças Mecânicas',90,3,70,1,10,0,20,0,10,50,20,0,10,50,20,25];
-const invalidArc=[0,'ARC',8,'0',10,0,20,0,40,10,50,0,51,90];
+const unsupportedSpline=[0,'SPLINE',8,'0',70,0];
 function checkReject(source, pattern, options={}) {
   assert.throws(()=>parseCadDxf(source,options),pattern);
 }
@@ -85,15 +85,17 @@ test('layer table preserva cor, visibilidade e bloqueio sem mutar outras camadas
 });
 
 test('entidades não suportadas rejeitam DXF inteiro e nunca importam parcialmente',()=>{
-  checkReject(header()+entities(...line(),...invalidArc),/ARC.*cancelada integralmente/);
+  checkReject(header()+entities(...line(),...unsupportedSpline),/SPLINE.*cancelada integralmente/);
   checkReject(header()+entities(0,'INSERT',2,'BLOCK1',10,0,20,0),/INSERT/);
   checkReject(header()+entities(0,'DIMENSION',8,'0'),/DIMENSION/);
 });
 
-test('DXF recusa geometrias 3D, extrusão e cotas curvas ou espessas',()=>{
+test('DXF recusa geometrias 3D, extrusão e polilinhas espessas; bulges são arcos reais',()=>{
   checkReject(header()+entities(0,'LINE',10,0,20,0,30,9,11,1,21,1),/plano XY/);
   checkReject(header()+entities(0,'CIRCLE',10,0,20,0,40,2,210,0,220,1,230,0),/plano XY/);
-  checkReject(header()+entities(0,'LWPOLYLINE',90,2,70,0,10,0,20,0,42,1,10,5,20,0),/bulge/);
+  const curved=parseCadDxf(header()+entities(0,'LWPOLYLINE',90,2,70,0,10,0,20,0,42,1,10,5,20,0));
+  assert.equal(curved.sketch.entities[0].type,'arc');
+  assert.equal(curved.sketch.entities[0].radius,2.5);
   checkReject(header()+entities(0,'LWPOLYLINE',90,2,70,0,43,0.2,10,0,20,0,10,5,20,0),/largura/);
 });
 

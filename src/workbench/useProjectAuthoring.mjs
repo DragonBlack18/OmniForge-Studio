@@ -31,7 +31,7 @@ export function useProjectAuthoring({code,workspace,busy,execute,applyProject,co
       await applyProject(result);revealCode();return null;
     }
     if(spec.kind==='project'){
-      if(workspace&&!confirmProjectSwitch())return null;
+      if(workspace&&!await confirmProjectSwitch())return null;
       await flushFlow();if(!await code.controller.flush({allowUntitled:!workspace}))throw Error('Salve os documentos sem nome antes de trocar de projeto.');
       const result=await window.omni.createProjectFromTemplate(spec.name,spec.templateId);current();if(!result)return null;
       await applyProject(result);setFiles(result.files);revealCode();

@@ -12,6 +12,7 @@ export { LocalScheduleEngine, validateScheduledDocument } from './modules/schedu
 export { validateFlow } from './modules/automation/graph.mjs';
 export { summarizeLocalHttpNodes } from './modules/integrations/http.mjs';
 export { summarizeProjectCalls } from './modules/integrations/capabilities.mjs';
+export { LocalDevelopmentRunner } from './modules/ide/development-runtime.mjs';
 
 const loaders = Object.freeze({
   flowRecovery: () => import('./modules/automation/flow-recovery.mjs'),
@@ -27,6 +28,7 @@ const loaders = Object.freeze({
   ide: () => import('./modules/ide/workspace-ide.mjs'),
   authoring: () => import('./modules/ide/project-authoring.mjs'),
   projectTasks: () => import('./modules/ide/project-tasks.mjs'),
+  development: () => import('./modules/ide/development-runtime.mjs'),
   editorRecovery: () => import('./modules/ide/editor-recovery.mjs'),
   taskHistory: () => import('./modules/ide/project-task-history.mjs'),
   supervisor: () => import('./supervisor.mjs')
@@ -81,6 +83,8 @@ export const createWorkspaceFolder = (...args) => loaders.ide().then(module => m
 export const runSupervisedFlow = (...args) => loaders.supervisor().then(module => module.runSupervisedFlow(...args));
 
 export const listProjectTasks = (...args) => loaders.projectTasks().then(module => module.listProjectTasks(...args));
+export const listDevelopmentTargets = (...args) => loaders.development().then(module => module.listDevelopmentTargets(...args));
+export const prepareDevelopmentTask = (...args) => loaders.development().then(module => module.prepareDevelopmentTask(...args));
 export const assertTaskSelection = (...args) => loaders.projectTasks().then(module => module.assertTaskSelection(...args));
 export const findNpmToolchain = (...args) => loaders.projectTasks().then(module => module.findNpmToolchain(...args));
 export const listProjectTaskHistory = (...args) => loaders.taskHistory().then(module => module.listProjectTaskHistory(...args));

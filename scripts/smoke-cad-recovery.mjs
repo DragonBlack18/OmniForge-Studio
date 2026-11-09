@@ -1,4 +1,5 @@
 import { waitForPageState } from './lib/wait-for-state.mjs';
+import { answerConfirmation } from './lib/confirm-dialog.mjs';
 /** Real Electron CAD recovery: renderer crash reload, non-destructive restore and external conflict. */
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -92,11 +93,11 @@ try{
   assert.equal((await fs.readFile(CAD,'utf8')).includes('EXTERNAL_DO_NOT_OVERWRITE'),true);
 
   phase='decline then accept explicit discard without touching original';
-  await page.evaluate(()=>{window.confirm=()=>false;});
   await page.getByRole('button',{name:'Descartar rascunho CAD'}).click();
+  await answerConfirmation(page,false);
   assert.notEqual(await readDraft(),null);
-  await page.evaluate(()=>{window.confirm=()=>true;});
   await page.getByRole('button',{name:'Descartar rascunho CAD'}).click();
+  await answerConfirmation(page,true);
   await page.getByText('Cópia de recuperação CAD descartada',{exact:false}).waitFor();
   assert.equal(await readDraft(),null);
   assert.equal(JSON.parse(await fs.readFile(CAD,'utf8')).name,'EXTERNAL_DO_NOT_OVERWRITE');

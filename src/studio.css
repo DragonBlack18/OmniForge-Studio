@@ -27,3 +27,11 @@ body{min-width:960px;background:var(--of-bg)}.app-shell{min-height:600px;backgro
 .flow-protection{color:var(--of-subtle);font:10px inherit;margin-left:8px;white-space:nowrap}
 
 .statusbar .runtime-diagnostics-trigger{background:none;border:0;color:inherit;font:inherit;padding:0;cursor:pointer}.statusbar .runtime-diagnostics-trigger:focus-visible{outline:1px solid #c46777;outline-offset:3px}
+
+/* Product-owned scroll surfaces share the graphite palette. */
+:root { --of-scroll-thumb: #555159; --of-scroll-track: #171719; }
+* { scrollbar-width: thin; scrollbar-color: var(--of-scroll-thumb) var(--of-scroll-track); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--of-scroll-track); }
+::-webkit-scrollbar-thumb { background: var(--of-scroll-thumb); border: 2px solid var(--of-scroll-track); border-radius: 5px; }
+.app-shell textarea.resize-none { resize: none; }

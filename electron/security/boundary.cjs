@@ -1,7 +1,7 @@
 'use strict';
 // One native trust boundary for every named IPC method; no raw URLs are logged.
 const MAX_BYTES = 2_200_000, MAX_ITEMS = 80_000, MAX_DEPTH = 64;
-const CONTROL = new Set(['cancelFlow','cancelProjectTask','cancelScheduleRun','requestExit','setUnsavedChanges','runtimeDiagnostics']);
+const CONTROL = new Set(['cancelFlow','cancelProjectTask','cancelDevelopmentTask','cancelScheduleRun','requestExit','setUnsavedChanges','runtimeDiagnostics']);
 
 function developmentUrl(packaged, value) {
   if (packaged || !value) return null;

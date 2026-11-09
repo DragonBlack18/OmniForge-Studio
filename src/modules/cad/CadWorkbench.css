@@ -42,3 +42,6 @@
 .cad-measure-summary{position:absolute;top:44px;left:11px;max-width:min(380px,70%);border:1px solid #6d4650;background:#1b161bdc;border-radius:4px;padding:7px 10px;font:600 11px Consolas,monospace;color:#f2c8ce;pointer-events:none}
 .cad-measure-summary span{display:block;margin-top:4px;font-size:10px;color:#b8a9b0;font-weight:400}
 .cad-technical-operations .cad-property-form{gap:9px}.cad-technical-operations .cad-inline-note{margin:0;line-height:1.5}.cad-technical-operations .cad-fields-grid{row-gap:9px}
+.cad-source-inspection .cad-measurements{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr)}
+.cad-source-inspection .cad-measurements dd{overflow-wrap:anywhere}
+.cad-source-inspection .cad-inline-note{display:block;padding:0 12px 12px}

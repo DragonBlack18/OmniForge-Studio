@@ -41,7 +41,7 @@ export default function WorkspaceSearch({ workspace, busy = false, onOpenResult 
       <h2>Busca global no projeto</h2>
       <p>Encontre trechos de código e navegue diretamente para a linha correspondente no editor Monaco. Busca literal, somente leitura e inteiramente local.</p>
     </header>
-    <form className="workspace-search__form" onSubmit={submit}>
+    <form noValidate className="workspace-search__form" onSubmit={submit}>
       <div className="workspace-search__input">
         <NavGlyph name="search" size={19}/>
         <input value={query} onChange={event => setQuery(event.target.value)}

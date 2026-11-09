@@ -1,0 +1,14 @@
+{
+  "profile": "desktop-workbench",
+  "sourceRoots": ["src"],
+  "locale": "pt-BR",
+  "canonicalMap": "UX-CONTRACT.md",
+  "requiredCapabilities": ["Table Selection", "Select/Listbox", "Date", "Form", "Scrollbar", "Toast", "CRUD"],
+  "ownership": {"Select/Listbox":"native","Date":"typed"},
+  "requiredCommands": ["unit","e2e","build"],
+  "commands": {"unit":"npm test","e2e":"npm run smoke:capabilities","build":"npm run build"},
+  "evidence": {
+    "crudFullFlow":"scripts/smoke-project-suite.mjs",
+    "failurePaths":"scripts/smoke-development.mjs"
+  }
+}

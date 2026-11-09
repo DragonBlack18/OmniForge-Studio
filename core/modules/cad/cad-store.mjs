@@ -2,12 +2,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { initialCadSketch, validateCadSketch, cadDxf, cadSvg } from './cad2d.mjs';
+import { initialCadSketch, validateCadSketch, cadDxf, cadSvg, MAX_CAD_DOCUMENT_BYTES } from './cad2d.mjs';
 import { atomicWrite, makeTrustedDirectory, verifyWorkspace } from '../workspace/workspace.mjs';
 
 const CAD_DIR = ['.omniforge','cad'];
 const DOCUMENT = 'sketch.json';
-const MAX_DOC = 1_500_000;
+const MAX_DOC = MAX_CAD_DOCUMENT_BYTES;
 const digest = data => createHash('sha256').update(data).digest('hex');
 
 async function readExisting(root) {

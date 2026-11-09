@@ -8,10 +8,10 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { atomicWrite, verifyWorkspace } from '../workspace/workspace.mjs';
 import { loadCadDocument } from './cad-store.mjs';
-import { validateCadSketch } from './cad2d.mjs';
+import { validateCadSketch, MAX_CAD_DOCUMENT_BYTES } from './cad2d.mjs';
 
 const FOLDER = 'cad-recovery';
-const MAX_SKETCH_BYTES = 1_500_000;
+const MAX_SKETCH_BYTES = MAX_CAD_DOCUMENT_BYTES;
 const MAX_RECORD_BYTES = 1_600_000;
 const MAX_CHECKPOINTS = 20;
 const HASH = /^[a-f0-9]{64}$/;

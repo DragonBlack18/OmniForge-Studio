@@ -1,5 +1,33 @@
 # OmniForge Studio
 
+## v0.10.0 — desenvolvimento executável, fluxos e CAD de precisão
+
+O Studio agora executa e testa arquivos Node/Python, organiza fluxos com ELK em
+worker e trabalha com arcos e blocos DXF estáticos. Cada módulo mantém suas
+ferramentas e seu estado de edição. A central **Ferramentas e referências**
+registra as 150 fontes pesquisadas, com busca, filtros e estado real de adoção.
+
+- **Desenvolvimento → Executar e testar:** arquivos salvos, argumentos literais,
+  verificação de sintaxe, Node test runner, Python unittest, stdout/stderr,
+  cancelamento e aprovação nativa da revisão exata.
+- **Automações:** organização topológica com cancelar/desfazer, reconexão de
+  arestas por arraste e inspetor de portas/conexões.
+- **CAD Sketch 2D:** arcos analíticos, edição numérica, paralelas concêntricas,
+  DXF com bulges e expansão de blocos estáticos com proveniência.
+- **Ambiente → Ferramentas e referências:** 144 repositórios e seis guias;
+  oito componentes/ferramentas efetivamente adotados. Recursos futuros aparecem
+  como indisponíveis e com seus requisitos de integração.
+
+[Uso e limites da etapa](docs/WORKBENCH_V0100.md) ·
+[Mapa completo das 150 fontes](docs/REFERENCE_MAP.md) ·
+[Contrato de execução Node/Python](docs/DEVELOPMENT_RUNTIME.md) ·
+[Segurança](docs/SECURITY.md) · [Histórico](CHANGELOG.md).
+
+Requer Node/Python locais para as ações correspondentes. Executar código
+aprovado usa as permissões da conta. O console é supervisionado, com limite de
+120 segundos; terminal interativo, depurador e CAD paramétrico 3D permanecem
+planejados. A versão é experimental; publicar depende dos gates da revisão.
+
 ## v0.9.0 — criação de projetos e automações de dados
 
 Crie arquivos sem precisar abrir um documento existente, salve com nome e caminho,
@@ -19,8 +47,8 @@ do mesmo commit devem passar antes de integrar/publicar.
 ### Base de IDE v0.8.2
 
 Abas com buffers e histórico independentes, problemas e estrutura JS/TS, comparação
-visual, recuperação por documento e salvamentos explícitos. Python continua sem
-servidor LSP, depurador ou executor integrado.
+visual, recuperação por documento e salvamentos explícitos. A v0.10.0 adiciona execução, verificação de sintaxe e testes Python;
+servidor LSP e depurador permanecem planejados.
 
 ### Base nativa v0.8.0
 
@@ -61,12 +89,13 @@ Navegação global única, superfícies neutras com acento vermelho, editor sem 
 | Automação | 57 nós executáveis (inclui 2 blocos CAD), canvas React Flow, 6 templates, validação, executor supervisionado em processo separado, cancelamento e histórico | Gatilho manual; não é o n8n completo |
 | Programação | Editor Monaco, arquivos e pastas, busca global, revisão SHA-256 e recuperação local de edições não salvas com confirmação | Não inclui LSP ou depurador; recuperação do CAD tem módulo próprio, sem backup criptografado |
 | Controle de versão | Git local real: status, diff, histórico, stage, unstage e commit nativo aprovado | Requer Git no PATH; sem push/pull/reset/merge |
+| Executar e testar | Scripts Node/Python reais, sintaxe, testes, saída ao vivo, argumentos literais e cancelamento | Executa somente o arquivo salvo após aprovação da revisão; máximo 120 s |
 | Central de Tarefas | Executa scripts reais do package.json com logs ao vivo, cancelamento e histórico local de até 60 resultados por projeto | Node.js/npm instalados; scripts confiáveis somente, sem terminal arbitrário |
 | Projetos | Catálogo local e troca de workspace sem copiar ou excluir pastas de origem | Registro no perfil de usuário |
 | APIs | GET/POST JSON em 127.0.0.1, contratos JSON tipados, aprovação antes de request | Não expõe conectores arbitrários ou credenciais |
 | Agendamentos locais | Intervalos de 1–1440 min, fluxo salvo preso por SHA-256, pausa/retomada, execução real supervisionada, replay de horários perdidos bloqueado, histórico e recuperação após crash | Só executa com a janela do OmniForge aberta; HTTP agendado não permitido |
 | Extensões | Hub local declarativo com importação JSON, verificação SHA-256, 10 operações sem código, grants por workspace, revogação e bloco executável de automação | Não instala nem executa VSIX/npm/JavaScript arbitrário |
-| Engenharia 2D | CAD Sketch 2D em mm, edição numérica, camadas, exportações DXF/SVG e importação DXF ASCII 2D validada | Não é CAD paramétrico 3D |
+| Engenharia 2D | CAD em mm, arcos, camadas, transformações, offsets circulares, exportações DXF/SVG e importação DXF com bulges/blocos estáticos | Não é CAD paramétrico 3D |
 | Desktop | Electron com isolamento de contexto, IPC restrito, limite de execução (120 s), eventos de progresso, NSIS e portátil Windows x64 | Pré-lançamento; binários sem assinatura digital |
 
 A execução tem timeout global padrão de 120 segundos e botão **Cancelar**. Cancelar impede etapas futuras, mas não desfaz gravações ou requisições externas que já ocorreram. O processo separado reduz travamentos do Electron; **não é sandbox de código arbitrário**.
@@ -101,9 +130,9 @@ A barra principal agora agrupa Workspace, Recursos e Acompanhamento. A bibliotec
 
 Atalhos: **Ctrl+B** recolhe/expande a navegação, **Ctrl+K** abre a busca de blocos, **Ctrl+Shift+F** busca texto no workspace e **Ctrl+S** salva o fluxo ou o arquivo ativo, quando há alterações. No CAD, **Ctrl+S também salva o desenho**. O atalho nunca abre a janela de salvar a página do navegador.
 
-## Importação DXF 2D (v0.2.2)
+## Importação DXF 2D (atualizada na v0.10.0)
 
-No CAD Sketch, clique em **Importar DXF**. O arquivo é lido pela janela nativa, sem gravação imediata. A importação suporta LINE, CIRCLE e LWPOLYLINE sem curvas, converte polegadas/pés/centímetros/metros em mm e exige confirmação quando o DXF não declara unidades. Objetos incompatíveis, incluindo arcos, blocos, sólidos 3D e DWG, bloqueiam a importação por completo em vez de desaparecer silenciosamente. Após conferir o resultado, clique em **Salvar desenho**.
+No CAD Sketch, clique em **Importar DXF**. O arquivo é lido pela janela nativa, sem gravação imediata. A importação suporta LINE, CIRCLE, ARC, LWPOLYLINE com bulges e INSERT estático expandido em primitivas independentes. Converte polegadas/pés/centímetros/metros em mm e exige confirmação quando o DXF não declara unidades. Objetos ou transformações incompatíveis bloqueiam a importação integralmente; não há suporte geral a DWG, sólidos 3D, atributos ou blocos dinâmicos. Após conferir o resultado, clique em **Salvar desenho**.
 
 O importador mantém o histórico anterior do CAD e permite desfazer antes de salvar. Limites de segurança: DXF ASCII/UTF-8 até 2 MB, no máximo 2.000 entidades e 32 camadas. Esta versão não é um leitor universal de DXF/AutoCAD.
 

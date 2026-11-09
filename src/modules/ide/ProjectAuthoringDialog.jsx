@@ -25,7 +25,7 @@ export default function ProjectAuthoringDialog({request,workspace,documents,busy
     <section ref={dialogRef} className="authoring-dialog" role="dialog" aria-modal="true" aria-label={TITLES[kind]} data-testid="authoring-dialog"
       onKeyDown={e=>{if(e.key==='Escape'&&!busy){e.stopPropagation();onClose();}if(e.key==='Tab'){const controls=[...dialogRef.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled)')];const first=controls[0],last=controls.at(-1);if(e.shiftKey&&e.target===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&e.target===last){e.preventDefault();first?.focus();}}}}>
       <header><span><NavGlyph name={isProject?'folder':'code'} size={18}/><strong>{TITLES[kind]}</strong></span><button type="button" aria-label="Fechar criação" disabled={busy} onClick={onClose}><NavGlyph name="close" size={16}/></button></header>
-      <form onSubmit={perform} className="authoring-form">
+      <form noValidate onSubmit={perform} className="authoring-form">
         <div className="authoring-fields">
           {(isProject||isTemplate)&&<label>Modelo<select aria-label="Modelo de criação" value={template} disabled={busy} onChange={e=>setTemplate(e.target.value)}>{(isProject?PROJECT_TEMPLATES:FILE_TEMPLATES).map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select></label>}
           {isProject&&<><label>Nome da pasta do projeto<input aria-label="Nome do projeto novo" value={name} maxLength={100} required onChange={e=>setName(e.target.value)} disabled={busy}/></label><p>{selected.description}</p><p>A pasta pai será escolhida no diálogo do Windows. Uma pasta existente com esse nome não será substituída.</p></>}

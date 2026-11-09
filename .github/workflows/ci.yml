@@ -25,11 +25,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Instalar dependências em ambiente reproduzível
         run: npm ci --no-audit --no-fund
         timeout-minutes: 8
       - name: Verify locked release contract
         run: npm run verify:release
+      - run: npm run verify:references
       - name: Testes Node com limite de duração
         run: npm test
         timeout-minutes: 6
@@ -43,9 +47,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci --no-audit --no-fund
       - name: Verify locked release contract
         run: npm run verify:release
+      - run: npm run verify:references
       - run: npm run build
       - run: npm run budget:bundle
       - name: Archive tested source and resolved dependency lock
@@ -79,11 +87,41 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: npm ci --no-audit --no-fund
       - name: Verify locked release contract
         run: npm run verify:release
+      - run: npm run verify:references
       - run: npm run build
       - run: npm run budget:bundle
+      - name: Development runtime Node and Python v0.10.0
+        run: npm run smoke:development
+        timeout-minutes: 4
+      - name: Flow topology and real ELK worker v0.10.0
+        run: npm run smoke:flow-topology
+        timeout-minutes: 4
+      - name: CAD arcs and static DXF blocks v0.10.0
+        run: npm run smoke:cad-precision
+        timeout-minutes: 4
+      - name: Reference catalogue and keyboard confirmations v0.10.0
+        run: npm run smoke:capabilities
+        timeout-minutes: 3
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Development-Workbench-V0100
+          path: |
+            smoke-artifacts/development-*.png
+            smoke-artifacts/development-results.json
+            smoke-artifacts/flow-topology-*.png
+            smoke-artifacts/flow-topology-results.json
+            smoke-artifacts/cad-precision*.png
+            smoke-artifacts/capabilities-*-v0100.png
+            smoke-artifacts/capabilities-v0100-results.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Project authoring and data suite v0.9.0
         run: npm run smoke:project-suite
         timeout-minutes: 6

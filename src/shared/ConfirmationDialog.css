@@ -1,0 +1,5 @@
+.workbench-confirm{background:var(--of-panel);color:var(--of-ink);border:1px solid var(--of-border-strong);border-radius:8px;padding:24px;width:min(480px,calc(100vw - 48px));max-height:calc(100vh - 48px);overflow:auto;box-shadow:0 20px 60px #0008}
+.workbench-confirm::backdrop{background:#08080bb3}
+.workbench-confirm h2{font-size:17px;margin:0 0 14px}
+.workbench-confirm p{color:var(--of-muted);font-size:13px;line-height:1.65;white-space:pre-line;margin:0 0 24px}
+.workbench-confirm__actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}

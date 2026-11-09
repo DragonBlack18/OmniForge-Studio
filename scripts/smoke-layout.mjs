@@ -6,6 +6,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {_electron as electron} from 'playwright-core';
 import {waitForPageState} from './lib/wait-for-state.mjs';
+import {answerConfirmation} from './lib/confirm-dialog.mjs';
 import {exampleFlow} from '../core/modules/automation/catalog.mjs';
 import {saveFlow} from '../core/modules/workspace/workspace.mjs';
 import {initialCadSketch,makeCadEntity,addCadEntity} from '../core/modules/cad/cad2d.mjs';
@@ -27,11 +28,12 @@ const baseline={cad:await fs.readFile(cadPath),flow:await fs.readFile(flowPath)}
 let app,page,phase='boot';const errors=[],shots=[];
 const watchdog=setTimeout(()=>{console.error('[LAYOUT] timeout',phase);process.exit(1);},200000);watchdog.unref();
 const nav=()=>page.getByTestId('primary-sidebar');
-async function openProject(folder) {
+async function openProject(folder, {confirmSwitch=false} = {}) {
   // Windows temp paths may use an 8.3 alias; compare the same canonical path as the core.
   folder=await fs.realpath(folder);
   await app.evaluate(({dialog},dir)=>{dialog.showOpenDialog=async()=>({canceled:false,filePaths:[dir]});},folder);
   await page.getByRole('button',{name:'Abrir projeto',exact:true}).click();
+  if (confirmSwitch) await answerConfirmation(page,true,{title:'Trocar de projeto'});
   await page.waitForFunction(dir=>document.querySelector('.topbar-workspace')?.title===dir,folder);
   await page.locator('.app-shell[data-layout-mode="canvas"]').waitFor();
   await page.locator('.react-flow__node').first().waitFor();
@@ -44,7 +46,7 @@ async function snapshot(name) {
 async function options(){await page.getByTestId('layout-open').click();await page.getByTestId('layout-options').waitFor();}
 async function start(){
  app=await electron.launch({args:['.'],cwd:root,timeout:45000,env:{...process.env,OMNIFORGE_E2E:'1',OMNIFORGE_E2E_USER_DATA:profile,ELECTRON_RENDERER_URL:''}});
- page=await app.firstWindow({timeout:45000});page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));page.on('dialog',dialog=>dialog.accept());
+ page=await app.firstWindow({timeout:45000});page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
  const actual=await app.evaluate(({app,BrowserWindow})=>{BrowserWindow.getAllWindows()[0].setSize(1440,900);return app.getPath('userData');});
  assert.equal(path.normalize(actual).toLowerCase(),path.normalize(profile).toLowerCase());
  await page.getByTestId('workspace-overview').waitFor();
@@ -124,7 +126,7 @@ try {
  assert.equal(await fs.readFile(path.join(a,'materiais.js'),'utf8'),code);
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,900));
  phase='separate project profiles and actual process restart';
- await openProject(b);const scopeB=await page.locator('.app-shell').getAttribute('data-layout-scope');assert.notEqual(scopeA,scopeB);
+ await openProject(b,{confirmSwitch:true});const scopeB=await page.locator('.app-shell').getAttribute('data-layout-scope');assert.notEqual(scopeA,scopeB);
  assert.equal(await separator.getAttribute('aria-valuenow'),'184');assert.equal(await inspector.getAttribute('aria-valuenow'),'278');
  await options();await page.getByRole('button',{name:'Área ampla',exact:true}).click();await page.keyboard.press('Escape');
  assert.equal(await page.getByTestId('context-sidebar').count(),0);assert.match(await nav().getAttribute('class'),/collapsed/);

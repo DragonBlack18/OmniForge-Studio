@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   setUnsavedChanges: dirty => ipcRenderer.invoke('omni:setUnsavedChanges', dirty),
   requestExit: () => ipcRenderer.invoke('omni:requestExit'),
   catalog: () => ipcRenderer.invoke('omni:catalog'),
+  openReference: id => ipcRenderer.invoke('omni:openReference', id),
   loadCadSketch: () => ipcRenderer.invoke('omni:loadCadSketch'),
   readCadDraft: workspace => ipcRenderer.invoke('omni:readCadDraft', workspace),
   writeCadDraft: (workspace, sketch, baseRevision, expectedDraftRevision) =>
@@ -53,6 +54,16 @@ contextBridge.exposeInMainWorld('omni', Object.freeze({
   listProjectTasks: () => ipcRenderer.invoke('omni:listProjectTasks'),
   listProjectTaskHistory: () => ipcRenderer.invoke('omni:listProjectTaskHistory'),
   projectTaskState: () => ipcRenderer.invoke('omni:projectTaskState'),
+  listDevelopmentTargets: () => ipcRenderer.invoke('omni:listDevelopmentTargets'),
+  developmentState: () => ipcRenderer.invoke('omni:developmentState'),
+  runDevelopmentTask: request => ipcRenderer.invoke('omni:runDevelopmentTask', request),
+  cancelDevelopmentTask: id => ipcRenderer.invoke('omni:cancelDevelopmentTask', id),
+  onDevelopmentEvent: callback => {
+    if (typeof callback !== 'function') throw new TypeError('Callback de desenvolvimento inválido.');
+    const handler = (_event, details) => callback(details);
+    ipcRenderer.on('omni:developmentEvent', handler);
+    return () => ipcRenderer.removeListener('omni:developmentEvent', handler);
+  },
   runProjectTask: (id, revision) => ipcRenderer.invoke('omni:runProjectTask', id, revision),
   cancelProjectTask: id => ipcRenderer.invoke('omni:cancelProjectTask', id),
   onProjectTaskEvent: callback => {

@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { _electron as electron } from 'playwright-core';
+import { answerConfirmation } from './lib/confirm-dialog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const lab = await fs.mkdtemp(path.join(os.tmpdir(), 'omni-recovery-e2e-'));
@@ -96,14 +97,11 @@ try {
   assert.equal(await fs.readFile(file,'utf8'),'// EXTERNAL_CHANGE_DO_NOT_OVERWRITE\n');
 
   phase='explicit discard only touches local recovery copy';
-  // Playwright's CDP dialog.accept is unreliable for Electron window.confirm
-  // on Windows runners. Control only the confirmation response; the UI button
-  // and privileged IPC deletion remain real and are checked on disk.
-  await page.evaluate(() => { window.confirm = () => false; });
   await page.getByRole('button',{name:'Descartar rascunho'}).click();
+  await answerConfirmation(page,false);
   assert.notEqual(await readDraft(),null,'Recusa não pode excluir rascunho');
-  await page.evaluate(() => { window.confirm = () => true; });
   await page.getByRole('button',{name:'Descartar rascunho'}).click();
+  await answerConfirmation(page,true);
   await page.getByText('Cópia de recuperação descartada',{exact:false}).waitFor();
   assert.equal(await readDraft(),null);
   assert.equal(await fs.readFile(file,'utf8'),'// EXTERNAL_CHANGE_DO_NOT_OVERWRITE\n');

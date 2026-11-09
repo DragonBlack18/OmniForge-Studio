@@ -1,7 +1,7 @@
 {
   "name": "omniforge-studio",
   "productName": "OmniForge Studio",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Local engineering workbench: supervised workflows, extensions, CAD and durable offline-only scheduling",
   "private": true,
   "license": "UNLICENSED",
@@ -42,7 +42,12 @@
     "release:manifest": "node scripts/release-manifest.mjs",
     "smoke:layout": "node scripts/smoke-layout.mjs",
     "smoke:code-workspace": "node scripts/smoke-code-workspace.mjs",
-    "smoke:project-suite": "node scripts/smoke-project-suite.mjs"
+    "smoke:project-suite": "node scripts/smoke-project-suite.mjs",
+    "smoke:development": "node scripts/smoke-development.mjs",
+    "smoke:flow-topology": "node scripts/smoke-flow-topology.mjs",
+    "smoke:cad-precision": "node scripts/smoke-cad-precision.mjs",
+    "smoke:capabilities": "node scripts/smoke-capabilities.mjs",
+    "verify:references": "node scripts/generate-reference-map.mjs --check"
   },
   "devDependencies": {
     "@monaco-editor/react": "4.7.0",
@@ -106,5 +111,9 @@
       "onlyLoadAppFromAsar": true,
       "grantFileProtocolExtraPrivileges": false
     }
+  },
+  "dependencies": {
+    "dxf-parser": "1.1.2",
+    "elkjs": "0.12.1"
   }
 }

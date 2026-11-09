@@ -131,3 +131,30 @@ test('toolchain unavailable fails without starting subprocess or changing worksp
   assert.equal(runner.snapshot(),null);
   assert.deepEqual(await fs.readdir(workspace),['package.json']);
 });
+
+test('cancellation during npm toolchain preparation prevents launch and a later deliberate run succeeds', async t => {
+  const workspace = await fixture(t, { verify: 'node file.cjs' });
+  await fs.writeFile(path.join(workspace, 'file.cjs'),
+    "require('node:fs').writeFileSync('artifact.txt','APPROVED');console.log('AFTER_CANCEL');");
+  const tool = await findNpmToolchain();
+  let release, waiting = true;
+  const runner = new LocalProjectTaskRunner({ resolveToolchain: async () => {
+    if (waiting) await new Promise(resolve => { release = resolve; });
+    return tool;
+  } });
+  t.after(() => runner.cancel());
+  const { revision } = await listProjectTasks(workspace);
+  const starting = runner.start({ workspace, id: 'verify', revision });
+  while (!release) await new Promise(resolve => setImmediate(resolve));
+  const rejected = assert.rejects(starting, /cancelada antes de iniciar/);
+  assert.equal(runner.cancel(), true);
+  release();
+  await rejected;
+  assert.equal(runner.isRunning, false);
+  assert.equal(runner.snapshot(), null);
+  await assert.rejects(fs.stat(path.join(workspace, 'artifact.txt')), { code: 'ENOENT' });
+  waiting = false;
+  const { done } = await awaitFinished(runner, { workspace, id: 'verify', revision });
+  assert.equal((await done).status, 'completed');
+  assert.equal(await fs.readFile(path.join(workspace, 'artifact.txt'), 'utf8'), 'APPROVED');
+});

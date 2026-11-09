@@ -1,3 +1,15 @@
+## [0.10.0] — bancada de desenvolvimento e geometria (candidata)
+
+- Execução supervisionada Node/Python com argumentos literais, sintaxe sem executar o arquivo, Node test runner, Python unittest, stdout/stderr, timeout e cancelamento.
+- Aprovação nativa da revisão/executável e integração com mutex, fechamento e perda do renderer; cancelamento de preparação também corrigido no runner npm existente.
+- ELK.js 0.12.1 integrado em worker sob demanda, organização reversível e proteção contra resultados obsoletos; aba Conexões e reconexão por arraste com validação de portas/ciclos.
+- Arcos analíticos, transformações e offsets circulares; dxf-parser 1.1.2 integrado com bulges, expansão de INSERT estático, proveniência e limites geométricos/documentais.
+- Catálogo completo das 150 fontes, com estados honestos, filtros, links nativos delimitados e preparação visual explicitamente indisponível para as próximas ferramentas.
+- Confirmações editoriais acessíveis compartilhadas, foco/teclado, formulários e tokens documentados em DESIGN.md e UX-CONTRACT.md.
+- Licenças ELK/EPL, dxf-parser/MIT e loglevel/MIT incluídas; lockfile e versões exatas preservados.
+- Novos testes de processos reais, grafos, geometria e interface; quatro smokes novos tornam-se gates Windows, além dos anteriores. Sem elevar o orçamento de bundle inicial.
+- Sem migração automática de arquivos existentes. Arcos/proveniência são aditivos no schema CAD v1; versões antigas podem não abrir os novos desenhos. Consulte docs/WORKBENCH_V0100.md.
+
 ## [0.9.0] — criação de projetos + suíte de dados
 
 - Documento sem título independente de pasta; Save As exclusivo a partir do buffer; modelos de arquivo e criação de kits de projetos independentes.
