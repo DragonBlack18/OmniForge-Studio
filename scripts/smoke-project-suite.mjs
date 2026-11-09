@@ -33,7 +33,10 @@ try{
   await page.getByRole('button',{name:'Novo documento',exact:true}).click();
   await page.getByTestId('untitled-notice').waitFor();await page.locator('.code-live-editor .monaco-editor').waitFor();
   await page.locator('.code-live-editor .monaco-editor').click();
-  const text='export const oficina = "Peça local";\n';await page.keyboard.type(text);
+  // A fresh Monaco model uses the native platform EOL. Keep disk assertions
+  // byte-exact: normalize neither the saved file nor the nonempty LF templates.
+  const typedText='export const oficina = "Peça local";\n';
+  const text=typedText.replace(/\n/g,os.EOL);await page.keyboard.type(typedText);
   assert.deepEqual(await fs.readdir(workspace),[]);await screenshot('untitled');checks.push('untitled-without-project');
   phase='Save As attaches the first selected project without losing typed text';
   await page.keyboard.press('Control+s');await modal().getByRole('button',{name:'Escolher pasta do projeto',exact:true}).click();
