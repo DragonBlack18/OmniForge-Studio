@@ -35,7 +35,11 @@ try {
   const isolated=await client.evaluate(({app})=>app.getPath('userData'));
   assert.equal(path.normalize(isolated).toLowerCase(),path.normalize(profile).toLowerCase());
   await client.evaluate(({dialog},directory)=>{
-    dialog.showOpenDialog=async()=>({canceled:false,filePaths:[directory]});
+    globalThis.lazyFlowPickerCount=0;
+    dialog.showOpenDialog=async()=>{
+      globalThis.lazyFlowPickerCount++;
+      return {canceled:false,filePaths:[directory]};
+    };
   },workspace);
 
   phase='cold home loads no graph engine chunk';
@@ -106,21 +110,51 @@ try {
   phase='persist the edited graph explicitly and verify real filesystem';
   await page.getByRole('button',{name:'Salvar fluxo'}).click();
   await page.getByText('Fluxo gravado em',{exact:false}).waitFor();
-  const modified=JSON.parse(await fs.readFile(flowPath,'utf8'));
+  const modifiedBytes=await fs.readFile(flowPath);
+  const modified=JSON.parse(modifiedBytes.toString());
   assert.equal(modified.nodes.length,initialCount+1);
   const relocated=modified.nodes.find(node=>node.id===draggedId);
   assert.ok(relocated && Math.hypot(relocated.position.x-originalDragged.position.x,
     relocated.position.y-originalDragged.position.y)>10,
     'Posição movida pelo mouse deve persistir em documento real.');
   assert.deepEqual(modified.edges,original.edges);
+  const selectedWorkspace=await page.evaluate(()=>window.omni.activeWorkspace());
+  assert.equal(selectedWorkspace.workspace,await fs.realpath(workspace));
+  assert.ok(selectedWorkspace.projectId);
+  assert.deepEqual(selectedWorkspace.flow,modified);
 
-  phase='read-back after workspace reload and ensure no data loss';
+  phase='reattach the exact workspace after renderer reload without reopening the picker';
+  assert.equal(await client.evaluate(()=>globalThis.lazyFlowPickerCount),1);
   await page.reload();
   await page.getByTestId('workspace-overview').waitFor();
-  await page.getByRole('button',{name:'Abrir projeto'}).click();
   await page.getByText('Projeto aberto:',{exact:false}).waitFor();
-  await page.waitForFunction(expected=>
-    document.querySelectorAll('.react-flow__node').length===expected,initialCount+1);
+  const reattachedWorkspace=await page.evaluate(()=>window.omni.activeWorkspace());
+  assert.equal(reattachedWorkspace.projectId,selectedWorkspace.projectId);
+  assert.equal(reattachedWorkspace.workspace,selectedWorkspace.workspace);
+  assert.deepEqual(reattachedWorkspace.flow,modified);
+  assert.equal(await page.getByTestId('workspace-overview').locator('code').textContent(),selectedWorkspace.workspace);
+  assert.equal(await page.locator('.topbar-workspace').getAttribute('title'),selectedWorkspace.workspace);
+  await page.getByRole('button',{name:'Arquitetura visual',exact:true}).click();
+  try{await page.waitForFunction(nodes=>{
+    const rendered=[...document.querySelectorAll('.react-flow__node')];
+    // CSSOM rounds fractional coordinates when serializing transforms. Compare
+    // both sides through that same browser serializer; model/bytes stay exact.
+    const expectedStyle=document.createElement('div').style;
+    return rendered.length===nodes.length&&nodes.every(expected=>{
+      const node=rendered.find(element=>element.dataset.id===expected.id);
+      expectedStyle.transform=`translate(${expected.position.x}px,${expected.position.y}px)`;
+      return Boolean(node&&node.style.transform===expectedStyle.transform);
+    });
+  },modified.nodes);}catch(error){
+    console.error('[FLOW SESSION positions]',JSON.stringify({expected:modified.nodes.map(({id,position})=>({id,position})),
+      rendered:await page.locator('.react-flow__node').evaluateAll(nodes=>nodes.map(node=>({id:node.dataset.id,transform:node.style.transform})))}));
+    throw error;
+  }
+  assert.equal(await snapshot(),initialCount+1);
+  assert.equal(await client.evaluate(()=>globalThis.lazyFlowPickerCount),1,
+    'Recarregar o renderer deve reanexar o projeto atual sem abrir outro seletor.');
+  assert.deepEqual(await fs.readFile(flowPath),modifiedBytes,
+    'Reanexar o projeto e ler as posições salvas não pode modificar o fluxo.');
 
   phase='record workbench artifact';
   await fs.mkdir(path.join(root,'smoke-artifacts'),{recursive:true});
