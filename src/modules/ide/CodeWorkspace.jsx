@@ -4,6 +4,7 @@ import CodeEditor from './CodeEditor.jsx';
 import {getLanguage} from '../../workbench/editor-language.mjs';
 import {editorOptionsForSize} from './editor-performance.mjs';
 import {CODE_ACTIONS,navigationRows,problemRows} from './language-tools.mjs';
+import {createEditorNavigation} from './editor-navigation.mjs';
 import {NavGlyph} from '../../shared/NavGlyph.jsx';
 import './CodeWorkspace.css';
 
@@ -121,16 +122,15 @@ export default function CodeWorkspace({controller,snapshot,busy,visible,focus,ut
   },[snapshot.jump,document?.key,reveal]);
   useEffect(()=>()=>cursorSubscription.current?.dispose(),[]);
   useEffect(()=>{
-    const opener=monaco.editor.registerEditorOpener({
-      openCodeEditor(_source,resource,selection){
-        const d=latest.current.snapshot.documents.find(item=>item.uri===resource.toString());
-        if(!d || !latest.current.visible)return false;
-        controller.activate(d.path,{line:selection?.startLineNumber||selection?.lineNumber||1,
-          column:selection?.startColumn||selection?.column||1});
-        return true;
-      }
+    const navigation=createEditorNavigation({
+      getSnapshot:controller.getSnapshot, activate:controller.activate,
+      isVisible:()=>latest.current.visible,
+      onError:error=>latest.current.onNotice('Não foi possível navegar: '+(error?.message||'erro local'))
     });
-    return()=>opener.dispose();
+    const opener=monaco.editor.registerEditorOpener({
+      openCodeEditor(_source,resource,selection){return navigation.open(resource.toString(),selection);}
+    });
+    return()=>{navigation.dispose();opener.dispose();};
   },[controller]);
   const save=()=>onRequest(async()=>{
     if(!document)return;
