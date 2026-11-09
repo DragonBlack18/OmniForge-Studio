@@ -40,6 +40,18 @@ jobs:
         run: npm run build
       - name: Verificar bundle inicial e divisão de módulos
         run: npm run budget:bundle
+      - name: Project authoring and data suite v0.9.0
+        run: npm run smoke:project-suite
+        timeout-minutes: 6
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: OmniForge-Project-Data-Suite-V090
+          path: |
+            smoke-artifacts/project-suite-*-v090.png
+            smoke-artifacts/project-suite-v090-results.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Multi-document IDE and real language tools v0.8.2
         run: npm run smoke:code-workspace
         timeout-minutes: 6

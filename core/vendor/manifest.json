@@ -1,0 +1,14 @@
+[
+  {
+    "name": "PapaParse",
+    "version": "5.5.3",
+    "license": "MIT",
+    "source": "https://github.com/mholt/PapaParse/tree/5.5.3",
+    "file": "core/vendor/papaparse.cjs",
+    "sha256": "3553fb8bdf5b8004ce5531e6827e81c8b34e7b3992677967754544064e97b016",
+    "bytes": 19419,
+    "licenseFile": "third-party-notices/PapaParse-LICENSE.txt",
+    "licenseSha256": "99aa68e4b42758b09828a46515f70369e5463458ab7a990189f641af2b8d9b4e",
+    "modifications": "Unmodified upstream minified bytes; extension changed to .cjs"
+  }
+]

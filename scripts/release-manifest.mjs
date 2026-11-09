@@ -22,13 +22,18 @@ const git=arg=>execFileSync('git',['rev-parse',arg],{encoding:'utf8'}).trim();
 const commit=git('HEAD'),tree=git('HEAD^{tree}');
 if(!/^[a-f0-9]{40}$/.test(commit)||!/^[a-f0-9]{40}$/.test(tree))throw Error('Proveniência Git inválida.');
 const security=JSON.parse(await fs.readFile('release/PACKAGED-SECURITY.json','utf8'));
+const vendors=JSON.parse(await fs.readFile('core/vendor/manifest.json','utf8'));
+for(const item of vendors){
+  if(!/^core\/vendor\/[A-Za-z0-9._-]+$/.test(item.file)||!/^third-party-notices\/[A-Za-z0-9._-]+$/.test(item.licenseFile))throw Error('Manifesto de vendor inválido.');
+  if(await hashFile(item.file)!==item.sha256||await hashFile(item.licenseFile)!==item.licenseSha256)throw Error('Vendor ou licença não corresponde à revisão fixada.');
+}
 const manifest={schemaVersion:1,product:pkg.productName,version:pkg.version,channel:'experimental',commit,tree,
   lockSha256:digest(lockBytes),toolchain:{node:process.version,electron:pkg.devDependencies.electron,builder:pkg.devDependencies['electron-builder']},
-  authenticode:'not-verified-by-this-script',fuses:security.fuses,artifacts};
+  vendoredComponents:vendors,authenticode:'not-verified-by-this-script',fuses:security.fuses,artifacts};
 await fs.writeFile('release/RELEASE-MANIFEST.json',JSON.stringify(manifest,null,2)+'\n');
 const components=Object.entries(lock.packages).filter(([location])=>location).map(([location,item])=>({
   name:location.split('node_modules/').at(-1),version:item.version,license:item.license||'UNSPECIFIED',integrity:item.integrity,
   buildDependency:item.dev===true})).sort((a,b)=>a.name.localeCompare(b.name)||a.version.localeCompare(b.version));
 await fs.writeFile('release/DEPENDENCIES.json',JSON.stringify({schemaVersion:1,lockSha256:digest(lockBytes),
-  scope:'Resolved build dependencies, not a legal license clearance or runtime-only SBOM.',components},null,2)+'\n');
+  scope:'Resolved build dependencies, not a legal license clearance or runtime-only SBOM. Vendored components recorded separately.',components,vendoredComponents:vendors},null,2)+'\n');
 console.log('PASS release manifest: commit, lock, toolchain, binary hashes and dependency inventory.');

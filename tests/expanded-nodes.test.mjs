@@ -6,6 +6,7 @@ import path from 'node:path';
 import { NODE_CATALOG, createNode } from '../core/catalog.mjs';
 import { validateFlow } from '../core/graph.mjs';
 import { runFlow } from '../core/runner.mjs';
+import {DATA_SUITE_EXECUTORS} from '../core/modules/automation/data-suite.mjs';
 import { executePureNode, validatePureNode, PURE_CATALOG } from '../core/pure-nodes.mjs';
 
 function testFlow(type, input, config={}) {
@@ -44,7 +45,7 @@ for (const [type,[input,expected]] of Object.entries(cases)) {
 }
 test('todos os blocos do catálogo têm um executor explicitamente registrado', () => {
   for (const type of Object.keys(NODE_CATALOG)) {
-    assert.ok(Object.hasOwn(PURE_CATALOG,type)|| ['trigger.manual','logic.pick','logic.combine','io.writeJson','io.readJson','http.localJson','project.callLocalApi','cad.sketchReport','cad.exportDrawing','extension.call'].includes(type),type);
+    assert.ok(Object.hasOwn(DATA_SUITE_EXECUTORS,type)||Object.hasOwn(PURE_CATALOG,type)|| ['trigger.manual','logic.pick','logic.combine','io.writeJson','io.readJson','http.localJson','project.callLocalApi','cad.sketchReport','cad.exportDrawing','extension.call'].includes(type),type);
   }
 });
 test('todos os manifests possuem nomes, categorias, portas e campos corretos', () => {
@@ -98,7 +99,8 @@ test('leitura local JSON funciona com arquivo válido e bloqueia symlinks',async
 
 test('templates oficiais validam e executam sem dados simulados',async t=>{
   const {WORKFLOW_TEMPLATES}=await import('../core/templates.mjs');
-  assert.equal(WORKFLOW_TEMPLATES.length,9);
+  assert.equal(WORKFLOW_TEMPLATES.length,13);
+  for(const id of ['csv-consolidado','conciliar-tabelas','estatistica-medidas','ndjson-inspecao'])assert.ok(WORKFLOW_TEMPLATES.some(t=>t.id===id));
   const root=await fs.mkdtemp(path.join(os.tmpdir(),'omni-templates-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
   const { initialCadSketch, makeCadEntity, addCadEntity } = await import('../core/cad2d.mjs');
   const { saveCadDocument } = await import('../core/cad-store.mjs');

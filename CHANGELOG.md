@@ -1,3 +1,12 @@
+## [0.9.0] — criação de projetos + suíte de dados
+
+- Documento sem título independente de pasta; Save As exclusivo a partir do buffer; modelos de arquivo e criação de kits de projetos independentes.
+- Pastas aninhadas, cópia, renomeação/movimentação revisada, propriedades, reabertura e fechamento em lote sem descartar abas sujas.
+- 26 operações novas de CSV/NDJSON, tabelas, objetos, estatísticas, unidades, texto e UTC; quatro fluxos de exemplo com resultados reais.
+- PapaParse 5.5.3 MIT incorporado, versão e bytes fixados, licença distribuída e inventário separado.
+- Testes reais de cada bloco no executor + filesystem, concorrência, arquivos/links, kits Node/Python, Electron e oito capturas. Preservados todos os gates anteriores.
+- Sem aumento de budget, alteração destrutiva de schemas ou adição de permissões de shell/rede. Ver docs/PROJECT_DATA_SUITE_V090.md para limites e aprovação por revisão.
+
 ## [0.8.2] — IDE multidocumento e ferramentas locais (candidata)
 
 - Abas por projeto com buffers e histórico Monaco preservados, fechamento confirmado, Salvar todos e proteção independente dos rascunhos.

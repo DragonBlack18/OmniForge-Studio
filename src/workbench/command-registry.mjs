@@ -15,6 +15,15 @@ export const NAV_COMMANDS = Object.freeze(NAV_GROUPS.flatMap(group =>
 ));
 
 const ACTIONS = Object.freeze([
+  {"id": "action:authoring:new", "kind": "action", "action": "authoring:new", "title": "Novo documento sem título", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": false},
+  {"id": "action:authoring:template", "kind": "action", "action": "authoring:template", "title": "Criar arquivo de modelo", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": false},
+  {"id": "action:authoring:project", "kind": "action", "action": "authoring:project", "title": "Criar projeto inicial", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": false},
+  {"id": "action:authoring:folder", "kind": "action", "action": "authoring:folder", "title": "Criar pastas aninhadas", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": true},
+  {"id": "action:authoring:save-as", "kind": "action", "action": "authoring:save-as", "title": "Salvar documento como novo arquivo", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": false, "modes": ["code"]},
+  {"id": "action:authoring:info", "kind": "action", "action": "authoring:info", "title": "Propriedades do arquivo", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": true, "modes": ["code"]},
+  {"id": "action:authoring:reopen", "kind": "action", "action": "authoring:reopen", "title": "Reabrir última aba fechada", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": true, "modes": ["code"]},
+  {"id": "action:authoring:close-saved", "kind": "action", "action": "authoring:close-saved", "title": "Fechar abas salvas", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": true, "modes": ["code"]},
+  {"id": "action:authoring:close-others", "kind": "action", "action": "authoring:close-others", "title": "Fechar outras abas salvas", "detail": "ARQUIVOS / CRIAÇÃO", "icon": "code", "requiresWorkspace": true, "modes": ["code"]},
   {id:'action:layout-focus',kind:'action',action:'layout-focus',title:'Alternar modo de foco',detail:'LAYOUT · Ctrl+Shift+F11',icon:'focus',searchText:'layout focar editor foco maximizar restaurar',modes:['canvas','code','cad']},
   {id:'action:layout-reset',kind:'action',action:'layout-reset',title:'Restaurar layout deste projeto',detail:'LAYOUT',icon:'panel',searchText:'layout restaurar padrao paineis disposicao'},
   {id:'action:layout-balanced',kind:'action',action:'layout-balanced',title:'Layout equilibrado',detail:'LAYOUT',icon:'panel',searchText:'layout equilibrado padrao paineis'},

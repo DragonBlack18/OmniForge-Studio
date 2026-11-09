@@ -24,6 +24,21 @@ const branch=(()=>{
   ]}};
 })();
 const templates=[
+  makeTemplate('csv-consolidado','CSV: consolidar categorias','Interpreta CSV, converte valor explicitamente e calcula soma/média/mínimo/máximo por categoria.',
+    ['trigger.manual','codec.csvRead','records.coerceFields','records.aggregateBy','io.writeJson'],
+    'id,categoria,valor\n1,A,120.50\n2,B,80\n3,A,20',
+    {2:{schema:'{"valor":"number"}'},3:{path:'categoria',valuePath:'valor'},4:{fileName:'csv-consolidado.json'}}),
+  makeTemplate('conciliar-tabelas','Conciliar duas tabelas','Relaciona registros por ID, preserva os campos de cada tabela e sinaliza ausências com null.',
+    ['trigger.manual','records.joinBy','io.writeJson'],
+    {left:[{id:1,quantidade:3},{id:2,quantidade:5}],right:[{id:1,descricao:'Parafuso M8'}]},
+    {2:{fileName:'conciliacao.json'}}),
+  makeTemplate('estatistica-medidas','Estatística de medidas','Calcula contagem, soma, média, mediana, extremos e dispersão populacional de medidas numéricas.',
+    ['trigger.manual','math.statistics','io.writeJson'],[10.2,10.1,10.4,10.3,10.0],
+    {2:{fileName:'estatistica-medidas.json'}}),
+  makeTemplate('ndjson-inspecao','Inspecionar registros NDJSON','Interpreta registros por linha, converte campos e divide itens aprovados dos demais.',
+    ['trigger.manual','codec.ndjsonRead','records.coerceFields','records.partition','io.writeJson'],
+    '{"id":1,"ativo":"true","valor":"12.5"}\n{"id":2,"ativo":"false","valor":"8"}',
+    {2:{schema:'{"valor":"number","ativo":"boolean"}'},4:{fileName:'inspecao-ndjson.json'}}),
   makeTemplate('projetar-registros','Preparar registros','Valida uma lista, seleciona propriedades e mapeia os campos para JSON.',
     ['trigger.manual','logic.requireType','data.project','data.mapFields','io.writeJson'],
     [{id:1,valor:120,interno:'não exportar'},{id:2,valor:80,interno:'não exportar'}],

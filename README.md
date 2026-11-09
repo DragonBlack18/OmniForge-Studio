@@ -1,14 +1,26 @@
 # OmniForge Studio
 
-## v0.8.2 — IDE multidocumento (candidata em validação)
+## v0.9.0 — criação de projetos e automações de dados
 
-Abas com buffers e histórico independentes, problemas e estrutura JavaScript/TypeScript,
-comparação visual e salvamentos explícitos. Preserva layout por projeto, navegação única,
-segurança nativa e tema grafite/vermelho. Python continua sem LSP/DAP nesta entrega.
+Crie arquivos sem precisar abrir um documento existente, salve com nome e caminho,
+gere projetos locais, organize arquivos e utilize 26 novos blocos de dados.
+Mantém navegação única, tema grafite/vermelho e módulos independentes.
 
-[Especificação e limites](docs/CODE_WORKSPACE_V082.md) · [Decisões 1–7](docs/APPROVED_PRODUCT_SCOPE.md) · [Evidência visual](docs/VISUAL_EVIDENCE_POLICY.md).
-A aprovação da distribuição depende dos gates da mesma revisão. Nenhuma certificação
-comercial/estável ou assinatura digital é declarada.
+[36 capacidades e seus testes](docs/FEATURE_MATRIX_V090.md) · [Uso e limites](docs/PROJECT_DATA_SUITE_V090.md) · [Finalidade pessoal](docs/APPROVED_PRODUCT_SCOPE.md).
+
+O menu **Criar** está na barra superior. **Ctrl+N** abre um documento em memória;
+**Salvar como** cria o arquivo. **Ctrl+Shift+N** abre os modelos de projeto.
+Um documento sem título ainda não é protegido em disco: salve antes de sair.
+
+PapaParse MIT é utilizado de fato para CSV, com versão/hash fixados e licença
+incluída. A versão permanece experimental e sem assinatura digital. Os gates
+do mesmo commit devem passar antes de integrar/publicar.
+
+### Base de IDE v0.8.2
+
+Abas com buffers e histórico independentes, problemas e estrutura JS/TS, comparação
+visual, recuperação por documento e salvamentos explícitos. Python continua sem
+servidor LSP, depurador ou executor integrado.
 
 ### Base nativa v0.8.0
 
@@ -34,7 +46,7 @@ salvar não limpa edições mais recentes e um conflito externo não sobrescreve
 [Integração, evidências e limites](docs/UNIFIED_FLOWS_V079.md) · [Histórico](CHANGELOG.md).
 A promoção para release depende dos gates do mesmo commit; a versão permanece experimental.
 
-**Candidata v0.8.2:** IDE com abas, buffers independentes, Salvar todos, problemas/estrutura JavaScript e TypeScript e comparação visual. Python continua com edição, sem LSP/DAP nesta etapa. Aprovação depende dos testes da mesma revisão. [Especificação](docs/CODE_WORKSPACE_V082.md) · [Decisões de produto](docs/APPROVED_PRODUCT_SCOPE.md).
+**Base consolidada v0.8.2:** IDE com abas, buffers independentes, Salvar todos, problemas/estrutura JavaScript e TypeScript e comparação visual. Python continua com edição, sem LSP/DAP nesta etapa. Aprovação depende dos testes da mesma revisão. [Especificação](docs/CODE_WORKSPACE_V082.md) · [Decisões de produto](docs/APPROVED_PRODUCT_SCOPE.md).
 
 Desenvolvedor: **Davi Brand** · Código-fonte: [DragonBlack18/OmniForge-Studio](https://github.com/DragonBlack18/OmniForge-Studio).
 

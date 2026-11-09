@@ -35,7 +35,7 @@ git('commit', '--no-gpg-sign', '-qm', 'base commit');
 console.log('[GIT E2E] fixture committed');
 await fs.writeFile(path.join(workspace, 'tracked.txt'), 'versão alterada\n');
 await fs.writeFile(path.join(workspace, 'nova.txt'), 'conteúdo real\n');
-let client;
+let client, page;
 let phase = 'boot';
 const watchdog = setTimeout(() => {
   console.error('[GIT E2E] Global watchdog exceeded: ' + phase);
@@ -50,7 +50,7 @@ try {
       ELECTRON_RENDERER_URL: ''
     }
   });
-  const page = await client.firstWindow({ timeout: 45_000 });
+  page = await client.firstWindow({ timeout: 45_000 });
   page.setDefaultTimeout(18_000);
   page.on('pageerror', error => console.error('[GIT renderer]', error.message));
   const actualProfile = await client.evaluate(({ app }) => app.getPath('userData'));
@@ -112,7 +112,10 @@ try {
   'Cancelar não pode descartar o índice.');
   phase = 'explicit native Git approval and commit';
   await client.evaluate(({ dialog }) => {
+    globalThis.__omniGitApprovalCount = 0;
     dialog.showMessageBox = async (_window, options) => {
+      globalThis.__omniGitApprovalCount += 1;
+      console.log('[GIT E2E native] confirmation', options?.title, 'count', globalThis.__omniGitApprovalCount);
       if (options?.title !== 'Criar commit Git local' ||
           !String(options?.detail || '').includes('nova.txt')) {
         throw new Error('O commit exige um diálogo nativo com os arquivos preparados.');
@@ -121,8 +124,17 @@ try {
     };
   });
   await page.getByTestId('git-commit').click();
-  await waitForPageState(page, async () =>
-    (await window.omni.gitStatus()).commits[0]?.subject === 'feat: commit Git de verdade');
+  // Observe the actual UI result, not hundreds of overlapping Git subprocesses.
+  // A native refusal must fail here with its visible reason rather than timeout.
+  await waitForPageState(page, () => {
+    const error = document.querySelector('.git-hub__error');
+    if (error?.textContent?.trim()) throw new Error('Git UI: ' + error.textContent.trim());
+    return document.body.textContent.includes('Commit Git criado localmente. Histórico atualizado.');
+  }, undefined, { description: 'confirmação real do commit na interface' });
+  assert.equal(await client.evaluate(() => globalThis.__omniGitApprovalCount), 1,
+    'A autorização deve aparecer exatamente uma vez.');
+  assert.equal((await page.evaluate(() => window.omni.gitStatus())).commits[0]?.subject,
+    'feat: commit Git de verdade', 'O adapter deve retornar o commit real.');
   // Compare independent processes against the exact same isolated Git
   // environment; account for brief Windows file/lock propagation delays.
   let observed = isolatedGit('log', '-1', '--format=%s');
@@ -141,6 +153,20 @@ try {
 } catch (error) {
   console.error('[GIT E2E] phase=' + phase, error);
   process.exitCode = 1;
+  // Only the synthetic fixture is captured, never arbitrary user repositories.
+  if (page && !page.isClosed()) {
+    const diagnostic = await page.evaluate(async () => ({
+      status: await window.omni.gitStatus(),
+      visibleError: document.querySelector('.git-hub__error')?.textContent || null,
+      commitButton: document.querySelector('[data-testid="git-commit"]')?.textContent || null
+    })).catch(cause => ({ observationError: cause.message }));
+    console.error('[GIT E2E diagnostic]', JSON.stringify(diagnostic));
+    const artifactDir = path.join(root, 'smoke-artifacts');
+    await fs.mkdir(artifactDir, { recursive: true });
+    await fs.writeFile(path.join(artifactDir, 'git-failure-v090.json'),
+      JSON.stringify({ phase, ...diagnostic }, null, 2) + '\n');
+    await page.screenshot({ path: path.join(artifactDir, 'git-failure-v090.png') }).catch(() => {});
+  }
 } finally {
   if (client) {
     try {

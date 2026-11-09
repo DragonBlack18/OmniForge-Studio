@@ -1,3 +1,10 @@
+## Estado atual: v0.9.0
+
+A expansão de uso pessoal está descrita em [Project/Data Suite](PROJECT_DATA_SUITE_V090.md):
+36 capacidades novas, incluindo criação de documentos/projetos e 26 blocos reais.
+A matriz abaixo registra etapas anteriores; números de versões propostos no passado
+não significam que LSP, DAP, terminal, Node-RED ou CAD 3D tenham sido entregues.
+
 # Plano de implementação incremental — versões e gates
 
 A tabela histórica abaixo foi redigida na fundação do projeto; seus números de marcos representam propostas iniciais, não versões efetivamente publicadas. O estado real evoluiu para v0.5.0 (Git local) e v0.6.0 (Workspace IDE). A ordem protege o núcleo funcional contra regressões; nada entra como botão ativo sem operação real e testes.

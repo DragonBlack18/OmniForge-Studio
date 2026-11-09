@@ -1,4 +1,5 @@
 import { PURE_CATALOG } from './pure-nodes.mjs';
+import {DATA_SUITE_CATALOG} from './data-suite-catalog.mjs';
 /**
  * Node definitions are stable contracts. The canvas renders these schemas;
  * the engine alone defines what happens at execution time.
@@ -65,7 +66,7 @@ export const NODE_CATALOG = Object.freeze(Object.assign(Object.create(null), {
     inputs: [{ id: 'in', type: 'json', required: true }], outputs: [{ id: 'out', type: 'json' }],
     fields: [{ key: 'fileName', label: 'Arquivo de saída (.json)', kind: 'text', default: 'venda.json' }]
   }
-}, PURE_CATALOG));
+}, PURE_CATALOG, DATA_SUITE_CATALOG));
 
 export function getNodeDefinition(type) {
   return typeof type === 'string' && Object.hasOwn(NODE_CATALOG, type) ? NODE_CATALOG[type] : undefined;
